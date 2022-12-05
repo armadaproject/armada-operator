@@ -1,0 +1,27 @@
+# permissions for end users to view queues.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: queue-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: armada-operator
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: queue-viewer-role
+rules:
+- apiGroups:
+  - core.armadaproject.io
+  resources:
+  - queues
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.armadaproject.io
+  resources:
+  - queues/status
+  verbs:
+  - get

@@ -1,0 +1,12 @@
+apiVersion: core.armadaproject.io/v1alpha1
+kind: Queue
+metadata:
+  labels:
+    app.kubernetes.io/name: queue
+    app.kubernetes.io/instance: queue-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: queue-sample
+spec:
+  # TODO(user): Add fields here

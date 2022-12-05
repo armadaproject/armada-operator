@@ -1,0 +1,13 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  labels:
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/instance: executor-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: executor-sample
+spec:
+  server: example.com:443
+  forceNoTLS: false

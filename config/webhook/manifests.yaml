@@ -1,0 +1,94 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-executor
+  failurePolicy: Fail
+  name: mexecutor.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - executors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-server
+  failurePolicy: Fail
+  name: mserver.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - servers
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-install-armadaproject-io-v1alpha1-executor
+  failurePolicy: Fail
+  name: vexecutor.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - executors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-install-armadaproject-io-v1alpha1-server
+  failurePolicy: Fail
+  name: vserver.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - servers
+  sideEffects: None
