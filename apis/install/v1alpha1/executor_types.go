@@ -25,17 +25,35 @@ import (
 
 // ExecutorSpec defines the desired state of Executor
 type ExecutorSpec struct {
+	// Name specifies the base name for all Kubernetes Resources
+	Name string `json:"name"`
 	// +kubebuilder:printcolumn:name="Server",type=string,JSONPath=`.spec.server`
 	// +kubebuilder:validation:Pattern=`[a-z]+(?:\.[a-z]+)*(:\d+)`
 	// Server is the URL of the Armada Server gRPC endpoint (format must be <host>:<port>)
 	Server string `json:"server"`
 	// ForceNoTLS enables gRPC connection over an unsecure connection. Should not be used in production environments.
 	ForceNoTLS bool `json:"forceNoTLS,omitempty"`
+	// AppConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	AppConfig map[string]any `json:"appConfig"`
+	// DeploymentConfig specifies which configuration should be applied to the Kubernetes Deployment object
+	DeploymentConfig ExecutorDeploymentConfig `json:"deploymentConfig,omitempty"`
+	// ServiceConfig specifies which configuration should be applied to the Kubernetes Deployment object
+	ServiceConfig ExecutorServiceConfig `json:"serviceConfig,omitempty"`
+	// IngressConfig specifies which configuration should be applied to the Kubernetes Deployment object
+	IngressConfig ExecutorIngressConfig `json:"ingressConfig,omitempty"`
+	// IngressConfig specifies which configuration should be applied to the Kubernetes Deployment object
+	ServiceAccountConfig ExecutorServiceAccountConfig `json:"serviceAccountConfig,omitempty"`
 }
 
-type ExecutorKubernetesConfig struct {
-	// ImpersonateUsers controls whether to impersonate users when creating Kubernetes objects.
-	ImpersonateUsers bool `json:"impersonateUsers,omitempty"`
+type ExecutorDeploymentConfig struct{}
+
+type ExecutorServiceConfig struct{}
+
+type ExecutorIngressConfig struct{}
+
+type ExecutorServiceAccountConfig struct {
+	Create bool   `json:"create,omitempty"`
+	Name   string `json:"name,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor
