@@ -28,26 +28,26 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Executor is the Schema for the executors API
-type Executor struct {
+// Binoculars is the Schema for the binoculars API
+type Binoculars struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ExecutorSpec   `json:"spec,omitempty"`
-	Status ExecutorStatus `json:"status,omitempty"`
+	Spec   BinocularsSpec   `json:"spec,omitempty"`
+	Status BinocularsStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
 // ExecutorList contains a list of Executor
-type ExecutorList struct {
+type BinocularsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Executor `json:"items"`
 }
 
 // ExecutorSpec defines the desired state of Executor
-type ExecutorSpec struct {
+type BinocularsSpec struct {
 	// Name specifies the base name for all Kubernetes Resources
 	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
@@ -70,26 +70,18 @@ type ExecutorSpec struct {
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	//ServiceAccount *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	Ingress IngressConfig `json:"ingress,omitempty"`
 }
 
-type PrometheusConfig struct {
-	// Enabled toggles should PrometheusRule and ServiceMonitor be created
-	Enabled bool `json:"enabled,omitempty"`
-	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
-	Labels map[string]string `json:"labels,omitempty"`
-	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
+type IngressConfig struct {
+	// Labels is the map of labels which wil be added to all objects
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-type ServiceAccountConfig struct {
-	Secrets                      []corev1.ObjectReference      `json:"secrets,omitempty"`
-	ImagePullSecrets             []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
-}
-
-// ExecutorStatus defines the observed state of Executor
-type ExecutorStatus struct{}
+// BinocularsStatus defines the observed state of binoculars
+type BinocularsStatus struct{}
 
 func init() {
-	SchemeBuilder.Register(&Executor{}, &ExecutorList{})
+	SchemeBuilder.Register(&Binoculars{}, &BinocularsList{})
 }

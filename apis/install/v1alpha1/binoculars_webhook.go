@@ -24,17 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-const (
-	keySpec              = "spec"
-	keyApplicationConfig = "applicationConfig"
-	keyAPIConnection     = "apiConnection"
-	keyArmadaURL         = "armadaUrl"
-)
-
 // log is for logging in this package.
-var executorlog = logf.Log.WithName("executor-resource")
+var binocularslog = logf.Log.WithName("binoculars-resource")
 
-func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -42,17 +35,17 @@ func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-executor,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=mexecutor.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-binoculars,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=binoculars,verbs=create;update,versions=v1alpha1,name=mbinoculars.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Executor{}
+var _ webhook.Defaulter = &Binoculars{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Executor) Default() {
+func (r *Binoculars) Default() {
 	executorlog.Info("default", "name", r.Name)
 
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearchdev/armada-executor"
+		r.Spec.Image.Repository = "gresearchdev/armada-binoculars"
 	}
 
 	// resources

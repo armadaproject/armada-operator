@@ -108,6 +108,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Executor")
 		os.Exit(1)
 	}
+	if err = (&install.BinocularsReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Binoculars")
+		os.Exit(1)
+	}
+
 	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
 		os.Exit(1)

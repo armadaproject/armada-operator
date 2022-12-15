@@ -11,6 +11,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-binoculars
+  failurePolicy: Fail
+  name: mbinoculars.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - binoculars
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-install-armadaproject-io-v1alpha1-executor
   failurePolicy: Fail
   name: mexecutor.kb.io
@@ -52,26 +72,6 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-install-armadaproject-io-v1alpha1-executor
-  failurePolicy: Fail
-  name: vexecutor.kb.io
-  rules:
-  - apiGroups:
-    - install.armadaproject.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - executors
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:

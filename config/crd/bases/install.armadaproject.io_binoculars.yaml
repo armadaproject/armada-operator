@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: executors.install.armadaproject.io
+  name: binoculars.install.armadaproject.io
 spec:
   group: install.armadaproject.io
   names:
-    kind: Executor
-    listKind: ExecutorList
-    plural: executors
-    singular: executor
+    kind: Binoculars
+    listKind: BinocularsList
+    plural: binoculars
+    singular: binoculars
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Executor is the Schema for the executors API
+        description: Binoculars is the Schema for the binoculars API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -54,6 +54,22 @@ spec:
                 - image
                 - repository
                 - tag
+                type: object
+              ingress:
+                description: if ServiceAccount configuration is defined, it creates
+                  a new service account and references it in the deployment ServiceAccount
+                  *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
                 type: object
               labels:
                 additionalProperties:
@@ -153,7 +169,7 @@ spec:
             - name
             type: object
           status:
-            description: ExecutorStatus defines the observed state of Executor
+            description: BinocularsStatus defines the observed state of binoculars
             type: object
         type: object
     served: true
