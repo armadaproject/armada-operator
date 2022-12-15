@@ -6,7 +6,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: armada-operator
-repo: github.com/dejanzele/armada-operator
+repo: github.com/armadaproject/armada-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,7 +15,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Server
-  path: github.com/dejanzele/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -28,7 +28,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Executor
-  path: github.com/dejanzele/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -41,6 +41,6 @@ resources:
   domain: armadaproject.io
   group: core
   kind: Queue
-  path: github.com/dejanzele/armada-operator/apis/core/v1alpha1
+  path: github.com/armadaproject/armada-operator/apis/core/v1alpha1
   version: v1alpha1
 version: "3"
