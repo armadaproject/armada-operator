@@ -1,4 +1,4 @@
-module github.com/dejanzele/armada-operator
+module github.com/armadaproject/armada-operator
 
 go 1.19
 
