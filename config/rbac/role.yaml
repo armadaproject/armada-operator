@@ -8,6 +8,32 @@ rules:
 - apiGroups:
   - core.armadaproject.io
   resources:
+  - eventingesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.armadaproject.io
+  resources:
+  - eventingesters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.armadaproject.io
+  resources:
+  - eventingesters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.armadaproject.io
+  resources:
   - queues
   verbs:
   - create
