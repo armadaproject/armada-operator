@@ -9,5 +9,9 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
   name: executor-sample
 spec:
-  server: example.com:443
-  forceNoTLS: false
+  appConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

@@ -91,7 +91,7 @@ func (r *Executor) ValidateCreate() error {
 
 	var allErrs field.ErrorList
 
-	if err := validateApplicationConfig(r.Spec.ApplicationConfig, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
+	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -108,7 +108,7 @@ func (r *Executor) ValidateUpdate(old runtime.Object) error {
 
 	var allErrs field.ErrorList
 
-	if err := validateApplicationConfig(r.Spec.ApplicationConfig, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
+	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
 		allErrs = append(allErrs, err)
 	}
 

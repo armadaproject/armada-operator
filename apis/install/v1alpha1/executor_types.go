@@ -20,6 +20,7 @@ import (
 	"github.com/dejanzele/armada-operator/apis/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -54,8 +55,8 @@ type ExecutorSpec struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image common.Image `json:"image"`
-	// AppConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]any `json:"applicationConfig"`
+	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
@@ -88,7 +89,8 @@ type ServiceAccountConfig struct {
 }
 
 // ExecutorStatus defines the observed state of Executor
-type ExecutorStatus struct{}
+type ExecutorStatus struct {
+}
 
 func init() {
 	SchemeBuilder.Register(&Executor{}, &ExecutorList{})
