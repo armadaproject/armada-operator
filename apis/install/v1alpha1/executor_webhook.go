@@ -37,9 +37,9 @@ const (
 )
 
 // log is for logging in this package.
-var executorlog = logf.Log.WithName("executor-resource")
+var lookoutlog = logf.Log.WithName("lookout-resource")
 
-func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *Lookout) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -47,17 +47,17 @@ func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-executor,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=mexecutor.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookouts,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Executor{}
+var _ webhook.Defaulter = &Lookout{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Executor) Default() {
-	executorlog.Info("default", "name", r.Name)
+func (r *Lookout) Default() {
+	lookoutlog.Info("default", "name", r.Name)
 
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearchdev/armada-executor"
+		r.Spec.Image.Repository = "gresearchdev/armada-lookout"
 	}
 
 	// resources
@@ -81,13 +81,13 @@ func (r *Executor) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-executor,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=vexecutor.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-lookout,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookouts,verbs=create;update,versions=v1alpha1,name=vlookout.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Executor{}
+var _ webhook.Validator = &Lookout{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateCreate() error {
-	executorlog.Info("validate create", "name", r.Name)
+func (r *Lookout) ValidateCreate() error {
+	lookoutlog.Info("validate create", "name", r.Name)
 
 	var allErrs field.ErrorList
 
@@ -99,12 +99,12 @@ func (r *Executor) ValidateCreate() error {
 		return nil
 	}
 
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Lookout"}, r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateUpdate(old runtime.Object) error {
-	executorlog.Info("validate update", "name", r.Name)
+func (r *Lookout) ValidateUpdate(old runtime.Object) error {
+	lookoutlog.Info("validate update", "name", r.Name)
 
 	var allErrs field.ErrorList
 
@@ -116,12 +116,12 @@ func (r *Executor) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Lookout"}, r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateDelete() error {
-	executorlog.Info("validate delete", "name", r.Name)
+func (r *Lookout) ValidateDelete() error {
+	lookoutlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
