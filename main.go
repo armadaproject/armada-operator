@@ -18,8 +18,9 @@ package main
 
 import (
 	"flag"
-	"github.com/armadaproject/armada-operator/controllers/install"
 	"os"
+
+	"github.com/armadaproject/armada-operator/controllers/install"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
@@ -121,6 +122,17 @@ func main() {
 	}
 	if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Server")
+		os.Exit(1)
+	}
+	if err = (&corecontrollers.EventingesterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Eventingester")
+		os.Exit(1)
+	}
+	if err = (&corev1alpha1.Eventingester{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Eventingester")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
