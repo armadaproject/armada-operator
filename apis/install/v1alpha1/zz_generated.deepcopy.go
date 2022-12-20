@@ -96,6 +96,13 @@ func (in *BinocularsSpec) DeepCopyInto(out *BinocularsSpec) {
 		}
 	}
 	out.Image = in.Image
+	if in.ApplicationConfig != nil {
+		in, out := &in.ApplicationConfig, &out.ApplicationConfig
+		*out = make(map[string]runtime.RawExtension, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)

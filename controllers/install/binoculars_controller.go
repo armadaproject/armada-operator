@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -56,14 +57,46 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	logger := log.FromContext(ctx)
 
-	var executor installv1alpha1.Binoculars
-	if err := r.Client.Get(ctx, req.NamespacedName, &executor); err != nil {
+	var binoculars installv1alpha1.Binoculars
+	if err := r.Client.Get(ctx, req.NamespacedName, &binoculars); err != nil {
 		if k8serrors.IsNotFound(err) {
 			logger.Info("Binoculars not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
+
+	var components *GeneralComponents
+	components, err := generateBinocularsInstallComponents(&binoculars)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// now do init logic
 
 	return ctrl.Result{}, nil
 }

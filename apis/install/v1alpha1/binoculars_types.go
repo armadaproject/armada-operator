@@ -17,9 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/armadaproject/armada-operator/apis/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/armadaproject/armada-operator/apis/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -46,7 +48,7 @@ type BinocularsList struct {
 	Items           []Executor `json:"items"`
 }
 
-// ExecutorSpec defines the desired state of Executor
+// BinocularsSpec defines the desired state of Binoculars
 type BinocularsSpec struct {
 	// Name specifies the base name for all Kubernetes Resources
 	Name string `json:"name"`
@@ -54,10 +56,8 @@ type BinocularsSpec struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image common.Image `json:"image"`
-	// AppConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	//ApplicationConfig map[string]any `json:"applicationConfig"`
-	// PrometheusConfig is the configuration block for Prometheus monitoring
-	//Prometheus common.PrometheusConfig `json:"prometheus,omitempty"`
+	// AppConfig is the internal Binoculars configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
@@ -69,7 +69,6 @@ type BinocularsSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	//ServiceAccount *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	Ingress IngressConfig `json:"ingress,omitempty"`
 }
 

@@ -33,8 +33,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: ExecutorSpec defines the desired state of Executor
+            description: BinocularsSpec defines the desired state of Binoculars
             properties:
+              applicationConfig:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: AppConfig is the internal Binoculars configuration which
+                  will be created as a Kubernetes Secret and mounted in the Kubernetes
+                  Deployment object
+                type: object
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
@@ -57,8 +65,7 @@ spec:
                 type: object
               ingress:
                 description: if ServiceAccount configuration is defined, it creates
-                  a new service account and references it in the deployment ServiceAccount
-                  *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
+                  a new service account and references it in the deployment
                 properties:
                   annotations:
                     additionalProperties:
@@ -87,13 +94,8 @@ spec:
                   matching the configured selectors
                 type: object
               resources:
-                description: AppConfig is the internal Executor configuration which
-                  will be created as a Kubernetes Secret and mounted in the Kubernetes
-                  Deployment object ApplicationConfig map[string]any `json:"applicationConfig"`
-                  PrometheusConfig is the configuration block for Prometheus monitoring
-                  Prometheus common.PrometheusConfig `json:"prometheus,omitempty"`
-                  Resources is the configuration block for setting Executor resource
-                  requirements
+                description: Resources is the configuration block for setting Executor
+                  resource requirements
                 properties:
                   limits:
                     additionalProperties:
@@ -165,6 +167,7 @@ spec:
                   type: object
                 type: array
             required:
+            - applicationConfig
             - image
             - name
             type: object

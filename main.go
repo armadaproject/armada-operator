@@ -18,8 +18,9 @@ package main
 
 import (
 	"flag"
-	"github.com/armadaproject/armada-operator/controllers/install"
 	"os"
+
+	"github.com/armadaproject/armada-operator/controllers/install"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
