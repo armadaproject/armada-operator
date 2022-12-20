@@ -11,26 +11,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-core-armadaproject-io-v1alpha1-eventingester
-  failurePolicy: Fail
-  name: meventingester.kb.io
-  rules:
-  - apiGroups:
-    - core.armadaproject.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - eventingesters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-install-armadaproject-io-v1alpha1-executor
   failurePolicy: Fail
   name: mexecutor.kb.io
@@ -72,26 +52,6 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-core-armadaproject-io-v1alpha1-eventingester
-  failurePolicy: Fail
-  name: veventingester.kb.io
-  rules:
-  - apiGroups:
-    - core.armadaproject.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - eventingesters
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
