@@ -18,10 +18,10 @@ package main
 
 import (
 	"flag"
-	"github.com/dejanzele/armada-operator/controllers/install"
+	"github.com/armadaproject/armada-operator/controllers/install"
 	"os"
 
-	"github.com/dejanzele/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -34,9 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	corev1alpha1 "github.com/dejanzele/armada-operator/apis/core/v1alpha1"
-	installv1alpha1 "github.com/dejanzele/armada-operator/apis/install/v1alpha1"
-	corecontrollers "github.com/dejanzele/armada-operator/controllers/core"
+	corev1alpha1 "github.com/armadaproject/armada-operator/apis/core/v1alpha1"
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	corecontrollers "github.com/armadaproject/armada-operator/controllers/core"
 	//+kubebuilder:scaffold:imports
 )
 

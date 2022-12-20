@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1alpha1 "github.com/dejanzele/armada-operator/apis/core/v1alpha1"
+	corev1alpha1 "github.com/armadaproject/armada-operator/apis/core/v1alpha1"
 )
 
 // QueueReconciler reconciles a Queue object
