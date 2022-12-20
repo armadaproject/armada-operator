@@ -11,9 +11,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-install-armadaproject-io-v1alpha1-executor
+      path: /mutate-install-armadaproject-io-v1alpha1-lookout
   failurePolicy: Fail
-  name: mexecutor.kb.io
+  name: mlookout.kb.io
   rules:
   - apiGroups:
     - install.armadaproject.io
@@ -23,7 +23,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - executors
+    - lookout
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -58,9 +58,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-install-armadaproject-io-v1alpha1-executor
+      path: /validate-install-armadaproject-io-v1alpha1-lookout
   failurePolicy: Fail
-  name: vexecutor.kb.io
+  name: vlookout.kb.io
   rules:
   - apiGroups:
     - install.armadaproject.io
@@ -70,7 +70,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - executors
+    - lookout
   sideEffects: None
 - admissionReviewVersions:
   - v1

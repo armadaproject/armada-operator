@@ -27,7 +27,7 @@ resources:
   controller: true
   domain: armadaproject.io
   group: install
-  kind: Executor
+  kind: Lookout
   path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
   webhooks:

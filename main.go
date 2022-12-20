@@ -102,15 +102,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
 		os.Exit(1)
 	}
-	if err = (&install.ExecutorReconciler{
+	if err = (&install.LookoutReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Executor")
+		setupLog.Error(err, "unable to create controller", "controller", "Lookout")
 		os.Exit(1)
 	}
-	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
+	if err = (&v1alpha1.Lookout{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Lookout")
 		os.Exit(1)
 	}
 	if err = (&corecontrollers.QueueReconciler{
