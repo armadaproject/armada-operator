@@ -54,16 +54,16 @@ type LookoutSpec struct {
 	Image common.Image `json:"image"`
 	// ApplicationConfig is the internal Lookout configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
+	// Strategy is the configuration block for the Kubernetes Deployment Strategy
+	strategy map[string]runtime.RawExtension `json:"strategy"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Lookout resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Tolerations is the configuration block for specifying which taints can the Lookout pod tolerate
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// Replicas is the number of replicas for the Lookout Deployment
+	Replicas int `json:"replicas,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds int `json:"terminationGracePeriodSeconds,omitempty"`
-	// NodeSelector restricts the Lookout pod to run on nodes matching the configured selectors
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
