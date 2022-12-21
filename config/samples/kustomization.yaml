@@ -3,5 +3,4 @@ resources:
 - install_v1alpha1_server.yaml
 - install_v1alpha1_executor.yaml
 - core_v1alpha1_queue.yaml
-- install_v1alpha1_eventingester.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
