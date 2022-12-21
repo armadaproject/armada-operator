@@ -34,7 +34,7 @@ type EventIngesterSpec struct {
 	// ApplicationConfig is the internal EventIngester configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus common.PrometheusConfig `json:"prometheus,omitempty"`
+	Prometheus *common.PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints the EventIngester pod can tolerate
