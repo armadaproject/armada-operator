@@ -137,10 +137,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func doReconcile(mockK8sClient client) {
-	mockK8sClient.EXPECT().Get(dsadf, fesjlgnse).Returns(fdsjlngd, fdsklnfsdl)
-}
-
 func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, executor *installv1alpha1.Executor, components *ExecutorComponents) error {
 	return nil
 }
