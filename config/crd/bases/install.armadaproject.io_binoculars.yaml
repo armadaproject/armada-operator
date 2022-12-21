@@ -1,0 +1,181 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
+  creationTimestamp: null
+  name: binoculars.install.armadaproject.io
+spec:
+  group: install.armadaproject.io
+  names:
+    kind: Binoculars
+    listKind: BinocularsList
+    plural: binoculars
+    singular: binoculars
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Binoculars is the Schema for the binoculars API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BinocularsSpec defines the desired state of Binoculars
+            properties:
+              applicationConfig:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: AppConfig is the internal Binoculars configuration which
+                  will be created as a Kubernetes Secret and mounted in the Kubernetes
+                  Deployment object
+                type: object
+              customServiceAccount:
+                description: if CustomServiceAccount is specified, then that service
+                  account is referenced in the Deployment (overrides service account
+                  defined in spec.serviceAccount field)
+                type: string
+              image:
+                description: Image is the configuration block for the image repository
+                  and tag
+                properties:
+                  image:
+                    type: string
+                  repository:
+                    type: string
+                  tag:
+                    type: string
+                required:
+                - image
+                - repository
+                - tag
+                type: object
+              ingress:
+                description: if ServiceAccount configuration is defined, it creates
+                  a new service account and references it in the deployment
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                type: object
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels is the map of labels which wil be added to all
+                  objects
+                type: object
+              name:
+                description: Name specifies the base name for all Kubernetes Resources
+                type: string
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector restricts the Executor pod to run on nodes
+                  matching the configured selectors
+                type: object
+              resources:
+                description: Resources is the configuration block for setting Executor
+                  resource requirements
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                type: object
+              terminationGracePeriodSeconds:
+                description: TerminationGracePeriodSeconds specifies how many seconds
+                  should Kubernetes wait for the application to shut down gracefully
+                  before sending a KILL signal
+                type: integer
+              tolerations:
+                description: Tolerations is the configuration block for specifying
+                  which taints can the Executor pod tolerate
+                items:
+                  description: The pod this Toleration is attached to tolerates any
+                    taint that matches the triple <key,value,effect> using the matching
+                    operator <operator>.
+                  properties:
+                    effect:
+                      description: Effect indicates the taint effect to match. Empty
+                        means match all taint effects. When specified, allowed values
+                        are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Key is the taint key that the toleration applies
+                        to. Empty means match all taint keys. If the key is empty,
+                        operator must be Exists; this combination means to match all
+                        values and all keys.
+                      type: string
+                    operator:
+                      description: Operator represents a key's relationship to the
+                        value. Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod
+                        can tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: TolerationSeconds represents the period of time
+                        the toleration (which must be of effect NoExecute, otherwise
+                        this field is ignored) tolerates the taint. By default, it
+                        is not set, which means tolerate the taint forever (do not
+                        evict). Zero and negative values will be treated as 0 (evict
+                        immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: Value is the taint value the toleration matches
+                        to. If the operator is Exists, the value should be empty,
+                        otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
+            required:
+            - applicationConfig
+            - image
+            - name
+            type: object
+          status:
+            description: BinocularsStatus defines the observed state of binoculars
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

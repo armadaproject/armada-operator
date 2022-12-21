@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/armadaproject/armada-operator/apis/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/armadaproject/armada-operator/apis/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -29,36 +30,34 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Executor is the Schema for the executors API
-type Executor struct {
+// Binoculars is the Schema for the binoculars API
+type Binoculars struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ExecutorSpec   `json:"spec,omitempty"`
-	Status ExecutorStatus `json:"status,omitempty"`
+	Spec   BinocularsSpec   `json:"spec,omitempty"`
+	Status BinocularsStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
 // ExecutorList contains a list of Executor
-type ExecutorList struct {
+type BinocularsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Executor `json:"items"`
 }
 
-// ExecutorSpec defines the desired state of Executor
-type ExecutorSpec struct {
+// BinocularsSpec defines the desired state of Binoculars
+type BinocularsSpec struct {
 	// Name specifies the base name for all Kubernetes Resources
 	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image common.Image `json:"image"`
-	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// AppConfig is the internal Binoculars configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
-	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
@@ -70,28 +69,18 @@ type ExecutorSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	Ingress IngressConfig `json:"ingress,omitempty"`
 }
 
-type PrometheusConfig struct {
-	// Enabled toggles should PrometheusRule and ServiceMonitor be created
-	Enabled bool `json:"enabled,omitempty"`
-	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
-	Labels map[string]string `json:"labels,omitempty"`
-	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
+type IngressConfig struct {
+	// Labels is the map of labels which wil be added to all objects
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-type ServiceAccountConfig struct {
-	Secrets                      []corev1.ObjectReference      `json:"secrets,omitempty"`
-	ImagePullSecrets             []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
-}
-
-// ExecutorStatus defines the observed state of Executor
-type ExecutorStatus struct {
-}
+// BinocularsStatus defines the observed state of binoculars
+type BinocularsStatus struct{}
 
 func init() {
-	SchemeBuilder.Register(&Executor{}, &ExecutorList{})
+	SchemeBuilder.Register(&Binoculars{}, &BinocularsList{})
 }
