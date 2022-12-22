@@ -58,7 +58,7 @@ type ExecutorSpec struct {
 	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
+	Prometheus *common.PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
@@ -70,22 +70,7 @@ type ExecutorSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-}
-
-type PrometheusConfig struct {
-	// Enabled toggles should PrometheusRule and ServiceMonitor be created
-	Enabled bool `json:"enabled,omitempty"`
-	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
-	Labels map[string]string `json:"labels,omitempty"`
-	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
-}
-
-type ServiceAccountConfig struct {
-	Secrets                      []corev1.ObjectReference      `json:"secrets,omitempty"`
-	ImagePullSecrets             []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
+	ServiceAccount *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor

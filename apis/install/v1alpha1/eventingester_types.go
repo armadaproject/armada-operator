@@ -46,7 +46,7 @@ type EventIngesterSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	ServiceAccount *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
 }
 
 // EventIngesterStatus defines the observed state of EventIngester

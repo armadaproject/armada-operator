@@ -111,11 +111,11 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Executor")
 		os.Exit(1)
 	}
-	if err = (&install.BinocularsReconciler{
+	if err = (&installcontrollers.EventIngesterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Binoculars")
+		setupLog.Error(err, "unable to create controller", "controller", "EventIngester")
 		os.Exit(1)
 	}
 
@@ -132,13 +132,6 @@ func main() {
 	}
 	if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Server")
-		os.Exit(1)
-	}
-	if err = (&installcontrollers.EventIngesterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "EventIngester")
 		os.Exit(1)
 	}
 	if err = (&installv1alpha1.EventIngester{}).SetupWebhookWithManager(mgr); err != nil {
