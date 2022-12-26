@@ -17,8 +17,10 @@ limitations under the License.
 package install
 
 import (
+	"context"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"path/filepath"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,9 +38,13 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
+var (
+	cfg       *rest.Config
+	k8sClient client.Client // You'll be using this client in your tests.
+	testEnv   *envtest.Environment
+	ctx       context.Context
+	cancel    context.CancelFunc
+)
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -46,12 +52,33 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
+//func TestExecutorReconciler_Reconcile(t *testing.T) {
+//	ctx := context.Background()
+//	c := fake.NewClientBuilder().Build()
+//	r := ExecutorReconciler{
+//		Client: c,
+//		Scheme: &runtime.Scheme{},
+//	}
+//
+//	namespacedName := types.NamespacedName{
+//		Namespace: "test",
+//		Name:      "test-executor",
+//	}
+//	req := controllerruntime.Request{NamespacedName: namespacedName}
+//	_, err := r.Reconcile(ctx, req)
+//	if err != nil {
+//		t.Fatalf("should not error on reconcile")
+//	}
+//}
+
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	ctx, cancel = context.WithCancel(context.TODO())
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -69,6 +96,23 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&ExecutorReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(context.Background())
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
 
 })
 
