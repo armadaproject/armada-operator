@@ -69,64 +69,41 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	components, err := r.generateComponents(&eventIngester)
+	components, err := r.generateEventIngesterComponents(&eventIngester)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// THIS BLOCK MIGHT NOT BE NEEDED IF OWNER REFERENCES WORK
-	// examine DeletionTimestamp to determine if object is under deletion
-	if eventIngester.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
-			controllerutil.AddFinalizer(&eventIngester, eventIngesterFinalizer)
-			if err := r.Update(ctx, &eventIngester); err != nil {
-				return ctrl.Result{}, err
-			}
+	mutateFn := func() error { return nil }
+
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
-	} else {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			if err := r.deleteExternalResources(ctx, &eventIngester, components); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
+	}
 
-			// remove our finalizer from the list and update it.
-			controllerutil.RemoveFinalizer(&eventIngester, eventIngesterFinalizer)
-			if err := r.Update(ctx, &eventIngester); err != nil {
-				return ctrl.Result{}, err
-			}
+	if components.ClusterRole != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
+	}
 
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	if components.ClusterRoleBinding != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	// END OF BLOCK
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Deployment != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// now do init logic
@@ -141,10 +118,6 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *EventIngesterReconciler) deleteExternalResources(ctx context.Context, eventIngester *installv1alpha1.EventIngester, components *EventIngesterComponents) error {
-	return nil
-}
-
 type EventIngesterComponents struct {
 	Deployment         *appsv1.Deployment
 	ServiceAccount     *corev1.ServiceAccount
@@ -153,7 +126,7 @@ type EventIngesterComponents struct {
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func (r *EventIngesterReconciler) generateComponents(eventIngester *installv1alpha1.EventIngester) (*EventIngesterComponents, error) {
+func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester) (*EventIngesterComponents, error) {
 	owner := metav1.OwnerReference{
 		APIVersion: eventIngester.APIVersion,
 		Kind:       eventIngester.Kind,
