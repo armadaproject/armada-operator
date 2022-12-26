@@ -128,10 +128,6 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	// now do init logic
 
@@ -145,20 +141,19 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *EventIngesterReconciler) deleteExternalResources(ctx context.Context, eventIngester *installv1alpha1.EventIngester, components *ManagedComponents) error {
+func (r *EventIngesterReconciler) deleteExternalResources(ctx context.Context, eventIngester *installv1alpha1.EventIngester, components *EventIngesterComponents) error {
 	return nil
 }
 
-type ManagedComponents struct {
+type EventIngesterComponents struct {
 	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
 	ServiceAccount     *corev1.ServiceAccount
 	Secret             *corev1.Secret
 	ClusterRole        *rbacv1.ClusterRole
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func (r *EventIngesterReconciler) generateComponents(eventIngester *installv1alpha1.EventIngester) (*ManagedComponents, error) {
+func (r *EventIngesterReconciler) generateComponents(eventIngester *installv1alpha1.EventIngester) (*EventIngesterComponents, error) {
 	owner := metav1.OwnerReference{
 		APIVersion: eventIngester.APIVersion,
 		Kind:       eventIngester.Kind,
@@ -171,12 +166,10 @@ func (r *EventIngesterReconciler) generateComponents(eventIngester *installv1alp
 		return nil, err
 	}
 	deployment := r.createDeployment(eventIngester, ownerReference)
-	service := r.createService(eventIngester, ownerReference)
 	clusterRole := r.createClusterRole(eventIngester, ownerReference)
 
-	return &ManagedComponents{
+	return &EventIngesterComponents{
 		Deployment:     deployment,
-		Service:        service,
 		ServiceAccount: nil,
 		Secret:         secret,
 		ClusterRole:    clusterRole,
@@ -217,20 +210,6 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 		},
 	}
 	return &deployment
-}
-
-func (r *EventIngesterReconciler) createService(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *corev1.Service {
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:     "metrics",
-				Protocol: corev1.ProtocolTCP,
-				Port:     9001,
-			}},
-		},
-	}
-	return &service
 }
 
 func (r *EventIngesterReconciler) createClusterRole(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
