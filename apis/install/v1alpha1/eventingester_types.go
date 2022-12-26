@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/armadaproject/armada-operator/apis/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +33,7 @@ type EventIngesterSpec struct {
 	// ApplicationConfig is the internal EventIngester configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus *common.PrometheusConfig `json:"prometheus,omitempty"`
+	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints the EventIngester pod can tolerate
@@ -46,7 +45,7 @@ type EventIngesterSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount *common.ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 }
 
 // EventIngesterStatus defines the observed state of EventIngester
