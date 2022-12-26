@@ -1,7 +1,6 @@
 package install
 
 import (
-	"github.com/armadaproject/armada-operator/apis/common"
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,7 +15,7 @@ var _ = Describe("Executor controller", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: "executor", Namespace: "default"},
 					Spec: v1alpha1.ExecutorSpec{
 						Name: "test",
-						Image: common.Image{
+						Image: v1alpha1.Image{
 							Repository: "testrepo",
 							Image:      "executor",
 							Tag:        "1.0.2",

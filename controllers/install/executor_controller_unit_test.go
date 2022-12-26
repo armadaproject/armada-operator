@@ -2,7 +2,6 @@ package install
 
 import (
 	"context"
-	"github.com/armadaproject/armada-operator/apis/common"
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 	"github.com/golang/mock/gomock"
@@ -31,7 +30,7 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		Spec: v1alpha1.ExecutorSpec{
 			Name:   "executor",
 			Labels: nil,
-			Image: common.Image{
+			Image: v1alpha1.Image{
 				Repository: "testrepo",
 				Image:      "executor",
 				Tag:        "1.0.0",
