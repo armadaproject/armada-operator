@@ -18,7 +18,7 @@ func toYaml(data map[string]runtime.RawExtension) ([]byte, error) {
 	return yaml.Marshal(data)
 }
 
-func PolicyRules() []rbacv1.PolicyRule {
+func policyRules() []rbacv1.PolicyRule {
 	podRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
 		APIGroups: []string{""},
@@ -65,5 +65,15 @@ func PolicyRules() []rbacv1.PolicyRule {
 		Resources: []string{"tokenreviews"},
 	}
 
-	return []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules}
+	return []rbacv1.PolicyRule{
+		podRules,
+		eventRules,
+		serviceRules,
+		nodeRules,
+		nodeProxyRules,
+		userRules,
+		ingressRules,
+		tokenRules,
+		tokenReviewRules,
+	}
 }

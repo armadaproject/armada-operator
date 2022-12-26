@@ -236,7 +236,7 @@ func (r *EventIngesterReconciler) createService(eventIngester *installv1alpha1.E
 func (r *EventIngesterReconciler) createClusterRole(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
 	clusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Rules:      PolicyRules(),
+		Rules:      policyRules(),
 	}
 	return &clusterRole
 }
