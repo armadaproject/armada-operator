@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Executor controller", func() {
@@ -20,7 +21,7 @@ var _ = Describe("Executor controller", func() {
 							Image:      "executor",
 							Tag:        "1.0.2",
 						},
-						ApplicationConfig: nil,
+						ApplicationConfig: map[string]runtime.RawExtension{},
 					},
 				}
 				Expect(k8sClient.Create(ctx, &executor)).Should(Succeed())
