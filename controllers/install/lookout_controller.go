@@ -16,6 +16,7 @@ package install
 import (
 	"context"
 	"fmt"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,81 +66,52 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	components, err := generateLookoutInstallComponents(&lookout)
+	components, err := generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// THIS BLOCK MIGHT NOT BE NEEDED IF OWNER REFERENCES WORK
-	// examine DeletionTimestamp to determine if object is under deletion
-	if lookout.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&lookout, lookoutFinalizer) {
-			controllerutil.AddFinalizer(&lookout, lookoutFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
+	mutateFn := func() error { return nil }
+
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
-	} else {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&lookout, lookoutFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			if err := r.deleteExternalResources(ctx, &lookout, components); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
+	}
 
-			// remove our finalizer from the list and update it.
-			controllerutil.RemoveFinalizer(&lookout, lookoutFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
+	if components.ClusterRole != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
+	}
 
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	if components.ClusterRoleBinding != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	// END OF BLOCK
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Deployment != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Service != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// now do init logic
 
 	return ctrl.Result{}, nil
-}
-
-func doReconcile(mockK8sClient client) {
-	mockK8sClient.EXPECT().Get(dsadf, fesjlgnse).Returns(fdsjlngd, fdsklnfsdl)
-}
-
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, lookout *installv1alpha1.Lookout, components *LookoutComponents) error {
-	return nil
 }
 
 type LookoutComponents struct {
@@ -151,21 +123,26 @@ type LookoutComponents struct {
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout) (*LookoutComponents, error) {
-	owner := metav1.OwnerReference{
-		APIVersion: lookout.APIVersion,
-		Kind:       lookout.Kind,
-		Name:       lookout.Name,
-		UID:        lookout.UID,
-	}
-	ownerReference := []metav1.OwnerReference{owner}
-	secret, err := createSecret(lookout, ownerReference)
+func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
+	secret, err := createSecret(lookout)
 	if err != nil {
 		return nil, err
 	}
-	deployment := createDeployment(lookout, ownerReference)
-	service := createService(lookout, ownerReference)
-	clusterRole := createClusterRole(lookout, ownerReference)
+	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
+		return nil, err
+	}
+	deployment := createDeployment(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
+		return nil, err
+	}
+	service := createService(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
+		return nil, err
+	}
+	clusterRole := createClusterRole(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, clusterRole, scheme); err != nil {
+		return nil, err
+	}
 
 	return &LookoutComponents{
 		Deployment:     deployment,
@@ -176,22 +153,22 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout) (*Lookou
 	}, nil
 }
 
-func createSecret(lookout *installv1alpha1.Lookout, ownerReference []metav1.OwnerReference) (*corev1.Secret, error) {
+func createSecret(lookout *installv1alpha1.Lookout) (*corev1.Secret, error) {
 	armadaConfig, err := generateArmadaConfig(nil)
 	if err != nil {
 		return nil, err
 	}
 	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
 		Data:       armadaConfig,
 	}
 	return &secret, nil
 }
 
-func createDeployment(lookout *installv1alpha1.Lookout, ownerReference []metav1.OwnerReference) *appsv1.Deployment {
+func createDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -212,9 +189,9 @@ func createDeployment(lookout *installv1alpha1.Lookout, ownerReference []metav1.
 	return &deployment
 }
 
-func createService(lookout *installv1alpha1.Lookout, ownerReference []metav1.OwnerReference) *corev1.Service {
+func createService(lookout *installv1alpha1.Lookout) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",
@@ -226,7 +203,7 @@ func createService(lookout *installv1alpha1.Lookout, ownerReference []metav1.Own
 	return &service
 }
 
-func createClusterRole(lookout *installv1alpha1.Lookout, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
+func createClusterRole(lookout *installv1alpha1.Lookout) *rbacv1.ClusterRole {
 	podRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
 		APIGroups: []string{""},
@@ -273,7 +250,7 @@ func createClusterRole(lookout *installv1alpha1.Lookout, ownerReference []metav1
 		Resources: []string{"tokenreviews"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
