@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Lookout controller", func() {
@@ -21,7 +22,10 @@ var _ = Describe("Lookout controller", func() {
 							Image:      "lookout",
 							Tag:        "1.0.2",
 						},
-						ApplicationConfig: nil,
+						// ApplicationConfig should be a map of a string to a runtime.RawExtension
+						ApplicationConfig: map[string]runtime.RawExtension{
+							"lookout": {Raw: []byte(`{"lookout":{"host":"localhost","port":8080}}`)},
+						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, &lookout)).Should(Succeed())
