@@ -20,8 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/armadaproject/armada-operator/apis/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -55,7 +53,7 @@ type ExecutorSpec struct {
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
-	Image common.Image `json:"image"`
+	Image Image `json:"image"`
 	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
@@ -72,21 +70,6 @@ type ExecutorSpec struct {
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-}
-
-type PrometheusConfig struct {
-	// Enabled toggles should PrometheusRule and ServiceMonitor be created
-	Enabled bool `json:"enabled,omitempty"`
-	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
-	Labels map[string]string `json:"labels,omitempty"`
-	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
-}
-
-type ServiceAccountConfig struct {
-	Secrets                      []corev1.ObjectReference      `json:"secrets,omitempty"`
-	ImagePullSecrets             []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor

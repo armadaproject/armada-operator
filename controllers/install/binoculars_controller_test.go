@@ -3,7 +3,6 @@ package install
 import (
 	"context"
 
-	"github.com/armadaproject/armada-operator/apis/common"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,7 +43,7 @@ var _ = Describe("Binoculars controller", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: binocularsName, Namespace: binocularsName},
 			Spec: installv1alpha1.BinocularsSpec{
 				Name: "TestBinoculars",
-				Image: common.Image{
+				Image: installv1alpha1.Image{
 					Repository: "armadaproject",
 					Image:      "binoculars",
 					Tag:        "latest",
