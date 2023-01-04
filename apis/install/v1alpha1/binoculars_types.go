@@ -39,7 +39,7 @@ type Binoculars struct {
 
 //+kubebuilder:object:root=true
 
-// ExecutorList contains a list of Executor
+// BinocularsList contains a list of Binoculars
 type BinocularsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -55,7 +55,7 @@ type BinocularsSpec struct {
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
 	// AppConfig is the internal Binoculars configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
+	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig,omitempty"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements

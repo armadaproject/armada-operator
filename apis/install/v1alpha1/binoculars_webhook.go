@@ -63,7 +63,7 @@ func (r *Binoculars) Default() {
 	}
 
 	// prometheus
-	// if r.Spec.Prometheus.ScrapeInterval == "" {
-	// 	r.Spec.Prometheus.ScrapeInterval = "10s"
-	// }
+	if r.Spec.Prometheus.ScrapeInterval == "" {
+		r.Spec.Prometheus.ScrapeInterval = "10s"
+	}
 }
