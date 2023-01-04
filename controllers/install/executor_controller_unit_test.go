@@ -2,16 +2,18 @@ package install
 
 import (
 	"context"
+	"testing"
+
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 	"github.com/golang/mock/gomock"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
 )
 
 func TestExecutorReconciler_Reconcile(t *testing.T) {
@@ -35,7 +37,7 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 				Image:      "executor",
 				Tag:        "1.0.0",
 			},
-			ApplicationConfig: nil,
+			ApplicationConfig: map[string]runtime.RawExtension{},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
