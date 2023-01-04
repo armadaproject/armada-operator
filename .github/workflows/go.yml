@@ -1,9 +1,6 @@
 name: Operator CI
 
-on:
-  push:
-    branches-ignore:
-      - master
+on: [push, pull_request]
 
 jobs:
   go-lint:
