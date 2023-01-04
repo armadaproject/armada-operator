@@ -98,8 +98,9 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 	out.Image = in.Image
 	if in.ApplicationConfig != nil {
 		in, out := &in.ApplicationConfig, &out.ApplicationConfig
-		*out = make(map[string]any, len(*in))
+		*out = make(map[string]runtime.RawExtension, len(*in))
 		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	in.Prometheus.DeepCopyInto(&out.Prometheus)
