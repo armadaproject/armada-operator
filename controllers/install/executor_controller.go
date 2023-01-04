@@ -70,68 +70,47 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	components, err := generateExecutorInstallComponents(&executor)
+	components, err := generateExecutorInstallComponents(&executor, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// THIS BLOCK MIGHT NOT BE NEEDED IF OWNER REFERENCES WORK
-	// examine DeletionTimestamp to determine if object is under deletion
-	if executor.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
-			controllerutil.AddFinalizer(&executor, executorFinalizer)
-			if err := r.Update(ctx, &executor); err != nil {
-				return ctrl.Result{}, err
-			}
+	mutateFn := func() error { return nil }
+
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
-	} else {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			if err := r.deleteExternalResources(ctx, &executor, components); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
+	}
 
-			// remove our finalizer from the list and update it.
-			controllerutil.RemoveFinalizer(&executor, executorFinalizer)
-			if err := r.Update(ctx, &executor); err != nil {
-				return ctrl.Result{}, err
-			}
+	if components.ClusterRole != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
 		}
+	}
 
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	if components.ClusterRoleBinding != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	// END OF BLOCK
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Deployment != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, nil)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Service != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// now do init logic
@@ -152,21 +131,26 @@ type ExecutorComponents struct {
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func generateExecutorInstallComponents(executor *installv1alpha1.Executor) (*ExecutorComponents, error) {
-	owner := metav1.OwnerReference{
-		APIVersion: executor.APIVersion,
-		Kind:       executor.Kind,
-		Name:       executor.Name,
-		UID:        executor.UID,
-	}
-	ownerReference := []metav1.OwnerReference{owner}
-	secret, err := createSecret(executor, ownerReference)
+func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
+	secret, err := createSecret(executor)
 	if err != nil {
 		return nil, err
 	}
-	deployment := createDeployment(executor, ownerReference)
-	service := createService(executor, ownerReference)
-	clusterRole := createClusterRole(executor, ownerReference)
+	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
+		return nil, err
+	}
+	deployment := createDeployment(executor)
+	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
+		return nil, err
+	}
+	service := createService(executor)
+	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
+		return nil, err
+	}
+	clusterRole := createClusterRole(executor)
+	if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
+		return nil, err
+	}
 
 	return &ExecutorComponents{
 		Deployment:     deployment,
@@ -177,22 +161,22 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor) (*Exe
 	}, nil
 }
 
-func createSecret(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) (*corev1.Secret, error) {
+func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
 	armadaConfig, err := generateArmadaConfig(nil)
 	if err != nil {
 		return nil, err
 	}
 	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
 		Data:       armadaConfig,
 	}
 	return &secret, nil
 }
 
-func createDeployment(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) *appsv1.Deployment {
+func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -213,9 +197,9 @@ func createDeployment(executor *installv1alpha1.Executor, ownerReference []metav
 	return &deployment
 }
 
-func createService(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) *corev1.Service {
+func createService(executor *installv1alpha1.Executor) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",
@@ -227,7 +211,7 @@ func createService(executor *installv1alpha1.Executor, ownerReference []metav1.O
 	return &service
 }
 
-func createClusterRole(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
+func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 	podRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
 		APIGroups: []string{""},
@@ -274,7 +258,7 @@ func createClusterRole(executor *installv1alpha1.Executor, ownerReference []meta
 		Resources: []string{"tokenreviews"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
