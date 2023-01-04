@@ -255,7 +255,6 @@ spec:
                   type: object
                 type: array
             required:
-            - applicationConfig
             - image
             - name
             type: object
