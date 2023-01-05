@@ -29,7 +29,7 @@ func Test_generateArmadaConfig(t *testing.T) {
 			expected: "test:\n  foo: bar\ntest1:\n  foo1:\n    foo2: bar2\n",
 		},
 		{
-			name:  "it ghacks is runtime.RawExtension raw is not json",
+			name:  "it ghacks if runtime.RawExtension raw is malformed json",
 			input: map[string]runtime.RawExtension{"test": runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)}},
 			expected: "",
 			wantErr: true,
