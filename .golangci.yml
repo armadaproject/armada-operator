@@ -1,0 +1,20 @@
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  print-issued-lines: true
+  format: github-actions
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    - unused
+    - goimports
+    - ineffassign
+    - misspell
+    - errcheck
+    - govet
+    - gosimple
+    
