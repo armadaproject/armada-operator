@@ -145,6 +145,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Queue")
 		os.Exit(1)
 	}
+	if err = (&install.LookoutIngesterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LookoutIngester")
+		os.Exit(1)
+	}
 
 	disableWebhooks := os.Getenv("DISABLE_WEBHOOKS") == "true"
 	if !disableWebhooks {
