@@ -175,7 +175,10 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Lookout")
 			os.Exit(1)
 		}
-
+		if err = (&installv1alpha1.LookoutIngester{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "LookoutIngester")
+			os.Exit(1)
+		}
 	}
 
 	//+kubebuilder:scaffold:builder

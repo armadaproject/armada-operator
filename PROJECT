@@ -91,4 +91,8 @@ resources:
   kind: LookoutIngester
   path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
