@@ -6,16 +6,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func generateArmadaConfig(config map[string]runtime.RawExtension) (map[string][]byte, error) {
-	data, err := toYaml(config)
-	if err != nil {
-		return nil, err
-	}
-	return map[string][]byte{"armada-config.yaml": data}, nil
+func generateArmadaConfig(config map[string]runtime.RawExtension) (string, error) {
+	return toYaml(config)
 }
 
-func toYaml(data map[string]runtime.RawExtension) ([]byte, error) {
-	return yaml.Marshal(data)
+func toYaml(data map[string]runtime.RawExtension) (string, error) {
+	bytes, err := yaml.Marshal(data)
+	return string(bytes), err
 }
 
 func policyRules() []rbacv1.PolicyRule {

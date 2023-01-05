@@ -49,7 +49,7 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		UID:        expectedEventIngester.UID,
 	}
 	ownerReference := []metav1.OwnerReference{owner}
-	
+
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
@@ -73,8 +73,8 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: expectedEventIngester.Name,
-			Namespace: expectedEventIngester.Namespace,
+			Name:            expectedEventIngester.Name,
+			Namespace:       expectedEventIngester.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
@@ -90,8 +90,8 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: expectedEventIngester.Name,
-			Namespace: expectedEventIngester.Namespace,
+			Name:            expectedEventIngester.Name,
+			Namespace:       expectedEventIngester.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
@@ -104,7 +104,6 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
 		Return(nil).
 		SetArg(1, expectedDeployment)
-
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
