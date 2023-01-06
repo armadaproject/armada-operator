@@ -40,7 +40,7 @@ var _ = Describe("Armada Operator", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				_, stderr, err := k.Run("apply", "--validate=false", "-f", f.Name())
+				_, stderr, err := k.Run("apply", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
