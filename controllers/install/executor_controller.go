@@ -18,8 +18,6 @@ package install
 
 import (
 	"context"
-	"fmt"
-
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
+)
+
+const (
+	armadaConfigKey = "armada-config.yaml"
 )
 
 var (
@@ -156,7 +159,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 }
 
 func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(nil)
+	armadaConfig, err := generateArmadaConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -30,14 +30,12 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
 		Spec: v1alpha1.ExecutorSpec{
-			Name:   "executor",
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
-				Image:      "executor",
 				Tag:        "1.0.0",
 			},
-			ApplicationConfig: map[string]runtime.RawExtension{},
+			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -50,19 +48,12 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
-	expectedClusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
-		Rules: []rbacv1.PolicyRule{{
-			Verbs:     []string{"create"},
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-		}},
-	}
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(gomock.AssignableToTypeOf(&rbacv1.ClusterRole{}))).
-		Return(nil).
-		SetArg(2, expectedClusterRole)
+	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
+
+	//expectedSecret := corev1.Secret{
+	//	ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armada"},
+	//	Data:       map[string][]byte{},
+	//}
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")

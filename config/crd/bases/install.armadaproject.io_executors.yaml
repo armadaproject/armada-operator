@@ -36,13 +36,10 @@ spec:
             description: ExecutorSpec defines the desired state of Executor
             properties:
               applicationConfig:
-                additionalProperties:
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 description: ApplicationConfig is the internal Executor configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
@@ -52,14 +49,11 @@ spec:
                 description: Image is the configuration block for the image repository
                   and tag
                 properties:
-                  image:
-                    type: string
                   repository:
                     type: string
                   tag:
                     type: string
                 required:
-                - image
                 - repository
                 - tag
                 type: object
@@ -69,9 +63,6 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              name:
-                description: Name specifies the base name for all Kubernetes Resources
-                type: string
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -257,7 +248,6 @@ spec:
             required:
             - applicationConfig
             - image
-            - name
             type: object
           status:
             description: ExecutorStatus defines the observed state of Executor

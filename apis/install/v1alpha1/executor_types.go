@@ -48,24 +48,22 @@ type ExecutorList struct {
 
 // ExecutorSpec defines the desired state of Executor
 type ExecutorSpec struct {
-	// Name specifies the base name for all Kubernetes Resources
-	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image common.Image `json:"image"`
-	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret
-	// and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
+	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait
-	// for the application to shut down gracefully before sending a KILL signal
-	TerminationGracePeriodSeconds int `json:"terminationGracePeriodSeconds,omitempty"`
+	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
+	TerminationGracePeriodSeconds *int `json:"terminationGracePeriodSeconds,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified,
