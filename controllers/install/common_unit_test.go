@@ -17,12 +17,12 @@ func Test_generateArmadaConfig(t *testing.T) {
 	}{
 		{
 			name:     "it converts runtime.RawExtension json to yaml",
-			input:    runtime.RawExtension{Raw: []byte(`{ "foo": "bar" }`)},
+			input:    runtime.RawExtension{Raw: []byte(`{ "test": { "foo": "bar" }}`)},
 			expected: "test:\n  foo: bar\n",
 		},
 		{
 			name:     "it converts complex runtime.RawExtension json to yaml",
-			input:    runtime.RawExtension{Raw: []byte(`{ "test": {"foo": "bar", "foo1": { "foo2": "bar2" }}`)},
+			input:    runtime.RawExtension{Raw: []byte(`{ "test": {"foo": "bar"}, "test1": {"foo1": { "foo2": "bar2" }}}`)},
 			expected: "test:\n  foo: bar\ntest1:\n  foo1:\n    foo2: bar2\n",
 		},
 		{
