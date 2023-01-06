@@ -6,22 +6,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 var _ = Describe("Executor controller", func() {
-	Context("When creating Executor", func() {
-		It("should create Executor Kubernetes resources", func() {
-			By("applying the Executor CRD", func() {
+	When("Executor is created using k8s go-client", func() {
+		It("Kubernetes should create Executor Kubernetes resources", func() {
+			By("calling the Executor Controller Reconcile function", func() {
+				applicationConfig := map[string]interface{}{
+					"armadaUrl": "localhost:50001",
+					"foo": map[string]interface{}{
+						"baz": "bar",
+						"xxx": "yyy",
+					},
+				}
+				applicationConfigYAML, err := yaml.Marshal(applicationConfig)
+				Expect(err).NotTo(HaveOccurred())
 				executor := v1alpha1.Executor{
 					ObjectMeta: metav1.ObjectMeta{Name: "executor", Namespace: "default"},
 					Spec: v1alpha1.ExecutorSpec{
-						Name: "test",
 						Image: common.Image{
-							Repository: "testrepo",
-							Image:      "executor",
+							Repository: "executor",
 							Tag:        "1.0.2",
 						},
-						ApplicationConfig: nil,
+						ApplicationConfig: runtime.RawExtension{Raw: applicationConfigYAML},
 					},
 				}
 				Expect(k8sClient.Create(ctx, &executor)).Should(Succeed())

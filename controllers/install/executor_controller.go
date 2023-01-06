@@ -18,7 +18,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,8 +32,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	executorFinalizer = fmt.Sprintf("executor.%s/finalizer", installv1alpha1.GroupVersion.Group)
+const (
+	armadaConfigKey = "armada-config.yaml"
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -156,7 +155,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 }
 
 func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(nil)
+	armadaConfig, err := generateArmadaConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -267,16 +266,13 @@ func createRoleBinding(executor *installv1alpha1.Executor, ownerReference []meta
 	return &clusterRoleBinding
 }
 
-func generateArmadaConfig(config map[string]any) (map[string][]byte, error) {
-	data, err := toYaml(config)
+func generateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
+	yamlConfig, err := yaml.JSONToYAML(config.Raw)
 	if err != nil {
 		return nil, err
 	}
-	return map[string][]byte{"armada-config.yaml": data}, nil
-}
 
-func toYaml(data map[string]any) ([]byte, error) {
-	return yaml.Marshal(data)
+	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
