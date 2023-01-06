@@ -36,13 +36,11 @@ spec:
             description: EventIngesterSpec defines the desired state of EventIngester
             properties:
               applicationConfig:
-                additionalProperties:
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 description: ApplicationConfig is the internal EventIngester configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account

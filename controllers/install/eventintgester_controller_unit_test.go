@@ -39,7 +39,7 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 				Image:      "EventIngester",
 				Tag:        "1.0.0",
 			},
-			ApplicationConfig: map[string]runtime.RawExtension{},
+			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
 	owner := metav1.OwnerReference{

@@ -21,7 +21,7 @@ var _ = Describe("EventIngester controller", func() {
 							Image:      "eventingester",
 							Tag:        "1.0.2",
 						},
-						ApplicationConfig: map[string]runtime.RawExtension{},
+						ApplicationConfig: runtime.RawExtension{},
 					},
 				}
 				Expect(k8sClient.Create(ctx, &executor)).Should(Succeed())

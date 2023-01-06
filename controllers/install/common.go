@@ -6,11 +6,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func generateArmadaConfig(config map[string]runtime.RawExtension) (string, error) {
+func generateArmadaConfig(config runtime.RawExtension) (string, error) {
 	return toYaml(config)
 }
 
-func toYaml(data map[string]runtime.RawExtension) (string, error) {
+func toYaml(data runtime.RawExtension) (string, error) {
 	bytes, err := yaml.Marshal(data)
 	return string(bytes), err
 }

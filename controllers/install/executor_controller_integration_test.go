@@ -25,7 +25,7 @@ var _ = Describe("Executor controller", func() {
 				executor := v1alpha1.Executor{
 					ObjectMeta: metav1.ObjectMeta{Name: "executor", Namespace: "default"},
 					Spec: v1alpha1.ExecutorSpec{
-						Image: common.Image{
+						Image: v1alpha1.Image{
 							Repository: "executor",
 							Tag:        "1.0.2",
 						},
