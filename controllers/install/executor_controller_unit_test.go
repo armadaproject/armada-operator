@@ -7,6 +7,8 @@ import (
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 	"github.com/golang/mock/gomock"
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +40,14 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
+	owner := metav1.OwnerReference{
+		APIVersion: expectedExecutor.APIVersion,
+		Kind:       expectedExecutor.Kind,
+		Name:       expectedExecutor.Name,
+		UID:        expectedExecutor.UID,
+	}
+	ownerReference := []metav1.OwnerReference{owner}
+
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
@@ -50,10 +60,57 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
 
-	//expectedSecret := corev1.Secret{
-	//	ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armada"},
-	//	Data:       map[string][]byte{},
-	//}
+	expectedSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedExecutor.Name,
+			Namespace:       expectedExecutor.Namespace,
+			OwnerReferences: ownerReference,
+		},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+		Return(nil).
+		SetArg(1, expectedSecret)
+
+	expectedDeployment := v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedExecutor.Name,
+			Namespace:       expectedExecutor.Namespace,
+			OwnerReferences: ownerReference,
+		},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1.Deployment{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
+		Return(nil).
+		SetArg(1, expectedDeployment)
+
+	expectedService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedExecutor.Name,
+			Namespace:       expectedExecutor.Namespace,
+			OwnerReferences: ownerReference,
+		},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(nil).
+		SetArg(1, expectedService)
+
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")

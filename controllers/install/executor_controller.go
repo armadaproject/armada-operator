@@ -165,7 +165,7 @@ func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
 	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
-		Data:       map[string][]byte{"armada-config.yaml": []byte(armadaConfig)},
+		Data:       map[string][]byte{armadaConfigKey: []byte(armadaConfig)},
 	}
 	return &secret, nil
 }

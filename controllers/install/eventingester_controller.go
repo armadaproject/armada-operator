@@ -156,7 +156,7 @@ func (r *EventIngesterReconciler) createSecret(eventIngester *installv1alpha1.Ev
 	}
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Data:       map[string][]byte{"armada-config.yaml": []byte(armadaConfig)},
+		Data:       map[string][]byte{armadaConfigKey: []byte(armadaConfig)},
 	}
 	return &secret, nil
 }
