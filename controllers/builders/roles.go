@@ -57,12 +57,3 @@ func CreateClusterRole(crdName string, crdNamespace string) *rbacv1.ClusterRole 
 	}
 	return &clusterRole
 }
-
-func createRoleBinding(crdName string, crdNamespace string, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: crdName, Namespace: crdNamespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
-	}
-	return &clusterRoleBinding
-}

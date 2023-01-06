@@ -194,68 +194,6 @@ func createBinocularsService(binoculars *installv1alpha1.Binoculars) *corev1.Ser
 	return &service
 }
 
-func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
-	podRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
-		APIGroups: []string{""},
-		Resources: []string{"pods"},
-	}
-	eventRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "delete", "deletecollection", "patch"},
-		APIGroups: []string{""},
-		Resources: []string{"events"},
-	}
-	serviceRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{""},
-		Resources: []string{"services"},
-	}
-	nodeRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch"},
-		APIGroups: []string{""},
-		Resources: []string{"nodes"},
-	}
-	nodeProxyRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get"},
-		APIGroups: []string{""},
-		Resources: []string{"node/proxy"},
-	}
-	userRules := rbacv1.PolicyRule{
-		Verbs:     []string{"impersonate"},
-		APIGroups: []string{""},
-		Resources: []string{"users", "groups"},
-	}
-	ingressRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{"networking.k8s.io"},
-		Resources: []string{"ingresses"},
-	}
-	tokenRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{""},
-		Resources: []string{"serviceaccounts/token"},
-	}
-	tokenReviewRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{"authentication.k8s.io"},
-		Resources: []string{"tokenreviews"},
-	}
-	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, OwnerReferences: ownerReference},
-		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
-	}
-	return &clusterRole
-}
-
-func createBinocularsRoleBinding(binoculars *installv1alpha1.Binoculars, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
-	}
-	return &clusterRoleBinding
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *BinocularsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).

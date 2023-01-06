@@ -34,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	armadaConfigKey = "armada-config.yaml"
-)
-
 // ExecutorReconciler reconciles a Executor object
 type ExecutorReconciler struct {
 	client.Client
@@ -117,10 +113,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, executor *installv1alpha1.Executor, components *ExecutorComponents) error {
-	return nil
-}
-
 type ExecutorComponents struct {
 	Deployment         *appsv1.Deployment
 	Service            *corev1.Service
@@ -158,18 +150,6 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 		Secret:         secret,
 		ClusterRole:    clusterRole,
 	}, nil
-}
-
-func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
-	armadaConfig, err := builders.GenerateArmadaConfig(executor.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
-		Data:       armadaConfig,
-	}
-	return &secret, nil
 }
 
 func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
