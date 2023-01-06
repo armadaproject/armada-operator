@@ -24,6 +24,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,42 +35,44 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// ExecutorReconciler reconciles a Executor object
-type ExecutorReconciler struct {
+// BinocularsReconciler reconciles a Binoculars object
+type BinocularsReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/finalizers,verbs=update
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the Executor object against the actual cluster state, and then
+// the Server object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	_ = log.FromContext(ctx)
+
 	logger := log.FromContext(ctx)
 
-	var executor installv1alpha1.Executor
-	if err := r.Client.Get(ctx, req.NamespacedName, &executor); err != nil {
+	var binoculars installv1alpha1.Binoculars
+	if err := r.Client.Get(ctx, req.NamespacedName, &binoculars); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("Executor not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("Binoculars not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	components, err := generateExecutorInstallComponents(&executor, r.Scheme)
+	var components *BinocularsComponents
+	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	mutateFn := func() error { return nil }
 
 	if components.ServiceAccount != nil {
@@ -113,37 +116,39 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-type ExecutorComponents struct {
+type BinocularsComponents struct {
+	ClusterRole        *rbacv1.ClusterRole
+	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+	Ingress            *networking.Ingress
+	IngressRest        *networking.Ingress
 	Deployment         *appsv1.Deployment
 	Service            *corev1.Service
 	ServiceAccount     *corev1.ServiceAccount
 	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace)
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*BinocularsComponents, error) {
+	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createDeployment(executor)
-	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
+	deployment := createBinocularsDeployment(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := createService(executor)
-	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
+	service := createBinocularsService(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := builders.CreateClusterRole(executor.Name, executor.Namespace)
-	if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
+	clusterRole := createBinocularsClusterRole(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, clusterRole, scheme); err != nil {
 		return nil, err
 	}
 
-	return &ExecutorComponents{
+	return &BinocularsComponents{
 		Deployment:     deployment,
 		Service:        service,
 		ServiceAccount: nil,
@@ -152,10 +157,12 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	}, nil
 }
 
-func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
+// Function to build the deployment object for Binoculars.
+// This should be changing from CRD to CRD.  Not sure if generailize this helps much
+func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -176,9 +183,9 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 	return &deployment
 }
 
-func createService(executor *installv1alpha1.Executor) *corev1.Service {
+func createBinocularsService(binoculars *installv1alpha1.Binoculars) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",
@@ -190,9 +197,23 @@ func createService(executor *installv1alpha1.Executor) *corev1.Service {
 	return &service
 }
 
+func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRole {
+	binocularRules := rbacv1.PolicyRule{
+		Verbs:     []string{"impersonate"},
+		APIGroups: []string{""},
+		Resources: []string{"users", "groups"},
+	}
+	clusterRole := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
+		Rules:      []rbacv1.PolicyRule{binocularRules},
+	}
+	return &clusterRole
+
+}
+
 // SetupWithManager sets up the controller with the Manager.
-func (r *ExecutorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BinocularsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&installv1alpha1.Executor{}).
+		For(&installv1alpha1.Binoculars{}).
 		Complete(r)
 }

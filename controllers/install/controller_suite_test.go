@@ -20,10 +20,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -75,7 +76,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	user := envtest.User{Name: "test-executor", Groups: []string{"system:masters"}}
+	user := envtest.User{Name: "test-armada-operator", Groups: []string{"system:masters"}}
 	testUser, err = testEnv.AddUser(user, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
