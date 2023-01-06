@@ -127,7 +127,6 @@ func (r *Executor) ValidateDelete() error {
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
-
 func validateApplicationConfig(applicationConfig map[string]any, fldPath *field.Path) *field.Error {
 	if applicationConfig == nil {
 		return field.Invalid(fldPath, applicationConfig, "applicationConfig must be configured")

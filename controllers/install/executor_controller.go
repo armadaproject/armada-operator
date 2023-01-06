@@ -34,6 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	armadaConfigKey = "armada-config.yaml"
+)
+
 // ExecutorReconciler reconciles a Executor object
 type ExecutorReconciler struct {
 	client.Client
@@ -127,7 +131,7 @@ type ExecutorComponents struct {
 }
 
 func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	secret, err := createSecret(executor)
+	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace)
 	if err != nil {
 		return nil, err
 	}

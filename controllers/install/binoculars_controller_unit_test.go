@@ -24,13 +24,13 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor"}
-	expectedExecutor := v1alpha1.Binoculars{
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Executor",
+			Kind:       "Binoculars",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 		Spec: v1alpha1.BinocularsSpec{
 			Labels: nil,
 			Image: installv1alpha1.Image{
@@ -43,9 +43,9 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Executor{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Binoculars{})).
 		Return(nil).
-		SetArg(2, expectedExecutor)
+		SetArg(2, expectedBinoculars)
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).

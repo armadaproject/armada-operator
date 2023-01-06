@@ -14,8 +14,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
 func TestExecutorReconciler_Reconcile(t *testing.T) {

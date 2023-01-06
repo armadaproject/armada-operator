@@ -72,29 +72,42 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+	mutateFn := func() error { return nil }
+
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.ClusterRole != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.ClusterRoleBinding != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Deployment != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, nil)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	if components.Service != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// now do init logic
