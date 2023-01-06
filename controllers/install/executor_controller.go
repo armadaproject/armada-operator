@@ -18,7 +18,9 @@ package install
 
 import (
 	"context"
-	"fmt"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,13 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
-
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-)
-
-var (
-	executorFinalizer = fmt.Sprintf("executor.%s/finalizer", installv1alpha1.GroupVersion.Group)
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -147,7 +142,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createClusterRole(executor)
+	clusterRole := builders.CreateClusterRole(executor.Name, executor.Namespace)
 	if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
 		return nil, err
 	}
@@ -162,7 +157,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 }
 
 func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(nil)
+	armadaConfig, err := builders.GenerateArmadaConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -209,80 +204,6 @@ func createService(executor *installv1alpha1.Executor) *corev1.Service {
 		},
 	}
 	return &service
-}
-
-func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
-	podRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
-		APIGroups: []string{""},
-		Resources: []string{"pods"},
-	}
-	eventRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "delete", "deletecollection", "patch"},
-		APIGroups: []string{""},
-		Resources: []string{"events"},
-	}
-	serviceRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{""},
-		Resources: []string{"services"},
-	}
-	nodeRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch"},
-		APIGroups: []string{""},
-		Resources: []string{"nodes"},
-	}
-	nodeProxyRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get"},
-		APIGroups: []string{""},
-		Resources: []string{"node/proxy"},
-	}
-	userRules := rbacv1.PolicyRule{
-		Verbs:     []string{"impersonate"},
-		APIGroups: []string{""},
-		Resources: []string{"users", "groups"},
-	}
-	ingressRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{"networking.k8s.io"},
-		Resources: []string{"ingresses"},
-	}
-	tokenRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{""},
-		Resources: []string{"serviceaccounts/token"},
-	}
-	tokenReviewRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{"authentication.k8s.io"},
-		Resources: []string{"tokenreviews"},
-	}
-	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
-		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
-	}
-	return &clusterRole
-}
-
-func createRoleBinding(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
-	}
-	return &clusterRoleBinding
-}
-
-func generateArmadaConfig(config map[string]any) (map[string][]byte, error) {
-	data, err := toYaml(config)
-	if err != nil {
-		return nil, err
-	}
-	return map[string][]byte{"armada-config.yaml": data}, nil
-}
-
-func toYaml(data map[string]any) ([]byte, error) {
-	return yaml.Marshal(data)
 }
 
 // SetupWithManager sets up the controller with the Manager.

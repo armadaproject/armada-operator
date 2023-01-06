@@ -48,14 +48,14 @@ type ExecutorList struct {
 
 // ExecutorSpec defines the desired state of Executor
 type ExecutorSpec struct {
-	// Name specifies the base name for all Kubernetes Resources
-	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
 	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,7 +68,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	var components *GeneralComponents
-	components, err := generateBinocularsInstallComponents(&binoculars)
+	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -110,21 +111,26 @@ type GeneralComponents struct {
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars) (*GeneralComponents, error) {
-	owner := metav1.OwnerReference{
-		APIVersion: binoculars.APIVersion,
-		Kind:       binoculars.Kind,
-		Name:       binoculars.Name,
-		UID:        binoculars.UID,
-	}
-	ownerReference := []metav1.OwnerReference{owner}
-	secret, err := createBinocularsSecret(binoculars, ownerReference)
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*GeneralComponents, error) {
+	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	deployment := createBinocularsDeployment(binoculars, ownerReference)
-	service := createBinocularsService(binoculars, ownerReference)
-	clusterRole := createBinocularsClusterRole(binoculars, ownerReference)
+	if err := controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
+		return nil, err
+	}
+	deployment := createBinocularsDeployment(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
+		return nil, err
+	}
+	service := createBinocularsService(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
+		return nil, err
+	}
+	clusterRole := builders.CreateClusterRole(binoculars.Name, binoculars.Namespace)
+	if err := controllerutil.SetOwnerReference(binoculars, clusterRole, scheme); err != nil {
+		return nil, err
+	}
 
 	return &GeneralComponents{
 		Deployment:     deployment,
@@ -135,22 +141,12 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars)
 	}, nil
 }
 
-func createBinocularsSecret(binoculars *installv1alpha1.Binoculars, ownerReference []metav1.OwnerReference) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(nil)
-	if err != nil {
-		return nil, err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, OwnerReferences: ownerReference},
-		Data:       armadaConfig,
-	}
-	return &secret, nil
-}
-
-func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars, ownerReference []metav1.OwnerReference) *appsv1.Deployment {
+// Function to build the deployment object for Binoculars.
+// This should be changing from CRD to CRD.  Not sure if generailize this helps much
+func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -171,9 +167,9 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars, ownerRef
 	return &deployment
 }
 
-func createBinocularsService(binoculars *installv1alpha1.Binoculars, ownerReference []metav1.OwnerReference) *corev1.Service {
+func createBinocularsService(binoculars *installv1alpha1.Binoculars) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",

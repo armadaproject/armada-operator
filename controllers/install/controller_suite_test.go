@@ -18,12 +18,13 @@ package install
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,7 @@ var (
 	cfg       *rest.Config
 	k8sClient client.Client // You'll be using this client in your tests.
 	testEnv   *envtest.Environment
+	testUser  *envtest.AuthenticatedUser
 	ctx       context.Context
 	cancel    context.CancelFunc
 )
@@ -54,29 +56,13 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
-//func TestExecutorReconciler_Reconcile(t *testing.T) {
-//	ctx := context.Background()
-//	c := fake.NewClientBuilder().Build()
-//	r := ExecutorReconciler{
-//		Client: c,
-//		Scheme: &runtime.Scheme{},
-//	}
-//
-//	namespacedName := types.NamespacedName{
-//		Namespace: "test",
-//		Name:      "test-executor",
-//	}
-//	req := controllerruntime.Request{NamespacedName: namespacedName}
-//	_, err := r.Reconcile(ctx, req)
-//	if err != nil {
-//		t.Fatalf("should not error on reconcile")
-//	}
-//}
-
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
+
+	kubebuilderAssets := os.Getenv("KUBEBUILDER_ASSETS")
+	logf.Log.Info("Kubebuilder assets path", "path", kubebuilderAssets)
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -90,11 +76,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	user := envtest.User{Name: "test-armada-operator", Groups: []string{"system:masters"}}
+	testUser, err = testEnv.AddUser(user, cfg)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = installv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
-
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())

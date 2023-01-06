@@ -54,8 +54,10 @@ type BinocularsSpec struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
-	// AppConfig is the internal Binoculars configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig,omitempty"`
+	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements

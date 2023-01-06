@@ -1,15 +1,19 @@
 package builders
 
-import "gopkg.in/yaml.v2"
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
+)
 
-func generateArmadaConfig(config map[string]any) (map[string][]byte, error) {
-	data, err := toYaml(config)
+const (
+	armadaConfigKey = "armada-config.yaml"
+)
+
+func GenerateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
+	yamlConfig, err := yaml.JSONToYAML(config.Raw)
 	if err != nil {
 		return nil, err
 	}
-	return map[string][]byte{"armada-config.yaml": data}, nil
-}
 
-func toYaml(data map[string]any) ([]byte, error) {
-	return yaml.Marshal(data)
+	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
 }
