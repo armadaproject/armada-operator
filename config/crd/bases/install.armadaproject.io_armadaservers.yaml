@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: executors.install.armadaproject.io
+  name: armadaservers.install.armadaproject.io
 spec:
   group: install.armadaproject.io
   names:
-    kind: Executor
-    listKind: ExecutorList
-    plural: executors
-    singular: executor
+    kind: ArmadaServer
+    listKind: ArmadaServerList
+    plural: armadaservers
+    singular: armadaserver
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Executor is the Schema for the executors API
+        description: ArmadaServer is the Schema for the Armada Server API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,13 +33,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: ExecutorSpec defines the desired state of Executor
+            description: ArmadaServerSpec defines the desired state of ArmadaServer
             properties:
               applicationConfig:
-                description: ApplicationConfig is the internal Executor configuration
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: ApplicationConfig is the internal ArmadaServer configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
-                x-kubernetes-preserve-unknown-fields: true
+                type: object
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
@@ -63,6 +66,9 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
+              name:
+                description: Name specifies the base name for all Kubernetes Resources
+                type: string
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -206,7 +212,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the Executor pod tolerate
+                  which taints the ArmadaServer pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
@@ -248,9 +254,10 @@ spec:
             required:
             - applicationConfig
             - image
+            - name
             type: object
           status:
-            description: ExecutorStatus defines the observed state of Executor
+            description: ArmadaServerStatus defines the observed state of ArmadaServer
             type: object
         type: object
     served: true
