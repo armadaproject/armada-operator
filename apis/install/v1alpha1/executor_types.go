@@ -67,7 +67,9 @@ type ExecutorSpec struct {
 	TerminationGracePeriodSeconds *int `json:"terminationGracePeriodSeconds,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
+	// if CustomServiceAccount is specified,
+	// then that service account is referenced in the Deployment
+	// and this will overrides service account defined in spec.serviceAccount field
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
