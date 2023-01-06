@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -126,6 +127,7 @@ func (r *Executor) ValidateDelete() error {
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
+
 func validateApplicationConfig(applicationConfig map[string]any, fldPath *field.Path) *field.Error {
 	if applicationConfig == nil {
 		return field.Invalid(fldPath, applicationConfig, "applicationConfig must be configured")
