@@ -4,6 +4,7 @@
 resources:
 - bases/install.armadaproject.io_servers.yaml
 - bases/install.armadaproject.io_executors.yaml
+- bases/install.armadaproject.io_binoculars.yaml
 - bases/core.armadaproject.io_queues.yaml
 - bases/install.armadaproject.io_eventingesters.yaml
 - bases/install.armadaproject.io_armadaservers.yaml
