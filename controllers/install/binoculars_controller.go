@@ -24,6 +24,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,7 +68,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	var components *GeneralComponents
+	var components *BinocularsComponents
 	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -115,16 +116,18 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-type GeneralComponents struct {
+type BinocularsComponents struct {
+	ClusterRole        *rbacv1.ClusterRole
+	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+	Ingress            *networking.Ingress
+	IngressRest        *networking.Ingress
 	Deployment         *appsv1.Deployment
 	Service            *corev1.Service
 	ServiceAccount     *corev1.ServiceAccount
 	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*GeneralComponents, error) {
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*BinocularsComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace)
 	if err != nil {
 		return nil, err
@@ -140,12 +143,12 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := builders.CreateClusterRole(binoculars.Name, binoculars.Namespace)
+	clusterRole := createBinocularsClusterRole(binoculars)
 	if err := controllerutil.SetOwnerReference(binoculars, clusterRole, scheme); err != nil {
 		return nil, err
 	}
 
-	return &GeneralComponents{
+	return &BinocularsComponents{
 		Deployment:     deployment,
 		Service:        service,
 		ServiceAccount: nil,
@@ -192,6 +195,20 @@ func createBinocularsService(binoculars *installv1alpha1.Binoculars) *corev1.Ser
 		},
 	}
 	return &service
+}
+
+func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRole {
+	binocularRules := rbacv1.PolicyRule{
+		Verbs:     []string{"impersonate"},
+		APIGroups: []string{""},
+		Resources: []string{"users", "groups"},
+	}
+	clusterRole := rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
+		Rules:      []rbacv1.PolicyRule{binocularRules},
+	}
+	return &clusterRole
+
 }
 
 // SetupWithManager sets up the controller with the Manager.

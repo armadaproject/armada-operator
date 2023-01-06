@@ -11,9 +11,9 @@ func TestGenerateClusterRole(t *testing.T) {
 		name      string
 		namespace string
 	}{
-		"Binoculars": {
-			name:      "binoculars",
-			namespace: "binoculars",
+		"Executor": {
+			name:      "executor",
+			namespace: "executor",
 		},
 	}
 
