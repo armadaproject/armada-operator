@@ -18,7 +18,6 @@ package install
 
 import (
 	"context"
-
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"

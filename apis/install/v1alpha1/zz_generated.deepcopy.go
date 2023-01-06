@@ -96,13 +96,7 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 		}
 	}
 	out.Image = in.Image
-	if in.ApplicationConfig != nil {
-		in, out := &in.ApplicationConfig, &out.ApplicationConfig
-		*out = make(map[string]runtime.RawExtension, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
-		}
-	}
+	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
 	in.Prometheus.DeepCopyInto(&out.Prometheus)
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
@@ -115,6 +109,11 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.TerminationGracePeriodSeconds != nil {
+		in, out := &in.TerminationGracePeriodSeconds, &out.TerminationGracePeriodSeconds
+		*out = new(int)
+		**out = **in
 	}
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
