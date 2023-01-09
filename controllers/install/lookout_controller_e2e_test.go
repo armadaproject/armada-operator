@@ -11,11 +11,11 @@ import (
 )
 
 var lookoutYaml = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
+kind: Lookout
 metadata:
   labels:
     app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: bincoulars-sample
+    app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: lookout-e2e
@@ -32,9 +32,9 @@ spec:
 `
 
 var _ = Describe("Armada Operator", func() {
-	When("User applies Binoculars YAML using kubectl", func() {
-		It("Kubernetes should create Executor Kubernetes resources", func() {
-			By("Calling the Executor Controller Reconcile function", func() {
+	When("User applies Lookout YAML using kubectl", func() {
+		It("Kubernetes should create Lookout Kubernetes resources", func() {
+			By("Calling the Lookout Controller Reconcile function", func() {
 				f, err := utils.CreateTempFile([]byte(lookoutYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
