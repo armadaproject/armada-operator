@@ -52,14 +52,11 @@ spec:
                 description: Image is the configuration block for the image repository
                   and tag
                 properties:
-                  image:
-                    type: string
                   repository:
                     type: string
                   tag:
                     type: string
                 required:
-                - image
                 - repository
                 - tag
                 type: object
@@ -88,7 +85,7 @@ spec:
                     type: object
                   scrapeInterval:
                     description: ScrapeInterval defines the interval at which Prometheus
-                      should scrape Lookout metrics
+                      should scrape Executor metrics
                     type: string
                 type: object
               replicas:
