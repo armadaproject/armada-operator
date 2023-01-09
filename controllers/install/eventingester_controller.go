@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
 var (
@@ -69,7 +70,7 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	components, err := r.generateEventIngesterComponents(&eventIngester)
+	components, err := r.generateEventIngesterComponents(&eventIngester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -126,20 +127,22 @@ type EventIngesterComponents struct {
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
-func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester) (*EventIngesterComponents, error) {
-	owner := metav1.OwnerReference{
-		APIVersion: eventIngester.APIVersion,
-		Kind:       eventIngester.Kind,
-		Name:       eventIngester.Name,
-		UID:        eventIngester.UID,
-	}
-	ownerReference := []metav1.OwnerReference{owner}
-	secret, err := r.createSecret(eventIngester, ownerReference)
+func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*EventIngesterComponents, error) {
+	secret, err := builders.CreateSecret(eventIngester.Spec.ApplicationConfig, eventIngester.Name, eventIngester.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	deployment := r.createDeployment(eventIngester, ownerReference)
-	clusterRole := r.createClusterRole(eventIngester, ownerReference)
+	if err := controllerutil.SetOwnerReference(eventIngester, secret, scheme); err != nil {
+		return nil, err
+	}
+	deployment := r.createDeployment(eventIngester)
+	if err := controllerutil.SetOwnerReference(eventIngester, deployment, scheme); err != nil {
+		return nil, err
+	}
+	clusterRole := builders.CreateClusterRole(eventIngester.Name, eventIngester.Namespace)
+	if err := controllerutil.SetOwnerReference(eventIngester, clusterRole, scheme); err != nil {
+		return nil, err
+	}
 
 	return &EventIngesterComponents{
 		Deployment:     deployment,
@@ -149,22 +152,10 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	}, nil
 }
 
-func (r *EventIngesterReconciler) createSecret(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(eventIngester.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Data:       map[string][]byte{armadaConfigKey: []byte(armadaConfig)},
-	}
-	return &secret, nil
-}
-
-func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *appsv1.Deployment {
+func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
+		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -183,21 +174,4 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 		},
 	}
 	return &deployment
-}
-
-func (r *EventIngesterReconciler) createClusterRole(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRole {
-	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Rules:      policyRules(),
-	}
-	return &clusterRole
-}
-
-func (r *EventIngesterReconciler) createRoleBinding(eventIngester *installv1alpha1.EventIngester, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
-	}
-	return &clusterRoleBinding
 }

@@ -38,7 +38,6 @@ import (
 	corev1alpha1 "github.com/armadaproject/armada-operator/apis/core/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corecontrollers "github.com/armadaproject/armada-operator/controllers/core"
-	installcontrollers "github.com/armadaproject/armada-operator/controllers/install"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -61,15 +61,7 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "EventIngester"))
 
-	expectedClusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "EventIngester", OwnerReferences: ownerReference},
-		Rules:      policyRules(),
-	}
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(nil).
-		SetArg(1, expectedClusterRole)
+	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
