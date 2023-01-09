@@ -17,4 +17,5 @@ linters:
     - errcheck
     - govet
     - gosimple
+    - staticcheck
     
