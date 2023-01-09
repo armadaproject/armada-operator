@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
@@ -27,13 +25,13 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
-	expectedLookout := v1alpha1.Lookout{
+	expectedLookout := installv1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout"},
-		Spec: v1alpha1.LookoutSpec{
+		Spec: installv1alpha1.LookoutSpec{
 			Labels: nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
@@ -53,16 +51,9 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	ownerReference := []metav1.OwnerReference{owner}
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
-
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
-
-	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +105,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, expectedService)
-	scheme, err := v1alpha1.SchemeBuilder.Build()
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}

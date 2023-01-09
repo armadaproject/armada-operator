@@ -25,7 +25,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,18 +80,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.ClusterRole != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRoleBinding != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
@@ -117,14 +104,12 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type LookoutComponents struct {
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
-	Ingress            *networking.Ingress
-	IngressRest        *networking.Ingress
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
+	Ingress        *networking.Ingress
+	IngressRest    *networking.Ingress
+	Deployment     *appsv1.Deployment
+	Service        *corev1.Service
+	ServiceAccount *corev1.ServiceAccount
+	Secret         *corev1.Secret
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
@@ -143,17 +128,12 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createLookoutClusterRole(lookout)
-	if err := controllerutil.SetOwnerReference(lookout, clusterRole, scheme); err != nil {
-		return nil, err
-	}
 
 	return &LookoutComponents{
 		Deployment:     deployment,
 		Service:        service,
 		ServiceAccount: nil,
 		Secret:         secret,
-		ClusterRole:    clusterRole,
 	}, nil
 }
 
@@ -195,20 +175,6 @@ func createLookoutService(lookout *installv1alpha1.Lookout) *corev1.Service {
 		},
 	}
 	return &service
-}
-
-func createLookoutClusterRole(lookout *installv1alpha1.Lookout) *rbacv1.ClusterRole {
-	binocularRules := rbacv1.PolicyRule{
-		Verbs:     []string{"impersonate"},
-		APIGroups: []string{""},
-		Resources: []string{"users", "groups"},
-	}
-	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
-		Rules:      []rbacv1.PolicyRule{binocularRules},
-	}
-	return &clusterRole
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
