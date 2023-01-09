@@ -62,7 +62,7 @@ resources:
   controller: true
   domain: armadaproject.io
   group: install
-  kind: ArmadaServer
+  kind: EventIngester
   path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
   webhooks:

@@ -105,7 +105,7 @@ var _ = BeforeSuite(func() {
 	err = (&Server{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&ArmadaServer{}).SetupWebhookWithManager(mgr)
+	err = (&EventIngester{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&Binoculars{}).SetupWebhookWithManager(mgr)

@@ -10,10 +10,18 @@ const (
 )
 
 func GenerateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
-	yamlConfig, err := yaml.JSONToYAML(config.Raw)
+	yaml, err := convertRawExtensionToYaml(config)
 	if err != nil {
 		return nil, err
 	}
+	return map[string][]byte{armadaConfigKey: []byte(yaml)}, nil
+}
 
-	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
+func convertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
+	yamlConfig, err := yaml.JSONToYAML(config.Raw)
+	if err != nil {
+		return "", err
+	}
+
+	return string(yamlConfig), nil
 }
