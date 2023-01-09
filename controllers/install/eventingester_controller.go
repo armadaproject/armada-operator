@@ -22,7 +22,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,18 +82,6 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if components.ClusterRole != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRoleBinding != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
@@ -120,11 +107,9 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 type EventIngesterComponents struct {
-	Deployment         *appsv1.Deployment
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+	Deployment     *appsv1.Deployment
+	ServiceAccount *corev1.ServiceAccount
+	Secret         *corev1.Secret
 }
 
 func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*EventIngesterComponents, error) {
@@ -139,16 +124,11 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	if err := controllerutil.SetOwnerReference(eventIngester, deployment, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := builders.CreateClusterRole(eventIngester.Name, eventIngester.Namespace)
-	if err := controllerutil.SetOwnerReference(eventIngester, clusterRole, scheme); err != nil {
-		return nil, err
-	}
 
 	return &EventIngesterComponents{
 		Deployment:     deployment,
 		ServiceAccount: nil,
 		Secret:         secret,
-		ClusterRole:    clusterRole,
 	}, nil
 }
 
