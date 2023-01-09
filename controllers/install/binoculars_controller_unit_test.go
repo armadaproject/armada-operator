@@ -16,25 +16,24 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/k8sclient"
-
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
 
-func TestExecutorReconciler_Reconcile(t *testing.T) {
+func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor"}
-	expectedExecutor := v1alpha1.Executor{
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Executor",
+			Kind:       "Binoculars",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
-		Spec: v1alpha1.ExecutorSpec{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
+		Spec: v1alpha1.BinocularsSpec{
 			Labels: nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
@@ -44,30 +43,31 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		},
 	}
 	owner := metav1.OwnerReference{
-		APIVersion: expectedExecutor.APIVersion,
-		Kind:       expectedExecutor.Kind,
-		Name:       expectedExecutor.Name,
-		UID:        expectedExecutor.UID,
+		APIVersion: expectedBinoculars.APIVersion,
+		Kind:       expectedBinoculars.Kind,
+		Name:       expectedBinoculars.Name,
+		UID:        expectedBinoculars.UID,
 	}
-	ownerReference := []metav1.OwnerReference{owner}
+
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	ownerReference := []metav1.OwnerReference{owner}
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Executor{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Binoculars{})).
 		Return(nil).
-		SetArg(2, expectedExecutor)
+		SetArg(2, expectedBinoculars)
 
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 
 	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedExecutor.Name,
-			Namespace:       expectedExecutor.Namespace,
+			Name:            expectedBinoculars.Name,
+			Namespace:       expectedBinoculars.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
@@ -83,8 +83,8 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedExecutor.Name,
-			Namespace:       expectedExecutor.Namespace,
+			Name:            expectedBinoculars.Name,
+			Namespace:       expectedBinoculars.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
@@ -100,8 +100,8 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 
 	expectedService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedExecutor.Name,
-			Namespace:       expectedExecutor.Namespace,
+			Name:            expectedBinoculars.Name,
+			Namespace:       expectedBinoculars.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
@@ -119,13 +119,13 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := ExecutorReconciler{
+	r := BinocularsReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "executor"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
