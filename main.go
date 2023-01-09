@@ -51,6 +51,7 @@ func init() {
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(installv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -137,6 +138,10 @@ func main() {
 	}
 	if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Server")
+		os.Exit(1)
+	}
+	if err = (&installv1alpha1.EventIngester{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventIngester")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
