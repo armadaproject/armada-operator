@@ -105,7 +105,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 type LookoutComponents struct {
 	Ingress        *networking.Ingress
-	IngressRest    *networking.Ingress
 	Deployment     *appsv1.Deployment
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount

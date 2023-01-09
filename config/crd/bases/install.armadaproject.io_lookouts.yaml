@@ -36,7 +36,7 @@ spec:
             description: LookoutSpec defines the desired state of Lookout
             properties:
               applicationConfig:
-                description: ApplicationConfig is the internal Executor configuration
+                description: ApplicationConfig is the internal Lookout configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
@@ -82,7 +82,7 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: NodeSelector restricts the Executor pod to run on nodes
+                description: NodeSelector restricts the Lookout pod to run on nodes
                   matching the configured selectors
                 type: object
               prometheus:
@@ -105,7 +105,7 @@ spec:
                     type: string
                 type: object
               resources:
-                description: Resources is the configuration block for setting Executor
+                description: Resources is the configuration block for setting Lookout
                   resource requirements
                 properties:
                   limits:
@@ -222,7 +222,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the Executor pod tolerate
+                  which taints can the Lookout pod tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
