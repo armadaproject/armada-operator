@@ -75,12 +75,6 @@ type BinocularsSpec struct {
 	Ingress        IngressConfig        `json:"ingress,omitempty"`
 }
 
-type IngressConfig struct {
-	// Labels is the map of labels which wil be added to all objects
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
 // BinocularsStatus defines the observed state of binoculars
 type BinocularsStatus struct{}
 

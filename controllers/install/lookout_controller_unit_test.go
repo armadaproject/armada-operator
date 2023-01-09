@@ -16,9 +16,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/k8sclient"
-
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
 
 func TestLookoutReconciler_Reconcile(t *testing.T) {
@@ -49,8 +48,9 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Name:       expectedLookout.Name,
 		UID:        expectedLookout.UID,
 	}
-	ownerReference := []metav1.OwnerReference{owner}
+
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	ownerReference := []metav1.OwnerReference{owner}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
@@ -74,7 +74,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
@@ -91,7 +91,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1.Deployment{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
@@ -108,7 +108,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).

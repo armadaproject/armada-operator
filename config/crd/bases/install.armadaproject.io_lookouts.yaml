@@ -36,10 +36,9 @@ spec:
             description: LookoutSpec defines the desired state of Lookout
             properties:
               applicationConfig:
-                description: ApplicationConfig is the internal Lookout configuration
+                description: ApplicationConfig is the internal Executor configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
-                type: object
                 x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
@@ -58,6 +57,19 @@ spec:
                 - repository
                 - tag
                 type: object
+              ingress:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -67,6 +79,12 @@ spec:
               name:
                 description: Name specifies the base name for all Kubernetes Resources
                 type: string
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector restricts the Executor pod to run on nodes
+                  matching the configured selectors
+                type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
                   monitoring
@@ -86,11 +104,8 @@ spec:
                       should scrape Executor metrics
                     type: string
                 type: object
-              replicas:
-                description: Replicas is the number of replicas for the Lookout Deployment
-                type: integer
               resources:
-                description: Resources is the configuration block for setting Lookout
+                description: Resources is the configuration block for setting Executor
                   resource requirements
                 properties:
                   limits:
@@ -200,23 +215,59 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                 type: object
-              strategy:
-                description: Strategy is the configuration block for the Kubernetes
-                  Deployment Strategy
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               terminationGracePeriodSeconds:
                 description: TerminationGracePeriodSeconds specifies how many seconds
                   should Kubernetes wait for the application to shut down gracefully
                   before sending a KILL signal
                 type: integer
+              tolerations:
+                description: Tolerations is the configuration block for specifying
+                  which taints can the Executor pod tolerate
+                items:
+                  description: The pod this Toleration is attached to tolerates any
+                    taint that matches the triple <key,value,effect> using the matching
+                    operator <operator>.
+                  properties:
+                    effect:
+                      description: Effect indicates the taint effect to match. Empty
+                        means match all taint effects. When specified, allowed values
+                        are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Key is the taint key that the toleration applies
+                        to. Empty means match all taint keys. If the key is empty,
+                        operator must be Exists; this combination means to match all
+                        values and all keys.
+                      type: string
+                    operator:
+                      description: Operator represents a key's relationship to the
+                        value. Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod
+                        can tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: TolerationSeconds represents the period of time
+                        the toleration (which must be of effect NoExecute, otherwise
+                        this field is ignored) tolerates the taint. By default, it
+                        is not set, which means tolerate the taint forever (do not
+                        evict). Zero and negative values will be treated as 0 (evict
+                        immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: Value is the taint value the toleration matches
+                        to. If the operator is Exists, the value should be empty,
+                        otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
             required:
             - applicationConfig
             - image
             - name
             type: object
           status:
-            description: LookoutStatus defines the observed state of Lookout
+            description: LookoutStatus defines the observed state of lookout
             type: object
         type: object
     served: true
