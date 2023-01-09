@@ -49,14 +49,11 @@ spec:
                 description: Image is the configuration block for the image repository
                   and tag
                 properties:
-                  image:
-                    type: string
                   repository:
                     type: string
                   tag:
                     type: string
                 required:
-                - image
                 - repository
                 - tag
                 type: object
