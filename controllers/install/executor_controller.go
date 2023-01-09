@@ -34,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var (
-	executorFinalizer = fmt.Sprintf("executor.%s/finalizer", installv1alpha1.GroupVersion.Group)
-)
-
 // ExecutorReconciler reconciles a Executor object
 type ExecutorReconciler struct {
 	client.Client
