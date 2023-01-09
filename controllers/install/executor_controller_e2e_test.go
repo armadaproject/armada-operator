@@ -36,8 +36,12 @@ var _ = Describe("Armada Operator", func() {
 		It("Kubernetes should create Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
 				f, err := utils.CreateTempFile([]byte(executorYaml))
-				defer f.Close()
-				defer os.Remove(f.Name())
+				defer func() {
+					Expect(f.Close()).ToNot(HaveOccurred())
+				}()
+				defer func() {
+					Expect(os.Remove(f.Name())).ToNot(HaveOccurred())
+				}()
 				Expect(err).ToNot(HaveOccurred())
 
 				k, err := testUser.Kubectl()
