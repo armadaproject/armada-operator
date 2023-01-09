@@ -1,9 +1,12 @@
 /*
 Copyright 2022.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,11 +18,13 @@ package install
 
 import (
 	"context"
-	"fmt"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
-)
-
-var (
-	lookoutFinalizer = fmt.Sprintf("lookout.%s/finalizer", installv1alpha1.GroupVersion.Group)
 )
 
 // LookoutReconciler reconciles a Lookout object
@@ -48,13 +48,15 @@ type LookoutReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the Lookout object against the actual cluster state, and then
+// the Server object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	_ = log.FromContext(ctx)
+
 	logger := log.FromContext(ctx)
 
 	var lookout installv1alpha1.Lookout
@@ -66,11 +68,11 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	var components *LookoutComponents
 	components, err := generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	mutateFn := func() error { return nil }
 
 	if components.ServiceAccount != nil {
@@ -115,31 +117,33 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type LookoutComponents struct {
+	ClusterRole        *rbacv1.ClusterRole
+	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+	Ingress            *networking.Ingress
+	IngressRest        *networking.Ingress
 	Deployment         *appsv1.Deployment
 	Service            *corev1.Service
 	ServiceAccount     *corev1.ServiceAccount
 	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
-	secret, err := createSecret(lookout)
+	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createDeployment(lookout)
+	deployment := createLookoutDeployment(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := createService(lookout)
+	service := createLookoutService(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createClusterRole(lookout)
+	clusterRole := createLookoutClusterRole(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, clusterRole, scheme); err != nil {
 		return nil, err
 	}
@@ -153,19 +157,9 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}, nil
 }
 
-func createSecret(lookout *installv1alpha1.Lookout) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(nil)
-	if err != nil {
-		return nil, err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
-		Data:       armadaConfig,
-	}
-	return &secret, nil
-}
-
-func createDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
+// Function to build the deployment object for Lookout.
+// This should be changing from CRD to CRD.  Not sure if generailize this helps much
+func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
 	var replicas int32 = 1
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
@@ -189,7 +183,7 @@ func createDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
 	return &deployment
 }
 
-func createService(lookout *installv1alpha1.Lookout) *corev1.Service {
+func createLookoutService(lookout *installv1alpha1.Lookout) *corev1.Service {
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
 		Spec: corev1.ServiceSpec{
@@ -203,78 +197,18 @@ func createService(lookout *installv1alpha1.Lookout) *corev1.Service {
 	return &service
 }
 
-func createClusterRole(lookout *installv1alpha1.Lookout) *rbacv1.ClusterRole {
-	podRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
-		APIGroups: []string{""},
-		Resources: []string{"pods"},
-	}
-	eventRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "delete", "deletecollection", "patch"},
-		APIGroups: []string{""},
-		Resources: []string{"events"},
-	}
-	serviceRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{""},
-		Resources: []string{"services"},
-	}
-	nodeRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch"},
-		APIGroups: []string{""},
-		Resources: []string{"nodes"},
-	}
-	nodeProxyRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get"},
-		APIGroups: []string{""},
-		Resources: []string{"node/proxy"},
-	}
-	userRules := rbacv1.PolicyRule{
+func createLookoutClusterRole(lookout *installv1alpha1.Lookout) *rbacv1.ClusterRole {
+	binocularRules := rbacv1.PolicyRule{
 		Verbs:     []string{"impersonate"},
 		APIGroups: []string{""},
 		Resources: []string{"users", "groups"},
 	}
-	ingressRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{"networking.k8s.io"},
-		Resources: []string{"ingresses"},
-	}
-	tokenRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{""},
-		Resources: []string{"serviceaccounts/token"},
-	}
-	tokenReviewRules := rbacv1.PolicyRule{
-		Verbs:     []string{"create"},
-		APIGroups: []string{"authentication.k8s.io"},
-		Resources: []string{"tokenreviews"},
-	}
 	clusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
-		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
+		Rules:      []rbacv1.PolicyRule{binocularRules},
 	}
 	return &clusterRole
-}
 
-func createRoleBinding(lookout *installv1alpha1.Lookout, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
-	}
-	return &clusterRoleBinding
-}
-
-func generateArmadaConfig(config map[string]any) (map[string][]byte, error) {
-	data, err := toYaml(config)
-	if err != nil {
-		return nil, err
-	}
-	return map[string][]byte{"armada-config.yaml": data}, nil
-}
-
-func toYaml(data map[string]any) ([]byte, error) {
-	return yaml.Marshal(data)
 }
 
 // SetupWithManager sets up the controller with the Manager.

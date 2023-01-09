@@ -15,15 +15,11 @@ package install
 
 import (
 	"context"
-<<<<<<< HEAD:controllers/install/lookout_suite_test.go
-=======
 	"os"
->>>>>>> 45b9447eec12e6b16a3e2d409f1a4d162bc0e1c8:controllers/install/controller_suite_test.go
 	"path/filepath"
 	"testing"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -46,10 +42,7 @@ var (
 	cfg       *rest.Config
 	k8sClient client.Client // You'll be using this client in your tests.
 	testEnv   *envtest.Environment
-<<<<<<< HEAD:controllers/install/lookout_suite_test.go
-=======
 	testUser  *envtest.AuthenticatedUser
->>>>>>> 45b9447eec12e6b16a3e2d409f1a4d162bc0e1c8:controllers/install/controller_suite_test.go
 	ctx       context.Context
 	cancel    context.CancelFunc
 )
@@ -60,36 +53,14 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
-//func TestLookoutReconciler_Reconcile(t *testing.T) {
-//	ctx := context.Background()
-//	c := fake.NewClientBuilder().Build()
-//	r := LookoutReconciler{
-//		Client: c,
-//		Scheme: &runtime.Scheme{},
-//	}
-//
-//	namespacedName := types.NamespacedName{
-//		Namespace: "test",
-//		Name:      "test-lookout",
-//	}
-//	req := controllerruntime.Request{NamespacedName: namespacedName}
-//	_, err := r.Reconcile(ctx, req)
-//	if err != nil {
-//		t.Fatalf("should not error on reconcile")
-//	}
-//}
-
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
-<<<<<<< HEAD:controllers/install/lookout_suite_test.go
-=======
 	kubebuilderAssets := os.Getenv("KUBEBUILDER_ASSETS")
 	logf.Log.Info("Kubebuilder assets path", "path", kubebuilderAssets)
 
->>>>>>> 45b9447eec12e6b16a3e2d409f1a4d162bc0e1c8:controllers/install/controller_suite_test.go
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
@@ -119,11 +90,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-<<<<<<< HEAD:controllers/install/lookout_suite_test.go
-	err = (&LookoutReconciler{
-=======
 	err = (&ExecutorReconciler{
->>>>>>> 45b9447eec12e6b16a3e2d409f1a4d162bc0e1c8:controllers/install/controller_suite_test.go
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)

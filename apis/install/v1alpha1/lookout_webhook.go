@@ -14,24 +14,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-)
-
-const (
-	keySpec              = "spec"
-	keyApplicationConfig = "applicationConfig"
-	keyAPIConnection     = "apiConnection"
-	keyArmadaURL         = "armadaUrl"
 )
 
 // log is for logging in this package.
@@ -76,83 +63,4 @@ func (r *Lookout) Default() {
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
-}
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-lookout,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookout,verbs=create;update,versions=v1alpha1,name=vlookout.kb.io,admissionReviewVersions=v1
-
-var _ webhook.Validator = &Lookout{}
-
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Lookout) ValidateCreate() error {
-	lookoutlog.Info("validate create", "name", r.Name)
-
-	var allErrs field.ErrorList
-
-	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if len(allErrs) == 0 {
-		return nil
-	}
-
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Lookout"}, r.Name, allErrs)
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Lookout) ValidateUpdate(old runtime.Object) error {
-	lookoutlog.Info("validate update", "name", r.Name)
-
-	var allErrs field.ErrorList
-
-	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if len(allErrs) == 0 {
-		return nil
-	}
-
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Lookout"}, r.Name, allErrs)
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Lookout) ValidateDelete() error {
-	lookoutlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
-}
-func validateApplicationConfig(applicationConfig map[string]any, fldPath *field.Path) *field.Error {
-	if applicationConfig == nil {
-		return field.Invalid(fldPath, applicationConfig, "applicationConfig must be configured")
-	}
-
-	if applicationConfig[keyAPIConnection] == nil {
-		return field.Invalid(fldPath.Child(keyAPIConnection), applicationConfig[keyAPIConnection], "apiConnection must be configured")
-	}
-	apiConnection, ok := applicationConfig[keyAPIConnection].(map[string]any)
-	if !ok {
-		return field.Invalid(
-			fldPath.Child(keyAPIConnection),
-			applicationConfig[keyAPIConnection],
-			fmt.Sprintf("expected map[string]any, got %T", applicationConfig[keyAPIConnection]),
-		)
-	}
-
-	if apiConnection[keyArmadaURL] == nil {
-		return field.Invalid(fldPath.Child(keyAPIConnection).Child(keyArmadaURL), apiConnection["keyArmadaURL"], "armadaUrl must be provided")
-	}
-
-	_, ok = apiConnection[keyArmadaURL].(string)
-	if !ok {
-		return field.Invalid(
-			fldPath.Child(keyAPIConnection).Child(keyArmadaURL),
-			apiConnection[keyArmadaURL],
-			fmt.Sprintf("expected string, got %T", apiConnection[keyArmadaURL]),
-		)
-	}
-
-	return nil
 }
