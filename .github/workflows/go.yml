@@ -1,0 +1,36 @@
+name: Operator CI
+
+on: [push, pull_request]
+
+jobs:
+  go-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: "latest"
+          skip-pkg-cache: true
+          skip-build-cache: true
+          args: "-c ./.golangci.yml --timeout=10m --issues-exit-code=1 --max-issues-per-linter=0 --sort-results ./..."
+
+  go-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          cache: true
+      - name: make test
+        run: make test
+
+      - name: Go Test Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./operator.out # optional

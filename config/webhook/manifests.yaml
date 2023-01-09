@@ -11,6 +11,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-binoculars
+  failurePolicy: Fail
+  name: mbinoculars.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - binoculars
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-install-armadaproject-io-v1alpha1-lookout
   failurePolicy: Fail
   name: mlookout.kb.io

@@ -24,10 +24,6 @@ import (
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -115,6 +111,18 @@ func main() {
 	}
 	if err = (&v1alpha1.Lookout{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Lookout")
+	}
+
+	if err = (&install.BinocularsReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Binoculars")
+		os.Exit(1)
+	}
+
+	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
 		os.Exit(1)
 	}
 	if err = (&corecontrollers.QueueReconciler{
