@@ -38,7 +38,7 @@ func Test_convertRawExtensionToYaml(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := convertRawExtensionToYaml(tt.input)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
 				assert.Nil(t, err)
 			}
