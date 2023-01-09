@@ -35,7 +35,6 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
-				Image:      "EventIngester",
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
