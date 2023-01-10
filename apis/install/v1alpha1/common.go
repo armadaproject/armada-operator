@@ -39,3 +39,9 @@ type ServiceAccountConfig struct {
 	ImagePullSecrets             []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
 }
+
+type IngressConfig struct {
+	// Labels is the map of labels which wil be added to all objects
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}

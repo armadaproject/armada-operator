@@ -28,45 +28,45 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Binoculars is the Schema for the binoculars API
-type Binoculars struct {
+// Lookout is the Schema for the lookout API
+type Lookout struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BinocularsSpec   `json:"spec,omitempty"`
-	Status BinocularsStatus `json:"status,omitempty"`
+	Spec   LookoutSpec   `json:"spec,omitempty"`
+	Status LookoutStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BinocularsList contains a list of Binoculars
-type BinocularsList struct {
+// LookoutList contains a list of Lookout
+type LookoutList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Binoculars `json:"items"`
+	Items           []Lookout `json:"items"`
 }
 
-// BinocularsSpec defines the desired state of Binoculars
-type BinocularsSpec struct {
+// LookoutSpec defines the desired state of Lookout
+type LookoutSpec struct {
 	// Name specifies the base name for all Kubernetes Resources
 	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
-	// ApplicationConfig is the internal Binoculars configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// ApplicationConfig is the internal Lookout configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
-	// Resources is the configuration block for setting Binoculars resource requirements
+	// Resources is the configuration block for setting Lookout resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Tolerations is the configuration block for specifying which taints can the Binoculars pod tolerate
+	// Tolerations is the configuration block for specifying which taints can the Lookout pod tolerate
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds int `json:"terminationGracePeriodSeconds,omitempty"`
-	// NodeSelector restricts the Binoculars pod to run on nodes matching the configured selectors
+	// NodeSelector restricts the Lookout pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
@@ -75,9 +75,9 @@ type BinocularsSpec struct {
 	Ingress        IngressConfig        `json:"ingress,omitempty"`
 }
 
-// BinocularsStatus defines the observed state of binoculars
-type BinocularsStatus struct{}
+// LookoutStatus defines the observed state of lookout
+type LookoutStatus struct{}
 
 func init() {
-	SchemeBuilder.Register(&Binoculars{}, &BinocularsList{})
+	SchemeBuilder.Register(&Lookout{}, &LookoutList{})
 }
