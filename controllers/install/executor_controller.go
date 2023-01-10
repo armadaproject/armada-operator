@@ -34,6 +34,7 @@ import (
 
 const (
 	armadaConfigKey = "armada-config.yaml"
+	volumeConfigKey = "user-config"
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -140,17 +141,26 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}
+	serviceAccount := createServiceAccount(executor)
+	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
 	clusterRole := createClusterRole(executor)
 	if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
 		return nil, err
 	}
+	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
+	if err := controllerutil.SetOwnerReference(executor, clusterRoleBinding, scheme); err != nil {
+		return nil, err
+	}
 
 	return &ExecutorComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: nil,
-		Secret:         secret,
-		ClusterRole:    clusterRole,
+		Deployment:         deployment,
+		Service:            service,
+		ServiceAccount:     serviceAccount,
+		Secret:             secret,
+		ClusterRole:        clusterRole,
+		ClusterRoleBinding: clusterRoleBinding,
 	}, nil
 }
 
@@ -166,33 +176,101 @@ func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
 	return &secret, nil
 }
 
+func generateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
+	yamlConfig, err := yaml.JSONToYAML(config.Raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
+}
+
 func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 	var replicas int32 = 1
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels:      nil,
-				MatchExpressions: nil,
+				MatchLabels: getExecutorIdentityLabels(executor),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       corev1.PodSpec{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        executor.Name,
+					Namespace:   executor.Namespace,
+					Labels:      getAllExecutorLabels(executor),
+					Annotations: map[string]string{"checksum/config": getExecutorChecksumConfig(executor)},
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: executor.Spec.TerminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "executor",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(executor.Spec.Image),
+						Args:            []string{"--config", "/config/application_config.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   getExecutorConfigFilename(executor),
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: executor.Spec.NodeSelector,
+					Tolerations:  executor.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: getExecutorConfigName(executor),
+							},
+						},
+					}},
+				},
 			},
-			Strategy:                appsv1.DeploymentStrategy{},
-			MinReadySeconds:         0,
-			RevisionHistoryLimit:    nil,
-			Paused:                  false,
-			ProgressDeadlineSeconds: nil,
 		},
+	}
+	if executor.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *executor.Spec.Resources
 	}
 	return &deployment
 }
 
 func createService(executor *installv1alpha1.Executor) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",
@@ -251,28 +329,44 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 		Resources: []string{"tokenreviews"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
 }
 
-func createRoleBinding(executor *installv1alpha1.Executor, ownerReference []metav1.OwnerReference) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, OwnerReferences: ownerReference},
-		Subjects:   []rbacv1.Subject{},
-		RoleRef:    rbacv1.RoleRef{},
+func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
+	serviceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
 	}
-	return &clusterRoleBinding
+	if executor.Spec.ServiceAccount != nil {
+		serviceAccount.AutomountServiceAccountToken = executor.Spec.ServiceAccount.AutomountServiceAccountToken
+		serviceAccount.Secrets = executor.Spec.ServiceAccount.Secrets
+		serviceAccount.ImagePullSecrets = executor.Spec.ServiceAccount.ImagePullSecrets
+	}
+
+	return &serviceAccount
 }
 
-func generateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
-	yamlConfig, err := yaml.JSONToYAML(config.Raw)
-	if err != nil {
-		return nil, err
+func createClusterRoleBinding(
+	executor *installv1alpha1.Executor,
+	clusterRole *rbacv1.ClusterRole,
+	serviceAccount *corev1.ServiceAccount,
+) *rbacv1.ClusterRoleBinding {
+	clusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      serviceAccount.Name,
+			Namespace: serviceAccount.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     clusterRole.Name,
+		},
 	}
-
-	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
+	return &clusterRoleBinding
 }
 
 // SetupWithManager sets up the controller with the Manager.

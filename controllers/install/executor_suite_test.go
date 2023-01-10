@@ -19,6 +19,7 @@ package install
 import (
 	"context"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -64,8 +65,9 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+		CRDDirectoryPaths:        []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing:    true,
+		AttachControlPlaneOutput: false,
 	}
 
 	var err error
@@ -78,17 +80,19 @@ var _ = BeforeSuite(func() {
 	testUser, err = testEnv.AddUser(user, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = installv1alpha1.AddToScheme(scheme.Scheme)
+	s := scheme.Scheme
+
+	err = installv1alpha1.AddToScheme(s)
+	Expect(err).NotTo(HaveOccurred())
+	err = corev1.AddToScheme(s)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(cfg, client.Options{Scheme: s})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: s})
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&ExecutorReconciler{
@@ -99,7 +103,7 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		defer GinkgoRecover()
-		err = k8sManager.Start(context.Background())
+		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 
@@ -107,6 +111,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	cancel()
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
