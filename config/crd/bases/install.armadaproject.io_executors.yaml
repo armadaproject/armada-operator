@@ -42,8 +42,8 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
-                  account is referenced in the Deployment (overrides service account
-                  defined in spec.serviceAccount field)
+                  account is referenced in the Deployment and this will overrides
+                  service account defined in spec.serviceAccount field
                 type: string
               image:
                 description: Image is the configuration block for the image repository
