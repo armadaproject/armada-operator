@@ -2,8 +2,9 @@ package install
 
 import (
 	"context"
-	"github.com/armadaproject/armada-operator/apis/common"
-	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"testing"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 	"github.com/golang/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
 )
 
 func TestExecutorReconciler_Reconcile(t *testing.T) {
@@ -25,15 +25,15 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor"}
-	expectedExecutor := v1alpha1.Executor{
+	expectedExecutor := installv1alpha1.Executor{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Executor",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
-		Spec: v1alpha1.ExecutorSpec{
+		Spec: installv1alpha1.ExecutorSpec{
 			Labels: nil,
-			Image: common.Image{
+			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
 			},
@@ -44,7 +44,7 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 	// Executor
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Executor{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
 		Return(nil).
 		SetArg(2, expectedExecutor)
 	// ClusterRole
@@ -102,7 +102,7 @@ func TestExecutorReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil)
 
-	scheme, err := v1alpha1.SchemeBuilder.Build()
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}

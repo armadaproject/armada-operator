@@ -2,9 +2,10 @@ package install
 
 import (
 	"fmt"
-	"github.com/armadaproject/armada-operator/apis/common"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
-func ImageString(image common.Image) string {
+func ImageString(image installv1alpha1.Image) string {
 	return fmt.Sprintf("%s/%s", image.Repository, image.Tag)
 }

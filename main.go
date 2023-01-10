@@ -18,14 +18,20 @@ package main
 
 import (
 	"flag"
-	"github.com/armadaproject/armada-operator/controllers/install"
 	"os"
 
+	"github.com/armadaproject/armada-operator/controllers/install"
+
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -49,6 +55,7 @@ func init() {
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(installv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -107,6 +114,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Executor")
 		os.Exit(1)
 	}
+	if err = (&install.BinocularsReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Binoculars")
+		os.Exit(1)
+	}
+
 	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
 		os.Exit(1)
@@ -120,6 +135,10 @@ func main() {
 	}
 	if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Server")
+		os.Exit(1)
+	}
+	if err = (&installv1alpha1.EventIngester{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventIngester")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

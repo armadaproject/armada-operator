@@ -18,12 +18,13 @@ package install
 
 import (
 	"context"
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	"os"
 	"path/filepath"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,7 +77,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	user := envtest.User{Name: "test-executor", Groups: []string{"system:masters"}}
+	user := envtest.User{Name: "armada-operator-test-user", Groups: []string{"system:masters"}}
 	testUser, err = testEnv.AddUser(user, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -93,6 +94,18 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: s})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&BinocularsReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&EventIngesterReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&ExecutorReconciler{

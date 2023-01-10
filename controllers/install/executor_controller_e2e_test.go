@@ -1,15 +1,16 @@
 package install
 
 import (
+	"io"
+	"os"
+	"time"
+
 	"github.com/armadaproject/armada-operator/controllers/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"os"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var executorYaml = `apiVersion: install.armadaproject.io/v1alpha1
