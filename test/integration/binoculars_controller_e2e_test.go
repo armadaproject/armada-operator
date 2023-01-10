@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"io"
@@ -10,18 +10,18 @@ import (
 	"github.com/armadaproject/armada-operator/controllers/utils"
 )
 
-var lookoutYaml = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
+var binocularsYaml = `apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
 metadata:
   labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
+    app.kubernetes.io/name: binoculars
+    app.kubernetes.io/instance: bincoulars-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: lookout-e2e
+  name: executor-e2e
 spec:
   image:
-    repository: test-lookout
+    repository: test-executor
     tag: latest
   applicationConfig:
     server: example.com:443
@@ -32,10 +32,10 @@ spec:
 `
 
 var _ = Describe("Armada Operator", func() {
-	When("User applies Lookout YAML using kubectl", func() {
-		It("Kubernetes should create Lookout Kubernetes resources", func() {
-			By("Calling the Lookout Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(lookoutYaml))
+	When("User applies Binoculars YAML using kubectl", func() {
+		It("Kubernetes should create Executor Kubernetes resources", func() {
+			By("Calling the Executor Controller Reconcile function", func() {
+				f, err := utils.CreateTempFile([]byte(binocularsYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
 				}()

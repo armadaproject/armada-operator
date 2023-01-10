@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -10,10 +10,10 @@ import (
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
-var _ = Describe("Binoculars controller", func() {
-	When("Binoculars is created using k8s go-client", func() {
-		It("Kubernetes should create Executor Kubernetes resources", func() {
-			By("calling the Binoculars Controller Reconcile function", func() {
+var _ = Describe("Lookout controller", func() {
+	When("Lookout is created using k8s go-client", func() {
+		It("Kubernetes should create Lookout Kubernetes resources", func() {
+			By("calling the Lookout Controller Reconcile function", func() {
 				applicationConfig := map[string]interface{}{
 					"armadaUrl": "localhost:50001",
 					"foo": map[string]interface{}{
@@ -23,17 +23,17 @@ var _ = Describe("Binoculars controller", func() {
 				}
 				applicationConfigYAML, err := yaml.Marshal(applicationConfig)
 				Expect(err).NotTo(HaveOccurred())
-				executor := v1alpha1.Binoculars{
-					ObjectMeta: metav1.ObjectMeta{Name: "executor", Namespace: "default"},
-					Spec: v1alpha1.BinocularsSpec{
+				lookout := v1alpha1.Lookout{
+					ObjectMeta: metav1.ObjectMeta{Name: "lookout", Namespace: "default"},
+					Spec: v1alpha1.LookoutSpec{
 						Image: v1alpha1.Image{
-							Repository: "executor",
+							Repository: "lookout",
 							Tag:        "1.0.2",
 						},
 						ApplicationConfig: runtime.RawExtension{Raw: applicationConfigYAML},
 					},
 				}
-				Expect(k8sClient.Create(ctx, &executor)).Should(Succeed())
+				Expect(k8sClient.Create(ctx, &lookout)).Should(Succeed())
 			})
 		})
 	})

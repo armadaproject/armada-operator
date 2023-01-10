@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
