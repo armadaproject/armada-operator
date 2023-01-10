@@ -110,8 +110,8 @@ lint-fix:
 	golangci-lint run --fix
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile operator.out
+test: manifests generate fmt vet gotestsum ## Run tests.
+	$(GOTESTSUM) -- ./... -coverprofile operator.out
 
 ##@ Build
 
@@ -185,7 +185,7 @@ $(LOCALBIN):
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
-
+GOTESTSUM ?= $(LOCALBIN)/gotestsum
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
@@ -205,6 +205,12 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+GOTESTSUM = $(shell pwd)/bin/gotestsum
+.PHONY: gotestsum
+gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
+$(GOTESTSUM): $(GOTESTSUM)
+	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@latest
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
