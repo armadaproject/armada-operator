@@ -83,7 +83,7 @@ func TestExecutorValidateDelete(t *testing.T) {
 		name string
 	}{
 		{
-			name: "server validate delete",
+			name: "executor validate delete",
 		},
 	}
 	for _, tc := range tests {

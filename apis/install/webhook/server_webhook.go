@@ -41,7 +41,7 @@ func SetupWebhookForArmadaServer(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-eventingester,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=eventingesters,verbs=create;update,versions=v1alpha1,name=meventingester.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=server,verbs=create;update,versions=v1alpha1,name=mserver.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomDefaulter = &ArmadaServerWebhook{}
 
@@ -71,9 +71,9 @@ func (r *ArmadaServerWebhook) ValidateCreate(ctx context.Context, obj runtime.Ob
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *ArmadaServerWebhook) ValidateUpdate(ctx context.Context, obj, new runtime.Object) error {
-	eventIngester := obj.(*v1alpha.Server)
+	server := obj.(*v1alpha.Server)
 
-	armadaserverlog.Info("validate update", "name", eventIngester.Name)
+	armadaserverlog.Info("validate update", "name", server.Name)
 
 	return nil
 }

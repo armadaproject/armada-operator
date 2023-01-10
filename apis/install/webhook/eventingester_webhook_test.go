@@ -18,9 +18,9 @@ func TestEventIngesterDefaultWebhook(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			serverWebHook := EventIngesterWebhook{}
+			eventWebHook := EventIngesterWebhook{}
 			server := &v1alpha.EventIngester{}
-			assert.NoError(t, serverWebHook.Default(context.Background(), server))
+			assert.NoError(t, eventWebHook.Default(context.Background(), event))
 		})
 	}
 }
@@ -36,8 +36,8 @@ func TestEventIngesterValidateCreate(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			eventIngesterWebhook := &EventIngesterWebhook{}
-			server := &v1alpha.EventIngester{}
-			assert.NoError(t, eventIngesterWebhook.ValidateCreate(context.Background(), server))
+			event := &v1alpha.EventIngester{}
+			assert.NoError(t, eventIngesterWebhook.ValidateCreate(context.Background(), event))
 		})
 	}
 }
@@ -53,8 +53,8 @@ func TestEventIngesterValidateDelete(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			eventIngesterWebhook := &EventIngesterWebhook{}
-			server := &v1alpha.EventIngester{}
-			assert.NoError(t, eventIngesterWebhook.ValidateDelete(context.Background(), server))
+			event := &v1alpha.EventIngester{}
+			assert.NoError(t, eventIngesterWebhook.ValidateDelete(context.Background(), event))
 		})
 	}
 }

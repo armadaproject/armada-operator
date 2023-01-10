@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var binocularslog = logf.Log.WithName("executor-resource")
+var binocularslog = logf.Log.WithName("binoculars-resource")
 
 type BinocularsWebhook struct{}
 
