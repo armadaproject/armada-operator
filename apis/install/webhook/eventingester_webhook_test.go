@@ -19,7 +19,7 @@ func TestEventIngesterDefaultWebhook(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			eventWebHook := EventIngesterWebhook{}
-			server := &v1alpha.EventIngester{}
+			event := &v1alpha.EventIngester{}
 			assert.NoError(t, eventWebHook.Default(context.Background(), event))
 		})
 	}
