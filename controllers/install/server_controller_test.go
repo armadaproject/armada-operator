@@ -29,7 +29,7 @@ func TestServerReconciler_Reconcile(t *testing.T) {
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "server"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
