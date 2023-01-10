@@ -105,15 +105,22 @@ webhooks:
     resources:
     - lookout
   sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-install-armadaproject-io-v1alpha1-server
+      path: /validate-install-armadaproject-io-v1alpha1-armada-server
   failurePolicy: Fail
-  name: mserver.kb.io
+  name: varmada-server.kb.io
   rules:
   - apiGroups:
     - install.armadaproject.io
@@ -123,15 +130,8 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - servers
+    - armada-servers
   sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: validating-webhook-configuration
-webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
@@ -171,24 +171,4 @@ webhooks:
     - UPDATE
     resources:
     - executors
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-install-armadaproject-io-v1alpha1-server
-  failurePolicy: Fail
-  name: vserver.kb.io
-  rules:
-  - apiGroups:
-    - install.armadaproject.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - servers
   sideEffects: None

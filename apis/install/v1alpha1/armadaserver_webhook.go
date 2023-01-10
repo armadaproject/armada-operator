@@ -34,7 +34,7 @@ func (r *ArmadaServer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armada-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=marmada-server.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armada-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=armada-server.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &ArmadaServer{}
 
