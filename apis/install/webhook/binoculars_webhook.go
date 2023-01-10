@@ -24,8 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
+
+var binocularslog = logf.Log.WithName("executor-resource")
 
 type BinocularsWebhook struct{}
 
@@ -43,7 +46,7 @@ var _ webhook.CustomDefaulter = &BinocularsWebhook{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *BinocularsWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	binoculars := obj.(*v1alpha.Binoculars)
-	executorlog.Info("default", "name", binoculars.Name)
+	binocularslog.Info("default", "name", binoculars.Name)
 	binoculars.Spec = SetBinocularsDefaults(binoculars).Spec
 	return nil
 }

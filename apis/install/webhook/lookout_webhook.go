@@ -24,8 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
+
+var lookoutlog = logf.Log.WithName("lookout-resource")
 
 type LookoutWebhook struct{}
 
@@ -43,7 +46,7 @@ var _ webhook.CustomDefaulter = &LookoutWebhook{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *LookoutWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	lookout := obj.(*v1alpha.Lookout)
-	executorlog.Info("default", "name", lookout.Name)
+	lookoutlog.Info("default", "name", lookout.Name)
 	lookout.Spec = setLookoutDefaults(lookout).Spec
 	return nil
 }
