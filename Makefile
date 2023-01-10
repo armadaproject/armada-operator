@@ -206,9 +206,9 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-GOTESTSUM = $(shell pwd)/bin/gotestsum
 .PHONY: gotestsum
-gotestsum: ## Download gotestsum locally if necessary.
+gotestsum: $(GOTESTSUM)## Download gotestsum locally if necessary.
+$(GOTESTSUM): $(LOCALBIN)
 	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@v1.8.2
 
 .PHONY: bundle
