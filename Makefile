@@ -208,9 +208,8 @@ $(ENVTEST): $(LOCALBIN)
 
 GOTESTSUM = $(shell pwd)/bin/gotestsum
 .PHONY: gotestsum
-gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
-$(GOTESTSUM): $(GOTESTSUM)
-	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@latest
+gotestsum: ## Download gotestsum locally if necessary.
+	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@v1.8.2
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
