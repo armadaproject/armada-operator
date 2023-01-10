@@ -28,13 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-const (
-	keySpec              = "spec"
-	keyApplicationConfig = "applicationConfig"
-	keyAPIConnection     = "apiConnection"
-	keyArmadaURL         = "armadaUrl"
-)
-
 // log is for logging in this package.
 var executorlog = logf.Log.WithName("executor-resource")
 
