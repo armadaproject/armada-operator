@@ -24,6 +24,24 @@ func TestEventIngesterDefaultWebhook(t *testing.T) {
 		})
 	}
 }
+
+func TestEventIngesterValidateCreate(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "event ingester validate create",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			eventIngesterWebhook := &EventIngesterWebhook{}
+			server := &v1alpha.EventIngester{}
+			assert.NoError(t, eventIngesterWebhook.ValidateCreate(context.Background(), server))
+		})
+	}
+}
+
 func TestEventIngesterValidateDelete(t *testing.T) {
 	tests := []struct {
 		name string

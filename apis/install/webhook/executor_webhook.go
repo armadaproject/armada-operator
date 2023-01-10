@@ -18,15 +18,11 @@ package webhook
 
 import (
 	"context"
-	"fmt"
 
 	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -101,17 +97,7 @@ func (web *ExecutorWebhook) ValidateCreate(ctx context.Context, obj runtime.Obje
 
 	executorlog.Info("validate create", "name", r.Name)
 
-	var allErrs field.ErrorList
-
-	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if len(allErrs) == 0 {
-		return nil
-	}
-
-	return errors.NewInvalid(schema.GroupKind{Group: v1alpha.GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -119,17 +105,7 @@ func (web *ExecutorWebhook) ValidateUpdate(ctx context.Context, obj, old runtime
 	r := obj.(*v1alpha.Executor)
 	executorlog.Info("validate update", "name", r.Name)
 
-	var allErrs field.ErrorList
-
-	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
-		allErrs = append(allErrs, err)
-	}
-
-	if len(allErrs) == 0 {
-		return nil
-	}
-
-	return errors.NewInvalid(schema.GroupKind{Group: v1alpha.GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -137,39 +113,6 @@ func (web *ExecutorWebhook) ValidateDelete(ctx context.Context, obj runtime.Obje
 	r := obj.(*v1alpha.Executor)
 
 	executorlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
-}
-func validateApplicationConfig(applicationConfig map[string]any, fldPath *field.Path) *field.Error {
-	if applicationConfig == nil {
-		return field.Invalid(fldPath, applicationConfig, "applicationConfig must be configured")
-	}
-
-	if applicationConfig[keyAPIConnection] == nil {
-		return field.Invalid(fldPath.Child(keyAPIConnection), applicationConfig[keyAPIConnection], "apiConnection must be configured")
-	}
-	apiConnection, ok := applicationConfig[keyAPIConnection].(map[string]any)
-	if !ok {
-		return field.Invalid(
-			fldPath.Child(keyAPIConnection),
-			applicationConfig[keyAPIConnection],
-			fmt.Sprintf("expected map[string]any, got %T", applicationConfig[keyAPIConnection]),
-		)
-	}
-
-	if apiConnection[keyArmadaURL] == nil {
-		return field.Invalid(fldPath.Child(keyAPIConnection).Child(keyArmadaURL), apiConnection["keyArmadaURL"], "armadaUrl must be provided")
-	}
-
-	_, ok = apiConnection[keyArmadaURL].(string)
-	if !ok {
-		return field.Invalid(
-			fldPath.Child(keyAPIConnection).Child(keyArmadaURL),
-			apiConnection[keyArmadaURL],
-			fmt.Sprintf("expected string, got %T", apiConnection[keyArmadaURL]),
-		)
-	}
 
 	return nil
 }

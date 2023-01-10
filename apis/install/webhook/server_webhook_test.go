@@ -40,6 +40,22 @@ func TestServerValidateDelete(t *testing.T) {
 		})
 	}
 }
+func TestServerValidateCreate(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "server validate create",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			serverWebHook := &ArmadaServerWebhook{}
+			server := &v1alpha.Server{}
+			assert.NoError(t, serverWebHook.ValidateCreate(context.Background(), server))
+		})
+	}
+}
 
 func TestServerValidateUpdate(t *testing.T) {
 	tests := []struct {
