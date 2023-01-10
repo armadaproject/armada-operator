@@ -12,7 +12,7 @@ import (
 	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
 
-func TestServerReconciler_Reconcile(t *testing.T) {
+func TestQueueReconciler_Reconcile(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
