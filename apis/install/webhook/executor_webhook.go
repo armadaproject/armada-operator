@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhook
 
 import (
+	"context"
 	"fmt"
 
+	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,9 +42,13 @@ const (
 // log is for logging in this package.
 var executorlog = logf.Log.WithName("executor-resource")
 
-func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
+type ExecutorWebhook struct{}
+
+func SetupWebhookForExecutor(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&v1alpha.Executor{}).
+		WithDefaulter(&ExecutorWebhook{}).
+		WithValidator(&ExecutorWebhook{}).
 		Complete()
 }
 
@@ -50,10 +56,12 @@ func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-executor,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=mexecutor.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Executor{}
+var _ webhook.CustomDefaulter = &ExecutorWebhook{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Executor) Default() {
+func (web *ExecutorWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	r := obj.(*v1alpha.Executor)
+
 	executorlog.Info("default", "name", r.Name)
 
 	// image
@@ -79,15 +87,18 @@ func (r *Executor) Default() {
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
+	return nil
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-executor,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=vexecutor.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Executor{}
+var _ webhook.CustomValidator = &ExecutorWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateCreate() error {
+func (web *ExecutorWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	r := obj.(*v1alpha.Executor)
+
 	executorlog.Info("validate create", "name", r.Name)
 
 	var allErrs field.ErrorList
@@ -100,11 +111,12 @@ func (r *Executor) ValidateCreate() error {
 		return nil
 	}
 
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return errors.NewInvalid(schema.GroupKind{Group: v1alpha.GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateUpdate(old runtime.Object) error {
+func (web *ExecutorWebhook) ValidateUpdate(ctx context.Context, obj, old runtime.Object) error {
+	r := obj.(*v1alpha.Executor)
 	executorlog.Info("validate update", "name", r.Name)
 
 	var allErrs field.ErrorList
@@ -117,11 +129,13 @@ func (r *Executor) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
+	return errors.NewInvalid(schema.GroupKind{Group: v1alpha.GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Executor) ValidateDelete() error {
+func (web *ExecutorWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	r := obj.(*v1alpha.Executor)
+
 	executorlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.

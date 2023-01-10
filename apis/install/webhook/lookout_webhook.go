@@ -14,35 +14,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhook
 
 import (
+	"context"
+
+	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-// log is for logging in this package.
-var lookoutlog = logf.Log.WithName("lookout-resource")
+type LookoutWebhook struct{}
 
-func (r *Lookout) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func SetupWebhookForLookout(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&v1alpha.Lookout{}).
+		WithDefaulter(&LookoutWebhook{}).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookout,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Lookout{}
+var _ webhook.CustomDefaulter = &LookoutWebhook{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Lookout) Default() {
-	lookoutlog.Info("default", "name", r.Name)
+func (r *LookoutWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	lookout := obj.(*v1alpha.Lookout)
+	executorlog.Info("default", "name", lookout.Name)
+	lookout.Spec = setLookoutDefaults(lookout).Spec
+	return nil
+}
 
+func setLookoutDefaults(r *v1alpha.Lookout) *v1alpha.Lookout {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearchdev/armada-lookout"
@@ -66,4 +72,6 @@ func (r *Lookout) Default() {
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
+
+	return r
 }

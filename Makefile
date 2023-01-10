@@ -111,7 +111,7 @@ lint-fix:
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	go test ./apis... ./controllers/... -coverprofile operator.out
+	go test ./apis/install/webhook... ./controllers/... -coverprofile operator.out
 
 .PHONY: test-integration
 test-integration: manifests generate fmt vet envtest ## Run tests.

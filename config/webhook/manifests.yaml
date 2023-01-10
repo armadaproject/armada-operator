@@ -91,9 +91,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-install-armadaproject-io-v1alpha1-server
+      path: /mutate-install-armadaproject-io-v1alpha1-eventingester
   failurePolicy: Fail
-  name: mserver.kb.io
+  name: meventingester.kb.io
   rules:
   - apiGroups:
     - install.armadaproject.io
@@ -103,7 +103,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - servers
+    - eventingesters
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -170,5 +170,5 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - servers
+    - server
   sideEffects: None

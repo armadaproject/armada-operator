@@ -14,9 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhook
 
 import (
+	"context"
+
+	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -26,9 +29,13 @@ import (
 // log is for logging in this package.
 var eventingesterlog = logf.Log.WithName("eventingester-resource")
 
-func (r *EventIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
+type EventIngesterWebhook struct{}
+
+func SetupWebhookForEventIngester(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&v1alpha.EventIngester{}).
+		WithDefaulter(&EventIngesterWebhook{}).
+		WithValidator(&EventIngesterWebhook{}).
 		Complete()
 }
 
@@ -36,39 +43,46 @@ func (r *EventIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-eventingester,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=eventingesters,verbs=create;update,versions=v1alpha1,name=meventingester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &EventIngester{}
+var _ webhook.CustomDefaulter = &EventIngesterWebhook{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *EventIngester) Default() {
-	eventingesterlog.Info("default", "name", r.Name)
+func (r *EventIngesterWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	eventIngester := obj.(*v1alpha.EventIngester)
 
+	eventingesterlog.Info("default", "name", eventIngester.Name)
 	// TODO(user): fill in your defaulting logic.
+	return nil
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-eventingester,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=eventingesters,verbs=create;update,versions=v1alpha1,name=veventingester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &EventIngester{}
+var _ webhook.CustomValidator = &EventIngesterWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *EventIngester) ValidateCreate() error {
-	eventingesterlog.Info("validate create", "name", r.Name)
+func (r *EventIngesterWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	eventIngester := obj.(*v1alpha.EventIngester)
+
+	eventingesterlog.Info("validate create", "name", eventIngester.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *EventIngester) ValidateUpdate(old runtime.Object) error {
-	eventingesterlog.Info("validate update", "name", r.Name)
+func (r *EventIngesterWebhook) ValidateUpdate(ctx context.Context, obj, new runtime.Object) error {
+	eventIngester := obj.(*v1alpha.EventIngester)
 
-	// TODO(user): fill in your validation logic upon object update.
+	eventingesterlog.Info("validate update", "name", eventIngester.Name)
+
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *EventIngester) ValidateDelete() error {
-	eventingesterlog.Info("validate delete", "name", r.Name)
+func (r *EventIngesterWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	eventIngester := obj.(*v1alpha.EventIngester)
+
+	eventingesterlog.Info("validate delete", "name", eventIngester.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil

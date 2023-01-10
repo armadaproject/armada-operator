@@ -14,31 +14,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhook
 
 import (
+	"context"
+
+	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
+type BinocularsWebhook struct{}
+
+func SetupWebhookForBinoculars(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&v1alpha.Binoculars{}).
+		WithDefaulter(&BinocularsWebhook{}).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-binoculars,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=binoculars,verbs=create;update,versions=v1alpha1,name=mbinoculars.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Binoculars{}
+var _ webhook.CustomDefaulter = &BinocularsWebhook{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Binoculars) Default() {
-	executorlog.Info("default", "name", r.Name)
+func (r *BinocularsWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	binoculars := obj.(*v1alpha.Binoculars)
+	executorlog.Info("default", "name", binoculars.Name)
+	binoculars.Spec = SetBinocularsDefaults(binoculars).Spec
+	return nil
+}
 
+func SetBinocularsDefaults(r *v1alpha.Binoculars) *v1alpha.Binoculars {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearchdev/armada-binoculars"
@@ -62,4 +72,6 @@ func (r *Binoculars) Default() {
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
+
+	return r
 }
