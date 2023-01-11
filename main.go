@@ -23,7 +23,6 @@ import (
 	"github.com/armadaproject/armada-operator/controllers/install"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	webhook "github.com/armadaproject/armada-operator/apis/install/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -126,8 +125,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if service, err := webhook.Setup(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", service)
+	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
 		os.Exit(1)
 	}
 	if err = (&corecontrollers.QueueReconciler{
@@ -135,6 +134,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Queue")
+		os.Exit(1)
+	}
+	if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Server")
+		os.Exit(1)
+	}
+	if err = (&installv1alpha1.EventIngester{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventIngester")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

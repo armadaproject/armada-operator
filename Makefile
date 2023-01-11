@@ -110,12 +110,12 @@ lint-fix:
 	golangci-lint run --fix
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	go test ./apis/install/webhook... ./controllers/... -coverprofile operator.out
+test: manifests generate fmt vet ## Run tests.
+	go test ./controllers/... -coverprofile operator.out
 
 .PHONY: test-integration
 test-integration: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile operator.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./apis/... -coverprofile operator.out
 
 ##@ Build
 

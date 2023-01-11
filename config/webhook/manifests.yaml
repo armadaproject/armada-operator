@@ -103,7 +103,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - server
+    - servers
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -170,5 +170,5 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - server
+    - servers
   sideEffects: None

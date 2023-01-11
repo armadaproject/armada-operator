@@ -14,47 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package v1alpha1
 
 import (
-	"context"
-
-	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var lookoutlog = logf.Log.WithName("lookout-resource")
-
-type LookoutWebhook struct{}
-
-func SetupWebhookForLookout(mgr ctrl.Manager) error {
+func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha.Lookout{}).
-		WithDefaulter(&LookoutWebhook{}).
+		For(r).
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookout,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
+// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-var _ webhook.CustomDefaulter = &LookoutWebhook{}
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-binoculars,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=binoculars,verbs=create;update,versions=v1alpha1,name=mbinoculars.kb.io,admissionReviewVersions=v1
+
+var _ webhook.Defaulter = &Binoculars{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *LookoutWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	lookout := obj.(*v1alpha.Lookout)
-	lookoutlog.Info("default", "name", lookout.Name)
-	lookout.Spec = setLookoutDefaults(lookout).Spec
-	return nil
-}
+func (r *Binoculars) Default() {
+	executorlog.Info("default", "name", r.Name)
 
-func setLookoutDefaults(r *v1alpha.Lookout) *v1alpha.Lookout {
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearchdev/armada-lookout"
+		r.Spec.Image.Repository = "gresearchdev/armada-binoculars"
 	}
 
 	// resources
@@ -75,6 +62,4 @@ func setLookoutDefaults(r *v1alpha.Lookout) *v1alpha.Lookout {
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
-
-	return r
 }

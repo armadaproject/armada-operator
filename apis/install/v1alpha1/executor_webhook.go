@@ -14,30 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package v1alpha1
 
 import (
-	"context"
+	"fmt"
 
-	v1alpha "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	keySpec              = "spec"
+	keyApplicationConfig = "applicationConfig"
+	keyAPIConnection     = "apiConnection"
+	keyArmadaURL         = "armadaUrl"
+)
+
 // log is for logging in this package.
 var executorlog = logf.Log.WithName("executor-resource")
 
-type ExecutorWebhook struct{}
-
-func SetupWebhookForExecutor(mgr ctrl.Manager) error {
+func (r *Executor) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha.Executor{}).
-		WithDefaulter(&ExecutorWebhook{}).
-		WithValidator(&ExecutorWebhook{}).
+		For(r).
 		Complete()
 }
 
@@ -45,12 +50,10 @@ func SetupWebhookForExecutor(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-executor,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=mexecutor.kb.io,admissionReviewVersions=v1
 
-var _ webhook.CustomDefaulter = &ExecutorWebhook{}
+var _ webhook.Defaulter = &Executor{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (web *ExecutorWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	r := obj.(*v1alpha.Executor)
-
+func (r *Executor) Default() {
 	executorlog.Info("default", "name", r.Name)
 
 	// image
@@ -76,36 +79,83 @@ func (web *ExecutorWebhook) Default(ctx context.Context, obj runtime.Object) err
 	if r.Spec.Prometheus.ScrapeInterval == "" {
 		r.Spec.Prometheus.ScrapeInterval = "10s"
 	}
-	return nil
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-executor,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=executors,verbs=create;update,versions=v1alpha1,name=vexecutor.kb.io,admissionReviewVersions=v1
 
-var _ webhook.CustomValidator = &ExecutorWebhook{}
+var _ webhook.Validator = &Executor{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (web *ExecutorWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	r := obj.(*v1alpha.Executor)
-
+func (r *Executor) ValidateCreate() error {
 	executorlog.Info("validate create", "name", r.Name)
 
-	return nil
+	var allErrs field.ErrorList
+
+	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (web *ExecutorWebhook) ValidateUpdate(ctx context.Context, obj, old runtime.Object) error {
-	r := obj.(*v1alpha.Executor)
+func (r *Executor) ValidateUpdate(old runtime.Object) error {
 	executorlog.Info("validate update", "name", r.Name)
 
-	return nil
+	var allErrs field.ErrorList
+
+	if err := validateApplicationConfig(nil, field.NewPath(keySpec).Child(keyApplicationConfig)); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return errors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "Executor"}, r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (web *ExecutorWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	r := obj.(*v1alpha.Executor)
-
+func (r *Executor) ValidateDelete() error {
 	executorlog.Info("validate delete", "name", r.Name)
+
+	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
+func validateApplicationConfig(applicationConfig map[string]any, fldPath *field.Path) *field.Error {
+	if applicationConfig == nil {
+		return field.Invalid(fldPath, applicationConfig, "applicationConfig must be configured")
+	}
+
+	if applicationConfig[keyAPIConnection] == nil {
+		return field.Invalid(fldPath.Child(keyAPIConnection), applicationConfig[keyAPIConnection], "apiConnection must be configured")
+	}
+	apiConnection, ok := applicationConfig[keyAPIConnection].(map[string]any)
+	if !ok {
+		return field.Invalid(
+			fldPath.Child(keyAPIConnection),
+			applicationConfig[keyAPIConnection],
+			fmt.Sprintf("expected map[string]any, got %T", applicationConfig[keyAPIConnection]),
+		)
+	}
+
+	if apiConnection[keyArmadaURL] == nil {
+		return field.Invalid(fldPath.Child(keyAPIConnection).Child(keyArmadaURL), apiConnection["keyArmadaURL"], "armadaUrl must be provided")
+	}
+
+	_, ok = apiConnection[keyArmadaURL].(string)
+	if !ok {
+		return field.Invalid(
+			fldPath.Child(keyAPIConnection).Child(keyArmadaURL),
+			apiConnection[keyArmadaURL],
+			fmt.Sprintf("expected string, got %T", apiConnection[keyArmadaURL]),
+		)
+	}
 
 	return nil
 }
