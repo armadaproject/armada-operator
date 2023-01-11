@@ -14,15 +14,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var binocularsYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Binoculars
+var EIYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
+kind: EventIngester
 metadata:
   labels:
     app.kubernetes.io/name: binoculars
     app.kubernetes.io/instance: binoculars-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: binoculars-e2e-1
+  name: executor-e2e-1
 spec:
   image:
     repository: test-binoculars
@@ -35,7 +35,7 @@ spec:
         operator: in
 `
 
-var binocularsYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
+var EIYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Binoculars
 metadata:
   labels:
@@ -43,7 +43,7 @@ metadata:
     app.kubernetes.io/instance: binoculars-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: binoculars-e2e-2
+  name: executor-e2e-2
 spec:
   image:
     repository: test-binoculars
@@ -56,7 +56,7 @@ spec:
         operator: in
 `
 
-var BinocularsYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
+var EIYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Binoculars
 metadata:
   labels:
@@ -65,7 +65,7 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
     test: updated
-  name: binoculars-e2e-2
+  name: binocoulars-e2e-2
 spec:
   image:
     repository: test-binoculars
@@ -82,7 +82,7 @@ var _ = Describe("Binoculars Controller", func() {
 	When("User applies a new Binoculars YAML using kubectl", func() {
 		It("Kubernetes should create the Binoculars Kubernetes resources", func() {
 			By("Calling the Binoculars Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(binocularsYaml1))
+				f, err := CreateTempFile([]byte(executorYaml1))
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 				defer os.Remove(f.Name())
@@ -97,39 +97,39 @@ var _ = Describe("Binoculars Controller", func() {
 				}
 				stdinBytes, err := io.ReadAll(stdin)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(stdinBytes)).To(Equal("binoculars.install.armadaproject.io/binoculars-e2e-1 created\n"))
+				Expect(string(stdinBytes)).To(Equal("executor.install.armadaproject.io/executor-e2e-1 created\n"))
 
 				time.Sleep(2 * time.Second)
 
-				binoculars := installv1alpha1.Binoculars{}
-				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
-				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
+				executor := installv1alpha1.Executor{}
+				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
 
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, deploymentKey, &deployment)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("binoculars-e2e-1"))
+				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("executor-e2e-1"))
 
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
 
-	When("User applies an existing Binoculars YAML with updated values using kubectl", func() {
-		It("Kubernetes should update the Binoculars Kubernetes resources", func() {
-			By("Calling the Binoculars Controller Reconcile function", func() {
-				f1, err := CreateTempFile([]byte(binocularsYaml2))
+	When("User applies an existing Executor YAML with updated values using kubectl", func() {
+		It("Kubernetes should update the Executor Kubernetes resources", func() {
+			By("Calling the Executor Controller Reconcile function", func() {
+				f1, err := CreateTempFile([]byte(executorYaml2))
 				Expect(err).ToNot(HaveOccurred())
 				defer f1.Close()
 				defer os.Remove(f1.Name())
@@ -144,15 +144,15 @@ var _ = Describe("Binoculars Controller", func() {
 				}
 				stdinBytes, err := io.ReadAll(stdin)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(stdinBytes)).To(BeEquivalentTo("binoculars.install.armadaproject.io/binoculars-e2e-2 created\n"))
+				Expect(string(stdinBytes)).To(BeEquivalentTo("executor.install.armadaproject.io/executor-e2e-2 created\n"))
 
-				binoculars := installv1alpha1.Binoculars{}
-				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-2"}
-				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
+				executor := installv1alpha1.Executor{}
+				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-2"}
+				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
-				Expect("test").NotTo(BeKeyOf(binoculars.Labels))
+				Expect("test").NotTo(BeKeyOf(executor.Labels))
 
-				f2, err := CreateTempFile([]byte(BinocularsYaml2Updated))
+				f2, err := CreateTempFile([]byte(executorYaml2Updated))
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
 				defer os.Remove(f2.Name())
@@ -166,14 +166,14 @@ var _ = Describe("Binoculars Controller", func() {
 				}
 				stdinBytes, err = io.ReadAll(stdin)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(stdinBytes)).To(Equal("binoculars.install.armadaproject.io/binoculars-e2e-2 configured\n"))
+				Expect(string(stdinBytes)).To(Equal("executor.install.armadaproject.io/executor-e2e-2 configured\n"))
 
 				time.Sleep(2 * time.Second)
 
-				binoculars = installv1alpha1.Binoculars{}
-				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
+				executor = installv1alpha1.Executor{}
+				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(binoculars.Labels["test"]).To(BeEquivalentTo("updated"))
+				Expect(executor.Labels["test"]).To(BeEquivalentTo("updated"))
 			})
 		})
 	})

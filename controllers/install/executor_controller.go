@@ -120,43 +120,29 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	mutateFn := func() error { return nil }
 
-	logger.Info("Upserting Executor ServiceAccount object")
 	if components.ServiceAccount != nil {
+		logger.Info("Upserting Executor ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	logger.Info("Upserting Executor Secret object")
 	if components.Secret != nil {
+		logger.Info("Upserting Executor Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting Executor Deployment object")
 	if components.Deployment != nil {
+		logger.Info("Upserting Executor Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting Executor Service object")
 	if components.Service != nil {
+		logger.Info("Upserting Executor Service object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	logger.Info("Upserting Executor ClusterRole object")
-	if components.ClusterRole != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	logger.Info("Upserting Executor ClusterRoleBinding object")
-	if components.ClusterRoleBinding != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -196,14 +182,15 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 		return nil, err
 	}
 
-	// clusterRole := createClusterRole(executor)
-	// clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
+	clusterRole := createClusterRole(executor)
+	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
 
 	return &ExecutorComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		Deployment:         deployment,
+		Service:            service,
+		ServiceAccount:     serviceAccount,
+		Secret:             secret,
+		ClusterRoleBinding: clusterRoleBinding,
 	}, nil
 }
 
