@@ -6,8 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/armadaproject/armada-operator/controllers/utils"
 )
 
 var binocularsYaml = `apiVersion: install.armadaproject.io/v1alpha1
@@ -35,7 +33,7 @@ var _ = Describe("Armada Operator", func() {
 	When("User applies Binoculars YAML using kubectl", func() {
 		It("Kubernetes should create Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(binocularsYaml))
+				f, err := CreateTempFile([]byte(binocularsYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
 				}()
