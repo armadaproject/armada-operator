@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"io"
@@ -6,8 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/armadaproject/armada-operator/controllers/utils"
 )
 
 var lookoutYaml = `apiVersion: install.armadaproject.io/v1alpha1
@@ -35,7 +33,7 @@ var _ = Describe("Armada Operator", func() {
 	When("User applies Lookout YAML using kubectl", func() {
 		It("Kubernetes should create Lookout Kubernetes resources", func() {
 			By("Calling the Lookout Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(lookoutYaml))
+				f, err := CreateTempFile([]byte(lookoutYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
 				}()

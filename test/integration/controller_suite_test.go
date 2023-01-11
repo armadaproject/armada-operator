@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package install
+package integration
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	controllers "github.com/armadaproject/armada-operator/controllers/install"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -93,7 +94,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&ExecutorReconciler{
+	err = (&controllers.ExecutorReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)

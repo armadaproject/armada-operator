@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"io"
@@ -6,16 +6,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/armadaproject/armada-operator/controllers/utils"
 )
 
-var binocularsYaml = `apiVersion: install.armadaproject.io/v1alpha1
+var executorYaml = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
   labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: bincoulars-sample
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/instance: executor-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: executor-e2e
@@ -32,10 +30,10 @@ spec:
 `
 
 var _ = Describe("Armada Operator", func() {
-	When("User applies Binoculars YAML using kubectl", func() {
+	When("User applies Executor YAML using kubectl", func() {
 		It("Kubernetes should create Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(binocularsYaml))
+				f, err := CreateTempFile([]byte(executorYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
 				}()
