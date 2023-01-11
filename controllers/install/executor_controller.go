@@ -126,21 +126,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
-
-	logger.Info("Upserting Executor ClusterRole object")
-	if components.ClusterRole != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	logger.Info("Upserting Executor ClusterRoleBinding object")
-	if components.ClusterRoleBinding != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	logger.Info("Upserting Executor Secret object")
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
@@ -158,6 +143,20 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger.Info("Upserting Executor Service object")
 	if components.Service != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting Executor ClusterRole object")
+	if components.ClusterRole != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting Executor ClusterRoleBinding object")
+	if components.ClusterRoleBinding != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -196,24 +195,15 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createClusterRole(executor)
-	// namespace-scoped Executor cannot own cluster-scoped ClusterRole resource
-	//if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
-	//	return nil, err
-	//}
-	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
-	// namespace-scoped Executor cannot own cluster-scoped ClusterRole resource
-	//if err := controllerutil.SetOwnerReference(executor, clusterRoleBinding, scheme); err != nil {
-	//	return nil, err
-	//}
+
+	// clusterRole := createClusterRole(executor)
+	// clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
 
 	return &ExecutorComponents{
-		Deployment:         deployment,
-		Service:            service,
-		ServiceAccount:     serviceAccount,
-		Secret:             secret,
-		ClusterRole:        clusterRole,
-		ClusterRoleBinding: clusterRoleBinding,
+		Deployment:     deployment,
+		Service:        service,
+		ServiceAccount: serviceAccount,
+		Secret:         secret,
 	}, nil
 }
 

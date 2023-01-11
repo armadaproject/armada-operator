@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +23,11 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor"}
 	expectedExecutor := installv1alpha1.Executor{
@@ -41,6 +45,12 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
+
+	executorComponents, err := generateExecutorInstallComponents(&expectedExecutor, scheme)
+	if err != nil {
+		t.Errorf("Executor Install Components should not fail")
+	}
+
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	// Executor
 	mockK8sClient.
@@ -59,24 +69,6 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
 		Return(nil)
-	// ClusterRole
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(nil)
-	// ClusterRoleBinding
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
-		Return(nil)
 	// Secret
 	mockK8sClient.
 		EXPECT().
@@ -85,7 +77,8 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(nil)
+		Return(nil).
+		SetArg(1, *executorComponents.Secret)
 	// Deployment
 	mockK8sClient.
 		EXPECT().
@@ -94,7 +87,8 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
-		Return(nil)
+		Return(nil).
+		SetArg(1, *executorComponents.Deployment)
 	// Deployment
 	mockK8sClient.
 		EXPECT().
@@ -103,12 +97,29 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
-		Return(nil)
+		Return(nil).
+		SetArg(1, *executorComponents.Service)
 
-	scheme, err := installv1alpha1.SchemeBuilder.Build()
-	if err != nil {
-		t.Fatalf("should not return error when building schema")
-	}
+	// // ClusterRole
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+	// 	Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+	// 	Return(nil).
+	// 	SetArg(1, *executorComponents.ClusterRole)
+	// // // ClusterRoleBinding
+	// // mockK8sClient.
+	// // 	EXPECT().
+	// // 	Get(gomock.Any(), "executor", gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+	// // 	Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	// // mockK8sClient.
+	// // 	EXPECT().
+	// // 	Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+	// // 	Return(nil).
+	// // 	SetArg(1, *executorComponents.ClusterRoleBinding)
 
 	r := ExecutorReconciler{
 		Client: mockK8sClient,
@@ -149,7 +160,7 @@ func TestExecutorReconciler_ReconcileNoExecutor(t *testing.T) {
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "executor"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "executor-test"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
