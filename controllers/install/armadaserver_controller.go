@@ -18,6 +18,7 @@ package install
 
 import (
 	"context"
+	"time"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
@@ -34,6 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	asFinalizer = "batch.tutorial.kubebuilder.io/finalizer"
 )
 
 // ArmadaServerReconciler reconciles a ArmadaServer object
@@ -56,12 +61,15 @@ type ArmadaServerReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	started := time.Now()
+	logger.Info("Reconciling ArmadaServer object")
 
+	logger.Info("Fetching ArmadaServer object from cache")
 	var as installv1alpha1.ArmadaServer
 	if err := r.Client.Get(ctx, req.NamespacedName, &as); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("ArmadaServer not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("ArmadaServer not found in cache, ending reconcile")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -72,46 +80,109 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	deletionTimestamp := as.ObjectMeta.DeletionTimestamp
+	// examine DeletionTimestamp to determine if object is under deletion
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&as, asFinalizer) {
+			logger.Info("Attaching finalizer to ArmadaServer object", "finalizer", asFinalizer)
+			controllerutil.AddFinalizer(&as, asFinalizer)
+			if err := r.Update(ctx, &as); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("ArmadaServer object is being deleted", "finalizer", asFinalizer)
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&as, asFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for ArmadaServer object", "finalizer", asFinalizer)
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from ArmadaServer object", "finalizer", asFinalizer)
+			controllerutil.RemoveFinalizer(&as, asFinalizer)
+			if err := r.Update(ctx, &as); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	mutateFn := func() error { return nil }
 
-	if components.ServiceAccount != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Secret != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
+	logger.Info("Upserting ArmadaServer Deployment object")
 	if components.Deployment != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting ArmadaServer Ingress object")
+	if components.Ingress != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer Ingress_Rest object")
+	if components.Ingress_Rest != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress_Rest, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer Service object")
 	if components.Service != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// now do init logic
+	logger.Info("Upserting ArmadaServer ServiceAccount object")
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer Secret object")
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer PodDisruptionBudget object")
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PodDisruptionBudget, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer PrometheusRule object")
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting ArmadaServer ServiceMonitor object")
+	if components.Secret != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// TODO init logic
+
+	logger.Info("Successfully reconciled ArmadaServer object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
-
-//-  deployment.yaml
-//-  ingress.yaml
-//- ingressrest.yaml
-//-  pdb.yaml
-//-  prometheusrule.yaml
-//-  secret.yaml
-//-  service.yaml
-//-  serviceaccount.yaml
-//  servicemonitor.yaml
 
 type ArmadaServerComponents struct {
 	Deployment          *appsv1.Deployment
@@ -126,6 +197,31 @@ type ArmadaServerComponents struct {
 }
 
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
+	deployment := createArmadaServerDeployment(as)
+	if err := controllerutil.SetOwnerReference(as, deployment, scheme); err != nil {
+		return nil, err
+	}
+
+	ingress, err := createIngress(as)
+	if err := controllerutil.SetOwnerReference(as, ingress, scheme); err != nil {
+		return nil, err
+	}
+
+	ingressRest, err := createIngressRest(as)
+	if err := controllerutil.SetOwnerReference(as, ingressRest, scheme); err != nil {
+		return nil, err
+	}
+
+	service := createArmadaServerService(as)
+	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
+		return nil, err
+	}
+
+	svcAcct := createArmadaServerServiceAccount(as)
+	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
+		return nil, err
+	}
+
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace)
 	if err != nil {
 		return nil, err
@@ -133,25 +229,34 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	if err := controllerutil.SetOwnerReference(as, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createArmadaServerDeployment(as)
-	if err := controllerutil.SetOwnerReference(as, deployment, scheme); err != nil {
+
+	pdb := createPodDisruptionBudget(as)
+	if err := controllerutil.SetOwnerReference(as, pdb, scheme); err != nil {
 		return nil, err
 	}
-	service := createArmadaServerService(as)
-	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
+
+	pr := createPrometheusRule(as)
+	if err := controllerutil.SetOwnerReference(as, pr, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := builders.CreateClusterRole(as.Name, as.Namespace)
-	if err := controllerutil.SetOwnerReference(as, clusterRole, scheme); err != nil {
+
+	sm := createServiceMonitor(as)
+	if err := controllerutil.SetOwnerReference(as, sm, scheme); err != nil {
 		return nil, err
 	}
 
 	return &ArmadaServerComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: nil,
-		Secret:         secret,
+		Deployment:          deployment,
+		Ingress:             ingress,
+		Ingress_Rest:        ingressRest,
+		Service:             service,
+		ServiceAccount:      svcAcct,
+		Secret:              secret,
+		PodDisruptionBudget: pdb,
+		PrometheusRule:      pr,
+		ServiceMonitor:      sm,
 	}, nil
+
 }
 
 func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Deployment {
@@ -190,6 +295,58 @@ func createArmadaServerService(as *installv1alpha1.ArmadaServer) *corev1.Service
 		},
 	}
 	return &service
+}
+
+func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.ServiceAccount {
+	sa := corev1.ServiceAccount{
+		ObjectMeta:                   metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		Secrets:                      []corev1.ObjectReference{},
+		ImagePullSecrets:             []corev1.LocalObjectReference{},
+		AutomountServiceAccountToken: nil,
+	}
+	return &sa
+}
+
+func createIngress(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+	return &networkingv1.Ingress{
+		//	metav1.TypeMeta `json:",inline"`
+		//	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	}, nil
+}
+
+func createIngressRest(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+	return &networkingv1.Ingress{
+		//	metav1.TypeMeta `json:",inline"`
+		//	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	}, nil
+}
+
+func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {
+	return &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		Spec:       policyv1.PodDisruptionBudgetSpec{},
+		Status:     policyv1.PodDisruptionBudgetStatus{},
+	}
+}
+
+func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.PrometheusRule {
+	return &monitoringv1.PrometheusRule{
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{},
+		},
+	}
+}
+
+func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
+	return &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		Spec:       monitoringv1.ServiceMonitorSpec{},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
