@@ -16,7 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/k8sclient"
+	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )

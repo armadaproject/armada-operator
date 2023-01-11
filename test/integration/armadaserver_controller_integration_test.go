@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -10,10 +10,10 @@ import (
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
-var _ = Describe("Binoculars controller", func() {
-	When("Binoculars is created using k8s go-client", func() {
-		It("Kubernetes should create Executor Kubernetes resources", func() {
-			By("calling the Binoculars Controller Reconcile function", func() {
+var _ = Describe("ArmadaServer controller", func() {
+	When("ArmadaServer is created using k8s go-client", func() {
+		It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
+			By("calling the ArmadaServer Controller Reconcile function", func() {
 				applicationConfig := map[string]interface{}{
 					"armadaUrl": "localhost:50001",
 					"foo": map[string]interface{}{
@@ -23,17 +23,17 @@ var _ = Describe("Binoculars controller", func() {
 				}
 				applicationConfigYAML, err := yaml.Marshal(applicationConfig)
 				Expect(err).NotTo(HaveOccurred())
-				executor := v1alpha1.Binoculars{
-					ObjectMeta: metav1.ObjectMeta{Name: "executor", Namespace: "default"},
-					Spec: v1alpha1.BinocularsSpec{
+				armadaserver := v1alpha1.ArmadaServer{
+					ObjectMeta: metav1.ObjectMeta{Name: "armadaserver", Namespace: "default"},
+					Spec: v1alpha1.ArmadaServerSpec{
 						Image: v1alpha1.Image{
-							Repository: "executor",
+							Repository: "armadaserver",
 							Tag:        "1.0.2",
 						},
 						ApplicationConfig: runtime.RawExtension{Raw: applicationConfigYAML},
 					},
 				}
-				Expect(k8sClient.Create(ctx, &executor)).Should(Succeed())
+				Expect(k8sClient.Create(ctx, &armadaserver)).Should(Succeed())
 			})
 		})
 	})

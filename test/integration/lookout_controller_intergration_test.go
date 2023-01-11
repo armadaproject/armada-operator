@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -10,10 +10,10 @@ import (
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
-var _ = Describe("ArmadaServer controller", func() {
-	When("ArmadaServer is created using k8s go-client", func() {
-		It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
-			By("calling the ArmadaServer Controller Reconcile function", func() {
+var _ = Describe("Lookout controller", func() {
+	When("Lookout is created using k8s go-client", func() {
+		It("Kubernetes should create Lookout Kubernetes resources", func() {
+			By("calling the Lookout Controller Reconcile function", func() {
 				applicationConfig := map[string]interface{}{
 					"armadaUrl": "localhost:50001",
 					"foo": map[string]interface{}{
@@ -23,17 +23,17 @@ var _ = Describe("ArmadaServer controller", func() {
 				}
 				applicationConfigYAML, err := yaml.Marshal(applicationConfig)
 				Expect(err).NotTo(HaveOccurred())
-				armadaserver := v1alpha1.ArmadaServer{
-					ObjectMeta: metav1.ObjectMeta{Name: "armadaserver", Namespace: "default"},
-					Spec: v1alpha1.ArmadaServerSpec{
+				lookout := v1alpha1.Lookout{
+					ObjectMeta: metav1.ObjectMeta{Name: "lookout", Namespace: "default"},
+					Spec: v1alpha1.LookoutSpec{
 						Image: v1alpha1.Image{
-							Repository: "armadaserver",
+							Repository: "lookout",
 							Tag:        "1.0.2",
 						},
 						ApplicationConfig: runtime.RawExtension{Raw: applicationConfigYAML},
 					},
 				}
-				Expect(k8sClient.Create(ctx, &armadaserver)).Should(Succeed())
+				Expect(k8sClient.Create(ctx, &lookout)).Should(Succeed())
 			})
 		})
 	})
