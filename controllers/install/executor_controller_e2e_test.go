@@ -1,10 +1,11 @@
 package install
 
 import (
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"io"
 	"os"
 	"time"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
 	"github.com/armadaproject/armada-operator/controllers/utils"
 	. "github.com/onsi/ginkgo/v2"
