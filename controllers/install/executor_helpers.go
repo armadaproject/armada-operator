@@ -8,12 +8,15 @@ import (
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
+func getConfigName(name string) string {
+	return fmt.Sprintf("%s-config", name)
+}
 func getExecutorConfigFilename(executor *installv1alpha1.Executor) string {
 	return getExecutorConfigName(executor) + ".yaml"
 }
 
 func getExecutorConfigName(executor *installv1alpha1.Executor) string {
-	return fmt.Sprintf("%s-%s", executor.Name, "config")
+	return getConfigName(executor.Name)
 }
 
 func getExecutorChecksumConfig(executor *installv1alpha1.Executor) string {

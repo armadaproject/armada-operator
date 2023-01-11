@@ -82,6 +82,7 @@ var _ = Describe("Executor Controller", func() {
 	When("User applies a new Executor YAML using kubectl", func() {
 		It("Kubernetes should create the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
+				const namespace = "default"
 				f, err := CreateTempFile([]byte(executorYaml1))
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
@@ -89,7 +90,7 @@ var _ = Describe("Executor Controller", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("apply", "-f", f.Name())
+				stdin, stderr, err := k.Run("create", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
@@ -102,25 +103,29 @@ var _ = Describe("Executor Controller", func() {
 				time.Sleep(2 * time.Second)
 
 				executor := installv1alpha1.Executor{}
-				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				executorKey := kclient.ObjectKey{Namespace: namespace, Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
 
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				secretKey := kclient.ObjectKey{Namespace: namespace, Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				deploymentKey := kclient.ObjectKey{Namespace: namespace, Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, deploymentKey, &deployment)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("executor-e2e-1"))
 
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				serviceKey := kclient.ObjectKey{Namespace: namespace, Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Delete them
+				err = k8sClient.Delete(ctx, &executor)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -136,7 +141,7 @@ var _ = Describe("Executor Controller", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("apply", "-f", f1.Name())
+				stdin, stderr, err := k.Run("create", "-f", f1.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
@@ -174,6 +179,9 @@ var _ = Describe("Executor Controller", func() {
 				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(executor.Labels["test"]).To(BeEquivalentTo("updated"))
+
+				err = k8sClient.Delete(ctx, &executor)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

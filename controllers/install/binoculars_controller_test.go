@@ -9,7 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +26,11 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
 	expectedBinoculars := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
@@ -43,82 +47,50 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
-	owner := metav1.OwnerReference{
-		APIVersion: expectedBinoculars.APIVersion,
-		Kind:       expectedBinoculars.Kind,
-		Name:       expectedBinoculars.Name,
-		UID:        expectedBinoculars.UID,
+
+	binoculars, err := generateBinocularsInstallComponents(&expectedBinoculars, scheme)
+	if err != nil {
+		t.Fatal("We should not fail on generating binoculars")
 	}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
-	ownerReference := []metav1.OwnerReference{owner}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Binoculars{})).
 		Return(nil).
 		SetArg(2, expectedBinoculars)
+	// Binoculars finalizer
+	mockK8sClient.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).Return(nil)
 
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
-
-	mockK8sClient.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).Return(nil)
-
-	expectedSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedBinoculars.Name,
-			Namespace:       expectedBinoculars.Namespace,
-			OwnerReferences: ownerReference,
-		},
-	}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 		Return(nil).
-		SetArg(1, expectedSecret)
+		SetArg(1, *binoculars.Secret)
 
-	expectedDeployment := v1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedBinoculars.Name,
-			Namespace:       expectedBinoculars.Namespace,
-			OwnerReferences: ownerReference,
-		},
-	}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1.Deployment{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
 		Return(nil).
-		SetArg(1, expectedDeployment)
+		SetArg(1, *binoculars.Deployment)
 
-	expectedService := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedBinoculars.Name,
-			Namespace:       expectedBinoculars.Namespace,
-			OwnerReferences: ownerReference,
-		},
-	}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
-		SetArg(1, expectedService)
-	scheme, err := v1alpha1.SchemeBuilder.Build()
-	if err != nil {
-		t.Fatalf("should not return error when building schema")
-	}
+		SetArg(1, *binoculars.Service)
 
 	r := BinocularsReconciler{
 		Client: mockK8sClient,
@@ -127,6 +99,39 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("reconcile should not return error")
+	}
+}
+
+func TestBinocularsReconciler_ReconcileNoExecutor(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars-test"}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Executor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := ExecutorReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars-test"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)

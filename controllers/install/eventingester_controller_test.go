@@ -32,7 +32,6 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "EventIngester"},
 		Spec: v1alpha1.EventIngesterSpec{
-			Name:   "EventIngester",
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",

@@ -18,9 +18,11 @@ package install
 
 import (
 	"context"
+	"time"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
+	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+const binocularFinalizer = "install.armadaproject.io/finalizer"
 
 // BinocularsReconciler reconciles a Binoculars object
 type BinocularsReconciler struct {
@@ -55,9 +59,11 @@ type BinocularsReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	started := time.Now()
+	logger.Info("Reconciling Binoculars object")
 
-	logger := log.FromContext(ctx)
+	logger.Info("Fetching Binoculars object from cache")
 
 	var binoculars installv1alpha1.Binoculars
 	if err := r.Client.Get(ctx, req.NamespacedName, &binoculars); err != nil {
@@ -73,45 +79,88 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	deletionTimestamp := binoculars.ObjectMeta.DeletionTimestamp
+	// examine DeletionTimestamp to determine if object is under deletion
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&binoculars, binocularFinalizer) {
+			logger.Info("Attaching finalizer to Binoculars object", "finalizer", binocularFinalizer)
+			controllerutil.AddFinalizer(&binoculars, executorFinalizer)
+			if err := r.Update(ctx, &binoculars); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("Binoculars object is being deleted", "finalizer", binocularFinalizer)
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&binoculars, binocularFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for Binoculars object", "finalizer", binocularFinalizer)
+			if err := r.deleteExternalResources(ctx, components); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from Binoculars object", "finalizer", binocularFinalizer)
+			controllerutil.RemoveFinalizer(&binoculars, binocularFinalizer)
+			if err := r.Update(ctx, &binoculars); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
 	mutateFn := func() error { return nil }
 
 	if components.ServiceAccount != nil {
+		logger.Info("Upserting Binoculars ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.ClusterRole != nil {
+		logger.Info("Upserting Binoculars ClusterRole object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.ClusterRoleBinding != nil {
+		logger.Info("Upserting Binoculars ClusterRoleBinding object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.Secret != nil {
+		logger.Info("Upserting Binoculars Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.Deployment != nil {
+		logger.Info("Upserting Binoculars Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.Service != nil {
+		logger.Info("Upserting Binoculars Service object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// now do init logic
+	logger.Info("Successfully reconciled Binoculars Executor object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -143,17 +192,15 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createBinocularsClusterRole(binoculars)
-	if err := controllerutil.SetOwnerReference(binoculars, clusterRole, scheme); err != nil {
-		return nil, err
-	}
+	createBinocularsClusterRole(binoculars)
 
 	return &BinocularsComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: nil,
-		Secret:         secret,
-		ClusterRole:    clusterRole,
+		Deployment:         deployment,
+		Service:            service,
+		ServiceAccount:     nil,
+		Secret:             secret,
+		ClusterRole:        nil,
+		ClusterRoleBinding: nil,
 	}, nil
 }
 
@@ -161,6 +208,10 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
 func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
 	var replicas int32 = 1
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
 		Spec: appsv1.DeploymentSpec{
@@ -170,15 +221,85 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 				MatchExpressions: nil,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       corev1.PodSpec{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      binoculars.Name,
+					Namespace: binoculars.Namespace,
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: binoculars.DeletionGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{{
+											Key:      "app",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{binoculars.Name},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					Containers: []corev1.Container{{
+						Name:            "binoculars",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(binoculars.Spec.Image),
+						Args:            []string{"--config", "/config/application_config.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      executorVolumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   getConfigName(binoculars.Name),
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "user-config",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: getConfigName(binoculars.Name),
+							},
+						},
+					}},
+				},
 			},
-			Strategy:                appsv1.DeploymentStrategy{},
-			MinReadySeconds:         0,
-			RevisionHistoryLimit:    nil,
-			Paused:                  false,
-			ProgressDeadlineSeconds: nil,
 		},
+	}
+	if binoculars.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *binoculars.Spec.Resources
 	}
 	return &deployment
 }
@@ -209,6 +330,16 @@ func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1
 	}
 	return &clusterRole
 
+}
+
+func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, components *BinocularsComponents) error {
+	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
+	}
+	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
