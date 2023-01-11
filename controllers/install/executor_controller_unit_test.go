@@ -47,15 +47,8 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
 		Return(nil).
 		SetArg(2, expectedExecutor)
-	// ClusterRole
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(nil)
+	// Executor finalizer
+	mockK8sClient.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).Return(nil)
 	// ServiceAccount
 	mockK8sClient.
 		EXPECT().
@@ -64,6 +57,15 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil)
+	// ClusterRole
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
 		Return(nil)
 	// ClusterRoleBinding
 	mockK8sClient.
@@ -128,7 +130,7 @@ func TestExecutorReconciler_ReconcileNoExecutor(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor"}
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "executor-test"}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	// Executor
 	mockK8sClient.

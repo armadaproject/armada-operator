@@ -8,8 +8,12 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
   name: executor-sample
+  namespace: testkube
 spec:
-  appConfig:
+  image:
+    repository: gresearchdev/armada-executor
+    tag: v0.3.44
+  applicationConfig:
     server: example.com:443
     forceNoTls: true
     toleratedTaints:

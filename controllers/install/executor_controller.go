@@ -18,6 +18,9 @@ package install
 
 import (
 	"context"
+	"time"
+
+	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,8 +37,9 @@ import (
 )
 
 const (
-	armadaConfigKey = "armada-config.yaml"
-	volumeConfigKey = "user-config"
+	executorApplicationConfigKey = "armada-config.yaml"
+	executorVolumeConfigKey      = "user-config"
+	executorFinalizer            = "batch.tutorial.kubebuilder.io/finalizer"
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -58,12 +62,15 @@ type ExecutorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	started := time.Now()
+	logger.Info("Reconciling Executor object")
 
+	logger.Info("Fetching Executor object from cache")
 	var executor installv1alpha1.Executor
 	if err := r.Client.Get(ctx, req.NamespacedName, &executor); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("Executor not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("Executor not found in cache, ending reconcile")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -74,45 +81,88 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	deletionTimestamp := executor.ObjectMeta.DeletionTimestamp
+	// examine DeletionTimestamp to determine if object is under deletion
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
+			logger.Info("Attaching finalizer to Executor object", "finalizer", executorFinalizer)
+			controllerutil.AddFinalizer(&executor, executorFinalizer)
+			if err := r.Update(ctx, &executor); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("Executor object is being deleted", "finalizer", executorFinalizer)
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for Executor object", "finalizer", executorFinalizer)
+			if err := r.deleteExternalResources(ctx, components); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from Executor object", "finalizer", executorFinalizer)
+			controllerutil.RemoveFinalizer(&executor, executorFinalizer)
+			if err := r.Update(ctx, &executor); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	mutateFn := func() error { return nil }
 
+	logger.Info("Upserting Executor ServiceAccount object")
 	if components.ServiceAccount != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting Executor ClusterRole object")
 	if components.ClusterRole != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting Executor ClusterRoleBinding object")
 	if components.ClusterRoleBinding != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting Executor Secret object")
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting Executor Deployment object")
 	if components.Deployment != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting Executor Service object")
 	if components.Service != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// now do init logic
+	logger.Info("Successfully reconciled Executor object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -147,13 +197,15 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 		return nil, err
 	}
 	clusterRole := createClusterRole(executor)
-	if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
-		return nil, err
-	}
+	// namespace-scoped Executor cannot own cluster-scoped ClusterRole resource
+	//if err := controllerutil.SetOwnerReference(executor, clusterRole, scheme); err != nil {
+	//	return nil, err
+	//}
 	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
-	if err := controllerutil.SetOwnerReference(executor, clusterRoleBinding, scheme); err != nil {
-		return nil, err
-	}
+	// namespace-scoped Executor cannot own cluster-scoped ClusterRole resource
+	//if err := controllerutil.SetOwnerReference(executor, clusterRoleBinding, scheme); err != nil {
+	//	return nil, err
+	//}
 
 	return &ExecutorComponents{
 		Deployment:         deployment,
@@ -183,7 +235,7 @@ func generateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error
 		return nil, err
 	}
 
-	return map[string][]byte{armadaConfigKey: yamlConfig}, nil
+	return map[string][]byte{executorApplicationConfigKey: yamlConfig}, nil
 }
 
 func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
@@ -241,7 +293,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      volumeConfigKey,
+								Name:      executorVolumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
 								SubPath:   getExecutorConfigFilename(executor),
@@ -252,7 +304,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 					NodeSelector: executor.Spec.NodeSelector,
 					Tolerations:  executor.Spec.Tolerations,
 					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
+						Name: executorVolumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
 								SecretName: getExecutorConfigName(executor),
@@ -330,7 +382,7 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 		Resources: []string{"tokenreviews"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: getAllExecutorLabels(executor)},
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
@@ -355,7 +407,7 @@ func createClusterRoleBinding(
 	serviceAccount *corev1.ServiceAccount,
 ) *rbacv1.ClusterRoleBinding {
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: getAllExecutorLabels(executor)},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      serviceAccount.Name,
@@ -368,6 +420,16 @@ func createClusterRoleBinding(
 		},
 	}
 	return &clusterRoleBinding
+}
+
+func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *ExecutorComponents) error {
+	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
+	}
+	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
