@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/armadaproject/armada-operator/test/k8sclient"
+
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +17,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
 
 func TestLookoutReconciler_Reconcile(t *testing.T) {

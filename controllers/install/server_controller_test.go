@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/armadaproject/armada-operator/test/k8sclient"
+
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/k8sclient"
 )
 
 func TestServerReconciler_Reconcile(t *testing.T) {

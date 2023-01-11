@@ -63,7 +63,7 @@ type ExecutorSpec struct {
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
-	TerminationGracePeriodSeconds *int `json:"terminationGracePeriodSeconds,omitempty"`
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified,
@@ -71,7 +71,7 @@ type ExecutorSpec struct {
 	// and this will overrides service account defined in spec.serviceAccount field
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor

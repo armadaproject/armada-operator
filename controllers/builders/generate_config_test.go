@@ -27,7 +27,7 @@ func Test_convertRawExtensionToYaml(t *testing.T) {
 			expected: "test:\n  foo: bar\ntest1:\n  foo1:\n    foo2: bar2\n",
 		},
 		{
-			name:     "it ghacks if runtime.RawExtension raw is malformed json",
+			name:     "it errors if runtime.RawExtension raw is malformed json",
 			input:    runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			expected: "",
 			wantErr:  true,
