@@ -2,11 +2,12 @@ package integration
 
 import (
 	"io"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"net/http"
 	"os"
 	"time"
+
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
