@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"io"
@@ -7,7 +7,6 @@ import (
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
-	"github.com/armadaproject/armada-operator/controllers/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -83,7 +82,7 @@ var _ = Describe("Executor Controller", func() {
 	When("User applies a new Executor YAML using kubectl", func() {
 		It("Kubernetes should create the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(executorYaml1))
+				f, err := CreateTempFile([]byte(executorYaml1))
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 				defer os.Remove(f.Name())
@@ -130,7 +129,7 @@ var _ = Describe("Executor Controller", func() {
 	When("User applies an existing Executor YAML with updated values using kubectl", func() {
 		It("Kubernetes should update the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f1, err := utils.CreateTempFile([]byte(executorYaml2))
+				f1, err := CreateTempFile([]byte(executorYaml2))
 				Expect(err).ToNot(HaveOccurred())
 				defer f1.Close()
 				defer os.Remove(f1.Name())
@@ -153,7 +152,7 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(executor.Labels))
 
-				f2, err := utils.CreateTempFile([]byte(executorYaml2Updated))
+				f2, err := CreateTempFile([]byte(executorYaml2Updated))
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
 				defer os.Remove(f2.Name())

@@ -1,4 +1,4 @@
-package install
+package integration
 
 import (
 	"io"
@@ -6,22 +6,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/armadaproject/armada-operator/controllers/utils"
 )
 
-var binocularsYaml = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
+var lookoutYaml = `apiVersion: install.armadaproject.io/v1alpha1
+kind: Lookout
 metadata:
   labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: bincoulars-sample
+    app.kubernetes.io/name: lookout
+    app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: executor-e2e
+  name: lookout-e2e
 spec:
   image:
-    repository: test-executor
+    repository: test-lookout
     tag: latest
   applicationConfig:
     server: example.com:443
@@ -32,10 +30,10 @@ spec:
 `
 
 var _ = Describe("Armada Operator", func() {
-	When("User applies Binoculars YAML using kubectl", func() {
-		It("Kubernetes should create Executor Kubernetes resources", func() {
-			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := utils.CreateTempFile([]byte(binocularsYaml))
+	When("User applies Lookout YAML using kubectl", func() {
+		It("Kubernetes should create Lookout Kubernetes resources", func() {
+			By("Calling the Lookout Controller Reconcile function", func() {
+				f, err := CreateTempFile([]byte(lookoutYaml))
 				defer func() {
 					Expect(f.Close()).ToNot(HaveOccurred())
 				}()

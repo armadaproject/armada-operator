@@ -112,6 +112,32 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
+  - lookout
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookout/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookout/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
   - servers
   verbs:
   - create
