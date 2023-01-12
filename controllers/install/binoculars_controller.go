@@ -188,7 +188,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := createBinocularsService(binoculars)
+	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels))
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 	allowPrivilegeEscalation := false
 
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
@@ -221,8 +221,10 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      binoculars.Name,
-					Namespace: binoculars.Namespace,
+					Name:        binoculars.Name,
+					Namespace:   binoculars.Namespace,
+					Labels:      AllLabels(binoculars.Name, binoculars.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(binoculars.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: binoculars.DeletionGracePeriodSeconds,
@@ -301,20 +303,6 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 		deployment.Spec.Template.Spec.Containers[0].Resources = *binoculars.Spec.Resources
 	}
 	return &deployment
-}
-
-func createBinocularsService(binoculars *installv1alpha1.Binoculars) *corev1.Service {
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:     "metrics",
-				Protocol: corev1.ProtocolTCP,
-				Port:     9001,
-			}},
-		},
-	}
-	return &service
 }
 
 func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRole {

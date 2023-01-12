@@ -187,7 +187,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := createService(executor)
+	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels))
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}
@@ -290,20 +290,6 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *executor.Spec.Resources
 	}
 	return &deployment
-}
-
-func createService(executor *installv1alpha1.Executor) *corev1.Service {
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:     "metrics",
-				Protocol: corev1.ProtocolTCP,
-				Port:     9001,
-			}},
-		},
-	}
-	return &service
 }
 
 func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
