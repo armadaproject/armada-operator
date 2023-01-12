@@ -89,7 +89,7 @@ var _ = Describe("Binoculars Controller", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("apply", "-f", f.Name())
+				stdin, stderr, err := k.Run("create", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
@@ -136,7 +136,7 @@ var _ = Describe("Binoculars Controller", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("apply", "-f", f1.Name())
+				stdin, stderr, err := k.Run("create", "-f", f1.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
