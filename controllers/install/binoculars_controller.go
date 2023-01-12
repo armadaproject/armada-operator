@@ -217,8 +217,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels:      nil,
-				MatchExpressions: nil,
+				MatchLabels: IdentityLabel(binoculars.Name),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -281,7 +280,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 								Name:      executorVolumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   getConfigName(binoculars.Name),
+								SubPath:   GetConfigName(binoculars.Name),
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -290,7 +289,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 						Name: "user-config",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: getConfigName(binoculars.Name),
+								SecretName: GetConfigName(binoculars.Name),
 							},
 						},
 					}},

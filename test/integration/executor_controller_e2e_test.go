@@ -219,7 +219,7 @@ var _ = Describe("Executor Controller", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("apply", "-f", f.Name())
+				stdin, stderr, err := k.Run("create", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())

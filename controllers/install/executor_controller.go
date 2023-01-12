@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	builders "github.com/armadaproject/armada-operator/controllers/builders"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -33,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -176,7 +176,7 @@ type ExecutorComponents struct {
 }
 
 func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	secret, err := createSecret(executor)
+	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -209,45 +209,24 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	}, nil
 }
 
-func createSecret(executor *installv1alpha1.Executor) (*corev1.Secret, error) {
-	armadaConfig, err := generateArmadaConfig(executor.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace},
-		Data:       armadaConfig,
-	}
-	return &secret, nil
-}
-
-func generateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
-	yamlConfig, err := yaml.JSONToYAML(config.Raw)
-	if err != nil {
-		return nil, err
-	}
-
-	return map[string][]byte{executorApplicationConfigKey: yamlConfig}, nil
-}
-
 func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: getExecutorIdentityLabels(executor),
+				MatchLabels: IdentityLabel(executor.Name),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        executor.Name,
 					Namespace:   executor.Namespace,
-					Labels:      getAllExecutorLabels(executor),
-					Annotations: map[string]string{"checksum/config": getExecutorChecksumConfig(executor)},
+					Labels:      AllLabels(executor.Name, executor.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(executor.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: executor.Spec.TerminationGracePeriodSeconds,
@@ -288,7 +267,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 								Name:      executorVolumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   getExecutorConfigFilename(executor),
+								SubPath:   GetConfigName(executor.Name),
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -299,7 +278,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 						Name: executorVolumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: getExecutorConfigName(executor),
+								SecretName: GetConfigName(executor.Name),
 							},
 						},
 					}},
@@ -315,7 +294,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 
 func createService(executor *installv1alpha1.Executor) *corev1.Service {
 	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:     "metrics",
@@ -374,7 +353,7 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 		Resources: []string{"tokenreviews"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: AllLabels(executor.Name, executor.Labels)},
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
@@ -382,7 +361,7 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 
 func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
 	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 	}
 	if executor.Spec.ServiceAccount != nil {
 		serviceAccount.AutomountServiceAccountToken = executor.Spec.ServiceAccount.AutomountServiceAccountToken
@@ -399,7 +378,7 @@ func createClusterRoleBinding(
 	serviceAccount *corev1.ServiceAccount,
 ) *rbacv1.ClusterRoleBinding {
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: getAllExecutorLabels(executor)},
+		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: AllLabels(executor.Name, executor.Labels)},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      serviceAccount.Name,
