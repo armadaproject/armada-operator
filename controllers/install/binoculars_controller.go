@@ -37,8 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const binocularFinalizer = "install.armadaproject.io/finalizer"
-
 // BinocularsReconciler reconciles a Binoculars object
 type BinocularsReconciler struct {
 	client.Client
@@ -86,19 +84,19 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&binoculars, binocularFinalizer) {
-			logger.Info("Attaching finalizer to Binoculars object", "finalizer", binocularFinalizer)
-			controllerutil.AddFinalizer(&binoculars, executorFinalizer)
+		if !controllerutil.ContainsFinalizer(&binoculars, operatorFinalizer) {
+			logger.Info("Attaching finalizer to Binoculars object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&binoculars, operatorFinalizer)
 			if err := r.Update(ctx, &binoculars); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
-		logger.Info("Binoculars object is being deleted", "finalizer", binocularFinalizer)
+		logger.Info("Binoculars object is being deleted", "finalizer", operatorFinalizer)
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&binoculars, binocularFinalizer) {
+		if controllerutil.ContainsFinalizer(&binoculars, operatorFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Binoculars object", "finalizer", binocularFinalizer)
+			logger.Info("Running cleanup function for Binoculars object", "finalizer", operatorFinalizer)
 			if err := r.deleteExternalResources(ctx, components); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
@@ -106,8 +104,8 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 
 			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Binoculars object", "finalizer", binocularFinalizer)
-			controllerutil.RemoveFinalizer(&binoculars, binocularFinalizer)
+			logger.Info("Removing finalizer from Binoculars object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&binoculars, operatorFinalizer)
 			if err := r.Update(ctx, &binoculars); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -313,7 +311,7 @@ func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1
 		Resources: []string{"users", "groups"},
 	}
 	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name},
 		Rules:      []rbacv1.PolicyRule{binocularRules},
 	}
 	return &clusterRole
@@ -330,7 +328,7 @@ func generateBinocularsClusterRoleBinding(binoculars installv1alpha1.Binoculars)
 			Kind:     "ClusterRole",
 			Name:     binoculars.Name,
 		},
-		Subjects: []rbacv1.Subject{rbacv1.Subject{
+		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      binoculars.Name,
 			Namespace: binoculars.Namespace,

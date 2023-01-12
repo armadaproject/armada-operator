@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	}
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedClusterResourceNamespacedName := types.NamespacedName{Namespace: "", Name: "binoculars"}
 	expectedBinoculars := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Binoculars",
@@ -91,6 +93,27 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, *binoculars.Service)
+
+	// ClusterRole
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedClusterResourceNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(nil).
+		SetArg(1, *binoculars.ClusterRole)
+	// ClusterRoleBinding
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedClusterResourceNamespacedName, gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(nil).
+		SetArg(1, *binoculars.ClusterRoleBinding)
 
 	r := BinocularsReconciler{
 		Client: mockK8sClient,

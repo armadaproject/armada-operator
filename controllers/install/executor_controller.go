@@ -36,12 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	executorApplicationConfigKey = "armada-config.yaml"
-	executorVolumeConfigKey      = "user-config"
-	executorFinalizer            = "batch.tutorial.kubebuilder.io/finalizer"
-)
-
 // ExecutorReconciler reconciles a Executor object
 type ExecutorReconciler struct {
 	client.Client
@@ -87,19 +81,19 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
-			logger.Info("Attaching finalizer to Executor object", "finalizer", executorFinalizer)
-			controllerutil.AddFinalizer(&executor, executorFinalizer)
+		if !controllerutil.ContainsFinalizer(&executor, operatorFinalizer) {
+			logger.Info("Attaching finalizer to Executor object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&executor, operatorFinalizer)
 			if err := r.Update(ctx, &executor); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
-		logger.Info("Executor object is being deleted", "finalizer", executorFinalizer)
+		logger.Info("Executor object is being deleted", "finalizer", operatorFinalizer)
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&executor, executorFinalizer) {
+		if controllerutil.ContainsFinalizer(&executor, operatorFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Executor object", "finalizer", executorFinalizer)
+			logger.Info("Running cleanup function for Executor object", "finalizer", operatorFinalizer)
 			if err := r.deleteExternalResources(ctx, components); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
@@ -107,8 +101,8 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			}
 
 			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Executor object", "finalizer", executorFinalizer)
-			controllerutil.RemoveFinalizer(&executor, executorFinalizer)
+			logger.Info("Removing finalizer from Executor object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&executor, operatorFinalizer)
 			if err := r.Update(ctx, &executor); err != nil {
 				return ctrl.Result{}, err
 			}

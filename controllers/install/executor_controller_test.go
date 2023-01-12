@@ -191,7 +191,7 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 			Namespace:         "default",
 			Name:              "executor",
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{"batch.tutorial.kubebuilder.io/finalizer"},
+			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.ExecutorSpec{
 			Labels: nil,
