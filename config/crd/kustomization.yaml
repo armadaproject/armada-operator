@@ -7,6 +7,7 @@ resources:
 - bases/install.armadaproject.io_binoculars.yaml
 - bases/core.armadaproject.io_queues.yaml
 - bases/install.armadaproject.io_eventingesters.yaml
+- bases/install.armadaproject.io_lookouts.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
