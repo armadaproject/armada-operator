@@ -8,6 +8,7 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
@@ -27,6 +28,7 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: executor-e2e-1
+  namespace: executor
 spec:
   image:
     repository: test-executor
@@ -43,7 +45,7 @@ var executorYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
   name: executor-e2e-2
-  namespace: default
+  namespace: executor
 spec:
   image:
     repository: test-executor
@@ -62,7 +64,7 @@ metadata:
   labels:
     test: updated
   name: executor-e2e-2
-  namespace: default
+  namespace: executor
 spec:
   image:
     repository: test-executor
@@ -79,6 +81,7 @@ var executorYaml3 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
   name: executor-e2e-3
+  namespace: executor
 spec:
   image:
     repository: test-executor
@@ -92,10 +95,19 @@ spec:
 `
 
 var _ = Describe("Executor Controller", func() {
+	namespaceObject := corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: "executor",
+	}}
+	BeforeEach(func() {
+		Expect(k8sClient.Create(ctx, &namespaceObject)).ToNot(HaveOccurred())
+	})
+	AfterEach(func() {
+		Expect(k8sClient.Delete(ctx, &namespaceObject)).ToNot(HaveOccurred())
+	})
 	When("User applies a new Executor YAML using kubectl", func() {
 		It("Kubernetes should create the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				const namespace = "default"
+				const namespace = "executor"
 				f, err := CreateTempFile([]byte(executorYaml1))
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
@@ -178,7 +190,7 @@ var _ = Describe("Executor Controller", func() {
 				Expect(string(stdinBytes)).To(BeEquivalentTo("executor.install.armadaproject.io/executor-e2e-2 created\n"))
 
 				executor := installv1alpha1.Executor{}
-				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-2"}
+				executorKey := kclient.ObjectKey{Namespace: "executor", Name: "executor-e2e-2"}
 				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(executor.Labels))
@@ -251,28 +263,28 @@ var _ = Describe("Executor Controller", func() {
 				time.Sleep(2 * time.Second)
 
 				executor := installv1alpha1.Executor{}
-				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
+				executorKey := kclient.ObjectKey{Namespace: "executor", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr := err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
+				secretKey := kclient.ObjectKey{Namespace: "executor", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
+				deploymentKey := kclient.ObjectKey{Namespace: "executor", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, deploymentKey, &deployment)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
+				serviceKey := kclient.ObjectKey{Namespace: "executor", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
