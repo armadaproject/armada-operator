@@ -4,12 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestService(t *testing.T) {
 	testcases := map[string]struct {
-		appConfig runtime.RawExtension
 		name      string
 		namespace string
 		labels    map[string]string

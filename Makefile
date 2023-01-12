@@ -115,7 +115,7 @@ test: manifests generate fmt vet gotestsum ## Run tests.
 
 .PHONY: test-integration
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/... -coverprofile operator.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/...
 
 ##@ Build
 
