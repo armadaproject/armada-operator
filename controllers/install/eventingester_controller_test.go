@@ -55,6 +55,11 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.EventIngester{})).
 		Return(nil).
 		SetArg(2, expectedEventIngester)
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha1.EventIngester{})).
+		Return(nil).
+		SetArg(1, expectedEventIngester)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

@@ -18,6 +18,10 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,15 +37,20 @@ import (
 	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
+const (
+	eventIngesterVolumeConfigKey        = "user-config"
+	eventIngesterFinalizer            = "batch.tutorial.kubebuilder.io/finalizer"
+)
+
 // EventIngesterReconciler reconciles a EventIngester object
 type EventIngesterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -53,12 +62,15 @@ type EventIngesterReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	started := time.Now()
+	logger.Info("Reconciling EventIngester object")
 
+	logger.Info("Fetching EventIngester object from cache")
 	var eventIngester installv1alpha1.EventIngester
 	if err := r.Client.Get(ctx, req.NamespacedName, &eventIngester); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("EventIngester not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("EventIngester not found in cache, ending reconcile")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -69,27 +81,62 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	deletionTimestamp := eventIngester.ObjectMeta.DeletionTimestamp
+	// examine DeletionTimestamp to determine if object is under deletion
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
+			logger.Info("Attaching finalizer to EventIngester object", "finalizer", eventIngesterFinalizer)
+			controllerutil.AddFinalizer(&eventIngester, eventIngesterFinalizer)
+			if err := r.Update(ctx, &eventIngester); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("EventIngester object is being deleted", "finalizer", eventIngesterFinalizer)
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for EventIngester object", "finalizer", eventIngesterFinalizer)
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from EventIngester object", "finalizer", eventIngesterFinalizer)
+			controllerutil.RemoveFinalizer(&eventIngester, eventIngesterFinalizer)
+			if err := r.Update(ctx, &eventIngester); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	mutateFn := func() error { return nil }
 
+	logger.Info("Upserting EventIngester ServiceAccount object")
 	if components.ServiceAccount != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting EventIngester Secret object")
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	logger.Info("Upserting EventIngester Deployment object")
 	if components.Deployment != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// now do init logic
+	logger.Info("Successfully reconciled EventIngester object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -129,24 +176,119 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 
 func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) *appsv1.Deployment {
 	var replicas int32 = 1
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: getAllEventIngesterLabels(eventIngester)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels:      nil,
-				MatchExpressions: nil,
+				MatchLabels: getEventIngesterIdentityLabels(eventIngester),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       corev1.PodSpec{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        eventIngester.Name,
+					Namespace:   eventIngester.Namespace,
+					Labels:      getAllEventIngesterLabels(eventIngester),
+					Annotations: map[string]string{"checksum/config": getEventIngesterChecksumConfig(eventIngester)},
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "eventIngester",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(eventIngester.Spec.Image),
+						Args:            []string{"--config", "/config/application_config.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      eventIngesterVolumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   getEventIngesterConfigFilename(eventIngester),
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: eventIngester.Spec.NodeSelector,
+					Tolerations:  eventIngester.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: eventIngesterVolumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: getEventIngesterConfigName(eventIngester),
+							},
+						},
+					}},
+				},
 			},
-			Strategy:                appsv1.DeploymentStrategy{},
-			MinReadySeconds:         0,
-			RevisionHistoryLimit:    nil,
-			Paused:                  false,
-			ProgressDeadlineSeconds: nil,
 		},
 	}
+	if eventIngester.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *eventIngester.Spec.Resources
+	}
 	return &deployment
+
+}
+
+func getEventIngesterConfigFilename(eventIngester *installv1alpha1.EventIngester) string {
+	return getEventIngesterConfigName(eventIngester) + ".yaml"
+}
+
+func getEventIngesterConfigName(eventIngester *installv1alpha1.EventIngester) string {
+	return fmt.Sprintf("%s-%s", eventIngester.Name, "config")
+}
+
+func getEventIngesterChecksumConfig(eventIngester *installv1alpha1.EventIngester) string {
+	data := eventIngester.Spec.ApplicationConfig.Raw
+	sha := sha256.Sum256(data)
+	return hex.EncodeToString(sha[:])
+}
+
+func getAllEventIngesterLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
+	baseLabels := map[string]string{"release": eventIngester.Name}
+	additionalLabels := getEventIngesterAdditionalLabels(eventIngester)
+	baseLabels = MergeMaps(baseLabels, additionalLabels)
+	identityLabels := getEventIngesterIdentityLabels(eventIngester)
+	baseLabels = MergeMaps(baseLabels, identityLabels)
+	return baseLabels
+}
+
+func getEventIngesterIdentityLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
+	return map[string]string{"app": eventIngester.Name}
+}
+
+func getEventIngesterAdditionalLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
+	m := make(map[string]string, len(eventIngester.Labels))
+	for k, v := range eventIngester.Labels {
+		m[k] = v
+	}
+	return m
 }
