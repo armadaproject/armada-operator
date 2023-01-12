@@ -131,7 +131,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	}
 }
 
-func TestBinocularsReconciler_ReconcileNoExecutor(t *testing.T) {
+func TestBinocularsReconciler_ReconcileNoBinoculars(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
@@ -142,14 +142,14 @@ func TestBinocularsReconciler_ReconcileNoExecutor(t *testing.T) {
 	// Executor
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := ExecutorReconciler{
+	r := BinocularsReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
