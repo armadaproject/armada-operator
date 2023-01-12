@@ -39,7 +39,6 @@ import (
 
 const (
 	eventIngesterVolumeConfigKey = "user-config"
-	eventIngesterFinalizer       = "batch.tutorial.kubebuilder.io/finalizer"
 )
 
 // EventIngesterReconciler reconciles a EventIngester object
@@ -81,56 +80,24 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	deletionTimestamp := eventIngester.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
-			logger.Info("Attaching finalizer to EventIngester object", "finalizer", eventIngesterFinalizer)
-			controllerutil.AddFinalizer(&eventIngester, eventIngesterFinalizer)
-			if err := r.Update(ctx, &eventIngester); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("EventIngester object is being deleted", "finalizer", eventIngesterFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&eventIngester, eventIngesterFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for EventIngester object", "finalizer", eventIngesterFinalizer)
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from EventIngester object", "finalizer", eventIngesterFinalizer)
-			controllerutil.RemoveFinalizer(&eventIngester, eventIngesterFinalizer)
-			if err := r.Update(ctx, &eventIngester); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
-	}
-
 	mutateFn := func() error { return nil }
 
-	logger.Info("Upserting EventIngester ServiceAccount object")
 	if components.ServiceAccount != nil {
+		logger.Info("Upserting EventIngester ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting EventIngester Secret object")
 	if components.Secret != nil {
+		logger.Info("Upserting EventIngester Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting EventIngester Deployment object")
 	if components.Deployment != nil {
+		logger.Info("Upserting EventIngester Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
