@@ -147,6 +147,20 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	if components.ClusterRole != nil {
+		logger.Info("Upserting Executor ClusterRole object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.ClusterRoleBinding != nil {
+		logger.Info("Upserting Executor ClusterRoleBinding object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Executor object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -191,6 +205,7 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 		ServiceAccount:     serviceAccount,
 		Secret:             secret,
 		ClusterRoleBinding: clusterRoleBinding,
+		ClusterRole:        clusterRole,
 	}, nil
 }
 
