@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
@@ -155,6 +156,74 @@ func TestBinocularsReconciler_ReconcileNoExecutor(t *testing.T) {
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars-test"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("reconcile should not return error")
+	}
+}
+func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := installv1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "binoculars",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.BinocularsSpec{
+			Labels: nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil).
+		SetArg(2, expectedBinoculars)
+	// Cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(nil)
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(nil)
+	// Remove Binoculars Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil)
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
