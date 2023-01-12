@@ -1,17 +1,17 @@
 apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
+kind: Binoculars
 metadata:
   labels:
-    app.kubernetes.io/name: executor
-    app.kubernetes.io/instance: executor-sample
+    app.kubernetes.io/name: binoculars
+    app.kubernetes.io/instance: binoculars-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: executor-sample
+  name: binoculars-sample
   namespace: default
 spec:
   image:
-    repository: gresearchdev/armada-executor
+    repository: gresearchdev/armada-binoculars
     tag: v0.3.44
   applicationConfig:
     server: example.com:443

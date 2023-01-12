@@ -192,15 +192,16 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
-	createBinocularsClusterRole(binoculars)
+	clusterRole := createBinocularsClusterRole(binoculars)
+	clusterRoleBinding := generateBinocularsClusterRoleBinding(*binoculars)
 
 	return &BinocularsComponents{
 		Deployment:         deployment,
 		Service:            service,
 		ServiceAccount:     nil,
 		Secret:             secret,
-		ClusterRole:        nil,
-		ClusterRoleBinding: nil,
+		ClusterRole:        clusterRole,
+		ClusterRoleBinding: clusterRoleBinding,
 	}, nil
 }
 
@@ -316,9 +317,28 @@ func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1
 		Rules:      []rbacv1.PolicyRule{binocularRules},
 	}
 	return &clusterRole
-
 }
 
+func generateBinocularsClusterRoleBinding(binoculars installv1alpha1.Binoculars) *rbacv1.ClusterRoleBinding {
+	clusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   binoculars.Name,
+			Labels: AllLabels(binoculars.Name, binoculars.Labels),
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     binoculars.Name,
+		},
+		Subjects: []rbacv1.Subject{rbacv1.Subject{
+			Kind:      "ServiceAccount",
+			Name:      binoculars.Name,
+			Namespace: binoculars.Namespace,
+		},
+		},
+	}
+	return &clusterRoleBinding
+}
 func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, components *BinocularsComponents) error {
 	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
