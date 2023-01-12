@@ -38,8 +38,8 @@ import (
 )
 
 const (
-	eventIngesterVolumeConfigKey        = "user-config"
-	eventIngesterFinalizer            = "batch.tutorial.kubebuilder.io/finalizer"
+	eventIngesterVolumeConfigKey = "user-config"
+	eventIngesterFinalizer       = "batch.tutorial.kubebuilder.io/finalizer"
 )
 
 // EventIngesterReconciler reconciles a EventIngester object
