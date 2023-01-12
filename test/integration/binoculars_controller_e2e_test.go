@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,6 +24,7 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: binoculars-e2e-1
+  namespace: binoculars
 spec:
   image:
     repository: test-binoculars
@@ -44,6 +46,7 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: binoculars-e2e-2
+  namespace: binoculars
 spec:
   image:
     repository: test-binoculars
@@ -66,6 +69,7 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
     test: updated
   name: binoculars-e2e-2
+  namespace: binoculars
 spec:
   image:
     repository: test-binoculars
@@ -79,6 +83,15 @@ spec:
 `
 
 var _ = Describe("Binoculars Controller", func() {
+	namespaceObject := corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: "binoculars",
+	}}
+	BeforeEach(func() {
+		Expect(k8sClient.Create(ctx, &namespaceObject)).ToNot(HaveOccurred())
+	})
+	AfterEach(func() {
+		Expect(k8sClient.Delete(ctx, &namespaceObject)).ToNot(HaveOccurred())
+	})
 	When("User applies a new Binoculars YAML using kubectl", func() {
 		It("Kubernetes should create the Binoculars Kubernetes resources", func() {
 			By("Calling the Binoculars Controller Reconcile function", func() {
@@ -102,24 +115,24 @@ var _ = Describe("Binoculars Controller", func() {
 				time.Sleep(2 * time.Second)
 
 				binoculars := installv1alpha1.Binoculars{}
-				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				binocularsKey := kclient.ObjectKey{Namespace: "binoculars", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
 				Expect(err).NotTo(HaveOccurred())
 
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				secretKey := kclient.ObjectKey{Namespace: "binoculars", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				deploymentKey := kclient.ObjectKey{Namespace: "binoculars", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, deploymentKey, &deployment)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("binoculars-e2e-1"))
 
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
+				serviceKey := kclient.ObjectKey{Namespace: "binoculars", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -147,7 +160,7 @@ var _ = Describe("Binoculars Controller", func() {
 				Expect(string(stdinBytes)).To(BeEquivalentTo("binoculars.install.armadaproject.io/binoculars-e2e-2 created\n"))
 
 				binoculars := installv1alpha1.Binoculars{}
-				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-2"}
+				binocularsKey := kclient.ObjectKey{Namespace: "binoculars", Name: "binoculars-e2e-2"}
 				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(binoculars.Labels))

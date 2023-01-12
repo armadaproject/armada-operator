@@ -160,7 +160,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	logger.Info("Successfully reconciled Binoculars Executor object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled Binoculars object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
