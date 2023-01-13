@@ -800,13 +800,7 @@ func (in *LookoutIngesterSpec) DeepCopyInto(out *LookoutIngesterSpec) {
 		}
 	}
 	out.Image = in.Image
-	if in.ApplicationConfig != nil {
-		in, out := &in.ApplicationConfig, &out.ApplicationConfig
-		*out = make(map[string]runtime.RawExtension, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
-		}
-	}
+	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
 	if in.Prometheus != nil {
 		in, out := &in.Prometheus, &out.Prometheus
 		*out = new(PrometheusConfig)

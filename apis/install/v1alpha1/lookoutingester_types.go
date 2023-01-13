@@ -25,6 +25,8 @@ import (
 // TODO: Clif - should this just look like the other services or is there unique
 // functionality?
 // LookoutIngesterSpec defines the desired state of LookoutIngester
+// TODO: Should we be using OpenAPI validation markers on our Specs?
+// See: https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#openapi-validation
 type LookoutIngesterSpec struct {
 	// Name specifies the base name for all Kubernetes Resources
 	Name string `json:"name"`
@@ -33,7 +35,7 @@ type LookoutIngesterSpec struct {
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
 	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig map[string]runtime.RawExtension `json:"applicationConfig"`
+	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
