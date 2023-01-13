@@ -37,10 +37,6 @@ import (
 	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
-const (
-	eventIngesterVolumeConfigKey = "user-config"
-)
-
 // EventIngesterReconciler reconciles a EventIngester object
 type EventIngesterReconciler struct {
 	client.Client
@@ -232,39 +228,4 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	}
 	return &deployment
 
-}
-
-func getEventIngesterConfigFilename(eventIngester *installv1alpha1.EventIngester) string {
-	return getEventIngesterConfigName(eventIngester) + ".yaml"
-}
-
-func getEventIngesterConfigName(eventIngester *installv1alpha1.EventIngester) string {
-	return fmt.Sprintf("%s-%s", eventIngester.Name, "config")
-}
-
-func getEventIngesterChecksumConfig(eventIngester *installv1alpha1.EventIngester) string {
-	data := eventIngester.Spec.ApplicationConfig.Raw
-	sha := sha256.Sum256(data)
-	return hex.EncodeToString(sha[:])
-}
-
-func getAllEventIngesterLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
-	baseLabels := map[string]string{"release": eventIngester.Name}
-	additionalLabels := getEventIngesterAdditionalLabels(eventIngester)
-	baseLabels = MergeMaps(baseLabels, additionalLabels)
-	identityLabels := getEventIngesterIdentityLabels(eventIngester)
-	baseLabels = MergeMaps(baseLabels, identityLabels)
-	return baseLabels
-}
-
-func getEventIngesterIdentityLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
-	return map[string]string{"app": eventIngester.Name}
-}
-
-func getEventIngesterAdditionalLabels(eventIngester *installv1alpha1.EventIngester) map[string]string {
-	m := make(map[string]string, len(eventIngester.Labels))
-	for k, v := range eventIngester.Labels {
-		m[k] = v
-	}
-	return m
 }
