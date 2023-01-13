@@ -80,6 +80,15 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	deletionTimestamp := eventIngester.ObjectMeta.DeletionTimestamp
+	// examine DeletionTimestamp to determine if object is under deletion
+	if !deletionTimestamp.IsZero() {
+		logger.Info("EventIngester is being deleted")
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	mutateFn := func() error { return nil }
 
 	if components.ServiceAccount != nil {
