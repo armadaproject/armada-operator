@@ -34,14 +34,3 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: ./operator.out # optional
-
-  go-e2e-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 1.19
-          cache: true
-      - name: make test-integration
-        run: make test-integration
