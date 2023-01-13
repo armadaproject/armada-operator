@@ -204,16 +204,12 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingress, err := createIngress(as)
-	if err != nil {
-		return nil, err
-	}
-
+	ingress := createIngress(as)
 	if err := controllerutil.SetOwnerReference(as, ingress, scheme); err != nil {
 		return nil, err
 	}
 
-	ingressRest, err := createIngressRest(as)
+	ingressRest := createIngressRest(as)
 	if err := controllerutil.SetOwnerReference(as, ingressRest, scheme); err != nil {
 		return nil, err
 	}
@@ -313,22 +309,22 @@ func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.
 	return &sa
 }
 
-func createIngress(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+func createIngress(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	return &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-	}, nil
+	}
 }
 
-func createIngressRest(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+func createIngressRest(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	return &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-	}, nil
+	}
 }
 
 func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {
