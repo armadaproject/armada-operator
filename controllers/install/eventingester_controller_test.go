@@ -176,10 +176,10 @@ func TestEventIngesterReconciler_ReconcileDelete(t *testing.T) {
 	// Executor
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.EventIngester{})).
 		Return(nil).
 		SetArg(2, expectedEventIngester)
-	
+
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
