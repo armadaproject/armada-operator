@@ -77,7 +77,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil)
-	// Ingress_Rest
+	// IngressRest
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNS, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
