@@ -278,19 +278,19 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      executorVolumeConfigKey,
+								Name:      volumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigName(binoculars.Name),
+								SubPath:   binoculars.Name,
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					Volumes: []corev1.Volume{{
-						Name: "user-config",
+						Name: volumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: GetConfigName(binoculars.Name),
+								SecretName: binoculars.Name,
 							},
 						},
 					}},

@@ -258,10 +258,10 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      executorVolumeConfigKey,
+								Name:      volumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigName(executor.Name),
+								SubPath:   executor.Name,
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -269,10 +269,10 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 					NodeSelector: executor.Spec.NodeSelector,
 					Tolerations:  executor.Spec.Tolerations,
 					Volumes: []corev1.Volume{{
-						Name: executorVolumeConfigKey,
+						Name: volumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: GetConfigName(executor.Name),
+								SecretName: executor.Name,
 							},
 						},
 					}},
