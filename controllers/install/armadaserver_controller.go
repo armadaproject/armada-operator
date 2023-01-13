@@ -80,6 +80,8 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	// TODO remove finalizers (not needed? per Dejan Zele Pejchev)
+
 	deletionTimestamp := as.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
 	if deletionTimestamp.IsZero() {
@@ -203,6 +205,10 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	}
 
 	ingress, err := createIngress(as)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := controllerutil.SetOwnerReference(as, ingress, scheme); err != nil {
 		return nil, err
 	}
@@ -310,7 +316,7 @@ func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.
 func createIngress(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
 	return &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
-		//	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 	}, nil
@@ -319,7 +325,7 @@ func createIngress(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, err
 func createIngressRest(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
 	return &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
-		//	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 	}, nil
