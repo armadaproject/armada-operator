@@ -18,9 +18,6 @@ package install
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,9 +40,9 @@ type EventIngesterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventIngesters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -152,18 +149,18 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: getAllEventIngesterLabels(eventIngester)},
+		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: getEventIngesterIdentityLabels(eventIngester),
+				MatchLabels: IdentityLabel(eventIngester.Name),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        eventIngester.Name,
 					Namespace:   eventIngester.Namespace,
-					Labels:      getAllEventIngesterLabels(eventIngester),
-					Annotations: map[string]string{"checksum/config": getEventIngesterChecksumConfig(eventIngester)},
+					Labels:      AllLabels(eventIngester.Name, eventIngester.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(eventIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
@@ -172,7 +169,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 						RunAsGroup: &runAsGroup,
 					},
 					Containers: []corev1.Container{{
-						Name:            "eventIngester",
+						Name:            "eventingester",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(eventIngester.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
@@ -201,10 +198,10 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      eventIngesterVolumeConfigKey,
+								Name:      volumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   getEventIngesterConfigFilename(eventIngester),
+								SubPath:   eventIngester.Name,
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -212,10 +209,10 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 					NodeSelector: eventIngester.Spec.NodeSelector,
 					Tolerations:  eventIngester.Spec.Tolerations,
 					Volumes: []corev1.Volume{{
-						Name: eventIngesterVolumeConfigKey,
+						Name: volumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: getEventIngesterConfigName(eventIngester),
+								SecretName: eventIngester.Name,
 							},
 						},
 					}},

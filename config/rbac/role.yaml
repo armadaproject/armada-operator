@@ -60,7 +60,7 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventIngesters
+  - eventingesters
   verbs:
   - create
   - delete
@@ -72,13 +72,13 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventIngesters/finalizers
+  - eventingesters/finalizers
   verbs:
   - update
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventIngesters/status
+  - eventingesters/status
   verbs:
   - get
   - patch
