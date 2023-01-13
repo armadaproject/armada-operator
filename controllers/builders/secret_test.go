@@ -3,29 +3,43 @@ package builders
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
+
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestGenerateSecret(t *testing.T) {
-	testcases := map[string]struct {
-		appConfig runtime.RawExtension
-		name      string
-		namespace string
+func Test_GenerateSecret(t *testing.T) {
+
+	tests := []struct {
+		title   string
+		input   runtime.RawExtension
+		wantErr bool
 	}{
-		"Binoculars": {
-			appConfig: runtime.RawExtension{},
-			name:      "binoculars",
-			namespace: "binoculars",
+		{
+			title: "it converts runtime.RawExtension json to yaml",
+			input: runtime.RawExtension{Raw: []byte(`{ "test": { "foo": "bar" }}`)},
+		},
+		{
+			title: "it converts complex runtime.RawExtension json to yaml",
+			input: runtime.RawExtension{Raw: []byte(`{ "test": {"foo": "bar"}, "test1": {"foo1": { "foo2": "bar2" }}}`)},
+		},
+		{
+			title:   "it errors if runtime.RawExtension raw is malformed json",
+			input:   runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			wantErr: true,
 		},
 	}
 
-	for name, tc := range testcases {
-		t.Run(name, func(t *testing.T) {
-			got, err := CreateSecret(tc.appConfig, tc.name, tc.namespace)
-			require.NoError(t, err)
-			require.True(t, got.Name == tc.name)
-			require.True(t, got.Name == tc.namespace)
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			output, err := CreateSecret(tt.input, "secret", "default")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, "secret", output.Name)
+				assert.Equal(t, "default", output.Namespace)
+			}
 		})
 	}
 }

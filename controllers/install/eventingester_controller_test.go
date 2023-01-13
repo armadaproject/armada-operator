@@ -34,7 +34,6 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "EventIngester"},
 		Spec: v1alpha1.EventIngesterSpec{
-			Name:   "EventIngester",
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
@@ -112,7 +111,7 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 	}
 }
 
-func TestEventIngesterReconciler_ReconcileNotFound(t *testing.T) {
+func TestEventIngesterReconciler_ReconcileNoEventIngester(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)

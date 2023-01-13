@@ -76,9 +76,6 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              name:
-                description: Name specifies the base name for all Kubernetes Resources
-                type: string
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -264,7 +261,6 @@ spec:
             required:
             - applicationConfig
             - image
-            - name
             type: object
           status:
             description: LookoutStatus defines the observed state of lookout

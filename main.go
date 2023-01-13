@@ -126,10 +126,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
-		os.Exit(1)
-	}
 	if err = (&corecontrollers.QueueReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -152,6 +148,15 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "EventIngester")
 			os.Exit(1)
 		}
+		if err = (&installv1alpha1.Binoculars{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Binoculars")
+			os.Exit(1)
+		}
+		if err = (&installv1alpha1.Lookout{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Lookout")
+			os.Exit(1)
+		}
+
 	}
 
 	//+kubebuilder:scaffold:builder

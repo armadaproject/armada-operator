@@ -24,8 +24,6 @@ import (
 
 // EventIngesterSpec defines the desired state of EventIngester
 type EventIngesterSpec struct {
-	// Name specifies the base name for all Kubernetes Resources
-	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
