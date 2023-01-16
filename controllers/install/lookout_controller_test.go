@@ -125,3 +125,36 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		t.Fatalf("reconcile should not return error")
 	}
 }
+
+func TestLookoutReconciler_ReconcileNoLookout(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-test"}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Executor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := LookoutReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "lookout-test"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("reconcile should not return error")
+	}
+}
