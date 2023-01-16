@@ -70,7 +70,8 @@ type BinocularsSpec struct {
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	Ingress        IngressConfig        `json:"ingress,omitempty"`
+	Ingress        *IngressConfig       `json:"ingress,omitempty"`
+	ClusterIssuer  string               `json:"clusterIssuer,omitempty"`
 }
 
 // BinocularsStatus defines the observed state of binoculars

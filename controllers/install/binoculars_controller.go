@@ -190,6 +190,17 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
+
+	ingress := createBinocularsIngress(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
+		return nil, err
+	}
+
+	ingressGrpc := createBinocularsGRPCIngress(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
+		return nil, err
+	}
+
 	clusterRole := createBinocularsClusterRole(binoculars)
 	clusterRoleBinding := generateBinocularsClusterRoleBinding(*binoculars)
 
@@ -200,6 +211,8 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		Secret:             secret,
 		ClusterRole:        clusterRole,
 		ClusterRoleBinding: clusterRoleBinding,
+		Ingress:            ingressGrpc,
+		IngressRest:        ingress,
 	}, nil
 }
 
@@ -345,6 +358,63 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
 	}
 	return nil
+}
+
+func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	grpcIngress := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            binoculars.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               binoculars.Spec.ClusterIssuer,
+			},
+		},
+	}
+	if binoculars.Spec.Ingress.Annotations != nil {
+		for key, value := range binoculars.Spec.Ingress.Annotations {
+			grpcIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if binoculars.Spec.Ingress.Labels != nil {
+		for key, value := range binoculars.Spec.Ingress.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if binoculars.Spec.Labels != nil {
+		for key, value := range binoculars.Spec.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+
+	return grpcIngress
+}
+
+func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	grpcIngress := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            binoculars.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               binoculars.Spec.ClusterIssuer,
+			},
+		},
+	}
+	if binoculars.Spec.Ingress.Annotations != nil {
+		for key, value := range binoculars.Spec.Ingress.Annotations {
+			grpcIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if binoculars.Spec.Ingress.Labels != nil {
+		for key, value := range binoculars.Spec.Ingress.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+
+	return grpcIngress
 }
 
 // SetupWithManager sets up the controller with the Manager.

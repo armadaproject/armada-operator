@@ -42,6 +42,7 @@ type ServiceAccountConfig struct {
 
 type IngressConfig struct {
 	// Labels is the map of labels which wil be added to all objects
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Annotations  map[string]string `json:"annotations,omitempty"`
+	IngressClass string            `json:"ingressClass,omitempty"`
 }
