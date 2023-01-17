@@ -34,6 +34,32 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
+  - armadaservers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - armadaservers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - armadaservers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
   - binoculars
   verbs:
   - create
@@ -131,32 +157,6 @@ rules:
   - install.armadaproject.io
   resources:
   - lookout/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - servers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - servers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - servers/status
   verbs:
   - get
   - patch

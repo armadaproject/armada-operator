@@ -22,60 +22,53 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
-// Executor is the Schema for the executors API
-type Executor struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ExecutorSpec   `json:"spec,omitempty"`
-	Status ExecutorStatus `json:"status,omitempty"`
-}
-
-//+kubebuilder:object:root=true
-
-// ExecutorList contains a list of Executor
-type ExecutorList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Executor `json:"items"`
-}
-
-// ExecutorSpec defines the desired state of Executor
-type ExecutorSpec struct {
+// ArmadaServerSpec defines the desired state of ArmadaServer
+type ArmadaServerSpec struct {
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
-	// ApplicationConfig is the internal Executor configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
+	// ApplicationConfig is the internal ArmadaServer configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate
+	// Tolerations is the configuration block for specifying which taints the ArmadaServer pod can tolerate
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
-	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 }
 
-// ExecutorStatus defines the observed state of Executor
-type ExecutorStatus struct {
+// ArmadaServerStatus defines the observed state of ArmadaServer
+type ArmadaServerStatus struct {
+}
+
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+
+// ArmadaServer is the Schema for the Armada Server API
+type ArmadaServer struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   ArmadaServerSpec   `json:"spec,omitempty"`
+	Status ArmadaServerStatus `json:"status,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+
+// ArmadaServerList contains a list of ArmadaServer
+type ArmadaServerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ArmadaServer `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Executor{}, &ExecutorList{})
+	SchemeBuilder.Register(&ArmadaServer{}, &ArmadaServerList{})
 }

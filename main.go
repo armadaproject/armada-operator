@@ -97,7 +97,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&install.ServerReconciler{
+	if err = (&install.ArmadaServerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -143,12 +143,12 @@ func main() {
 
 	disableWebhooks := os.Getenv("DISABLE_WEBHOOKS") == "true"
 	if !disableWebhooks {
-		if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
+		if err = (&installv1alpha1.ArmadaServer{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ArmadaServer")
 			os.Exit(1)
 		}
-		if err = (&installv1alpha1.Server{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Server")
+		if err = (&v1alpha1.Executor{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Executor")
 			os.Exit(1)
 		}
 		if err = (&installv1alpha1.EventIngester{}).SetupWebhookWithManager(mgr); err != nil {
