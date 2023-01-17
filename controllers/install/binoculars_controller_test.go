@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,10 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
 		},
 	}
 
@@ -115,6 +120,25 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
 		Return(nil).
 		SetArg(1, *binoculars.ClusterRoleBinding)
+	// Ingress
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(nil).
+		SetArg(1, *binoculars.Ingress)
+	// IngressRest
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(nil).SetArg(1, *binoculars.IngressRest)
 
 	r := BinocularsReconciler{
 		Client: mockK8sClient,
@@ -188,6 +212,10 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)

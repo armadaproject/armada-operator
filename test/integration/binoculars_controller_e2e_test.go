@@ -25,6 +25,9 @@ metadata:
   name: binoculars-e2e-1
   namespace: default
 spec:
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest
@@ -47,6 +50,9 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest
@@ -70,6 +76,9 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest

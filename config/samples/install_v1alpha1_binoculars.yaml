@@ -10,6 +10,9 @@ metadata:
   name: binoculars-sample
   namespace: default
 spec:
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: gresearchdev/armada-binoculars
     tag: v0.3.44

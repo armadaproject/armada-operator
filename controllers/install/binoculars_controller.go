@@ -49,11 +49,6 @@ type BinocularsReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Server object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -154,6 +149,18 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if components.Service != nil {
 		logger.Info("Upserting Binoculars Service object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if components.Ingress != nil {
+		logger.Info("Upserting GRPC Ingress object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if components.IngressRest != nil {
+		logger.Info("Upserting Rest Ingress object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
