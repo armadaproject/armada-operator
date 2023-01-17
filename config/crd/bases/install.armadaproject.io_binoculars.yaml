@@ -105,6 +105,9 @@ spec:
                       should scrape Executor metrics
                     type: string
                 type: object
+              replicas:
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting Binoculars
                   resource requirements
@@ -266,6 +269,7 @@ spec:
             - applicationConfig
             - clusterIssuer
             - image
+            - replicas
             type: object
           status:
             description: BinocularsStatus defines the observed state of binoculars

@@ -25,6 +25,7 @@ metadata:
   name: binoculars-e2e-1
   namespace: default
 spec:
+  replicas: 2
   ingress:
     ingressClass: nginx
   clusterIssuer: test
@@ -50,6 +51,7 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  replicas: 2
   ingress:
     ingressClass: nginx
   clusterIssuer: test
@@ -76,6 +78,7 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  replicas: 2
   ingress:
     ingressClass: nginx
   clusterIssuer: test

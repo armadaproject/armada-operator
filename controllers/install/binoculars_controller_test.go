@@ -43,7 +43,8 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 		Spec: v1alpha1.BinocularsSpec{
-			Labels: nil,
+			Replicas: 2,
+			Labels:   nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
@@ -206,7 +207,8 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.BinocularsSpec{
-			Labels: nil,
+			Replicas: 2,
+			Labels:   nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
