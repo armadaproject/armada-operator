@@ -64,15 +64,6 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              name:
-                description: Name specifies the base name for all Kubernetes Resources
-                type: string
-              nodeSelector:
-                additionalProperties:
-                  type: string
-                description: NodeSelector restricts the Executor pod to run on nodes
-                  matching the configured selectors
-                type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
                   monitoring
@@ -207,6 +198,7 @@ spec:
                 description: TerminationGracePeriodSeconds specifies how many seconds
                   should Kubernetes wait for the application to shut down gracefully
                   before sending a KILL signal
+                format: int64
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
@@ -252,7 +244,6 @@ spec:
             required:
             - applicationConfig
             - image
-            - name
             type: object
           status:
             description: ArmadaServerStatus defines the observed state of ArmadaServer
