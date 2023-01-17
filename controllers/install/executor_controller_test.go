@@ -100,7 +100,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
 		Return(nil)
-	// Deployment
+	// Service
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).

@@ -14,8 +14,6 @@ spec:
     repository: gresearchdev/armada-executor
     tag: v0.3.44
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    apiConnection:
+      armadaUrl: armada.demo.armadaproject.io:443
+      forceNoTls: false

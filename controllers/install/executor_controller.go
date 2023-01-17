@@ -164,13 +164,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Executor ServiceMonitor object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	logger.Info("Successfully reconciled Executor object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil

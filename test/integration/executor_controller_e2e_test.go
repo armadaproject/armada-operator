@@ -32,8 +32,9 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
+	apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
     toleratedTaints:
       - key: armada.io/batch
         operator: in
@@ -49,8 +50,9 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
+	apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
     toleratedTaints:
       - key: armada.io/batch
         operator: in
@@ -68,8 +70,9 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
+	apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
     toleratedTaints:
       - key: armada.io/batch
         operator: in
@@ -84,8 +87,9 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
+	apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
     toleratedTaints:
       - key: armada.io/batch
         operator: in
@@ -123,7 +127,7 @@ var _ = Describe("Executor Controller", func() {
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
+				Expect(secret.Data["executor-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
@@ -142,7 +146,7 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
-				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
+				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
 				err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -235,44 +239,58 @@ var _ = Describe("Executor Controller", func() {
 
 				time.Sleep(2 * time.Second)
 
+				// executor
 				executor := installv1alpha1.Executor{}
-				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, executorKey, &executor)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr := err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// secret
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// deployment
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, deploymentKey, &deployment)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// service
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
+				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// clusterrole
 				clusterRole := rbacv1.ClusterRole{}
-				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
+				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// clusterrolebinding
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
+				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
+				notFoundErr = err.(*errors.StatusError)
+				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+
+				// serviceaccount
+				serviceAccount := corev1.ServiceAccount{}
+				serviceAccountKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
+				err = k8sClient.Get(ctx, serviceAccountKey, &serviceAccount)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
