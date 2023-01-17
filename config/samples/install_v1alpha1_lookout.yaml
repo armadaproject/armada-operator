@@ -1,0 +1,20 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Lookout
+metadata:
+  labels:
+    app.kubernetes.io/name: lookout
+    app.kubernetes.io/instance: lookout-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/created-by: armada-operator
+  name: lookout-sample
+  namespace: default
+spec:
+  image:
+    repository: gresearchdev/armada-lookout
+    tag: v0.3.44
+  applicationConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in
