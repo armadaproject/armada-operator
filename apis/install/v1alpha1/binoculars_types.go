@@ -70,9 +70,13 @@ type BinocularsSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	Ingress        *IngressConfig       `json:"ingress,omitempty"`
-	ClusterIssuer  string               `json:"clusterIssuer"`
+	ServiceAccount         ServiceAccountConfig     `json:"serviceAccount,omitempty"`
+	Ingress                *IngressConfig           `json:"ingress,omitempty"`
+	HostNames              []string                 `json:"hostNames,omitempty"`
+	ClusterIssuer          string                   `json:"clusterIssuer"`
+	Environment            []Env                    `json:"environment,omitempty"`
+	AdditionalVolumes      []AdditionalVolume       `json:"AdditionalVolumes,omitempty"`
+	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"AdditionalVolumeMounts,omitempty"`
 }
 
 // BinocularsStatus defines the observed state of binoculars

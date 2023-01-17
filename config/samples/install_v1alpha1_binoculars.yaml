@@ -67,7 +67,7 @@ spec:
       prometheus: armada
       role: prometheus-rulefiles
 
-  additionalLabels:
+  labels:
     armadaproject.io/app-id: "9670"
 
   applicationConfig:
