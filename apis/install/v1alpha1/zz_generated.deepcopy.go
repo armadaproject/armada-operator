@@ -23,6 +23,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -579,6 +580,11 @@ func (in *PrometheusConfig) DeepCopyInto(out *PrometheusConfig) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.ScrapeInterval != nil {
+		in, out := &in.ScrapeInterval, &out.ScrapeInterval
+		*out = new(metav1.Duration)
+		**out = **in
 	}
 }
 

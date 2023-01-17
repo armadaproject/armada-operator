@@ -5,16 +5,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
-	armadaConfigKey = "armada-config.yaml"
-)
-
-func GenerateArmadaConfig(config runtime.RawExtension) (map[string][]byte, error) {
-	yaml, err := convertRawExtensionToYaml(config)
+// GenerateArmadaConfig generates armada config from the provided raw data and stores it into a map under the provided key.
+func GenerateArmadaConfig(config runtime.RawExtension, key string) (map[string][]byte, error) {
+	yml, err := convertRawExtensionToYaml(config)
 	if err != nil {
 		return nil, err
 	}
-	return map[string][]byte{armadaConfigKey: []byte(yaml)}, nil
+	return map[string][]byte{key: []byte(yml)}, nil
 }
 
 func convertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
