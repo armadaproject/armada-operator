@@ -12,7 +12,6 @@ spec:
   image:
     repository: gresearchdev/armada-eventingester
     tag: v0.3.44
-  name: "eventIngester"
   applicationConfig:
     redis:
       addrs:
