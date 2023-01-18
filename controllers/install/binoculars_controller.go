@@ -31,6 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -394,7 +395,31 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 			grpcIngress.ObjectMeta.Labels[key] = value
 		}
 	}
-
+	if len(binoculars.Spec.HostNames) > 0 {
+		secretName := binoculars.Name + "-service-tls"
+		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + binoculars.Name
+		for _, val := range binoculars.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									Number: 50051,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		grpcIngress.Spec.Rules = ingressRules
+	}
 	return grpcIngress
 }
 
@@ -402,14 +427,15 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 	grpcIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
 			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
-				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-				"certmanager.k8s.io/cluster-issuer":            binoculars.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":               binoculars.Spec.ClusterIssuer,
+				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
+				"certmanager.k8s.io/cluster-issuer":          binoculars.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":             binoculars.Spec.ClusterIssuer,
+				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 			},
 		},
 	}
+
 	if binoculars.Spec.Ingress.Annotations != nil {
 		for key, value := range binoculars.Spec.Ingress.Annotations {
 			grpcIngress.ObjectMeta.Annotations[key] = value
@@ -420,7 +446,31 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 			grpcIngress.ObjectMeta.Labels[key] = value
 		}
 	}
-
+	if len(binoculars.Spec.HostNames) > 0 {
+		secretName := binoculars.Name + "-service-tls"
+		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + binoculars.Name
+		for _, val := range binoculars.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/api(/|$)(.*)",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									Number: 8081,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		grpcIngress.Spec.Rules = ingressRules
+	}
 	return grpcIngress
 }
 

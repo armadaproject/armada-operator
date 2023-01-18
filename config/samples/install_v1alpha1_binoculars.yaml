@@ -12,12 +12,12 @@ metadata:
 spec:
   ingressClass: "nginx"
   clusterIssuer: "k8s-cluster-issuer"
-  hostnames: [localhost] # populated in jenkins file
+  hostnames: [localhost]
   replicas: 2
 
   image:
     tag: 8f1aa7314e32a071975502fc8127848369fe006a
-    repository: gresearchdev/armada-binoculars8f1aa7314e32a071975502fc8127848369fe006a
+    repository: gresearchdev/armada-binoculars
   resources:
     limits:
       memory: 1Gi
