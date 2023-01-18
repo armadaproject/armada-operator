@@ -4,4 +4,5 @@ resources:
 - install_v1alpha1_executor.yaml
 - core_v1alpha1_queue.yaml
 - install_v1alpha1_eventingester.yaml
+- install_v1alpha1_binoculars.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
