@@ -74,7 +74,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	components, err := generateExecutorInstallComponents(&executor, r.Scheme)
+	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
 	componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
@@ -119,7 +119,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	mutateFn := func() error {
-		reconcileComponents(components, componentsCopy)
+		r.reconcileComponents(components, componentsCopy)
 		return nil
 	}
 
@@ -169,6 +169,69 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *ExecutorComponents) {
+	oldComponents.Secret.Data = newComponents.Secret.Data
+	oldComponents.Secret.Labels = newComponents.Secret.Labels
+	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
+	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
+	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
+	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
+	oldComponents.Service.Spec = newComponents.Service.Spec
+	oldComponents.Service.Labels = newComponents.Service.Labels
+	oldComponents.Service.Annotations = newComponents.Service.Annotations
+	oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
+	oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
+	oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
+	oldComponents.ClusterRoleBinding.RoleRef = newComponents.ClusterRoleBinding.RoleRef
+	oldComponents.ClusterRoleBinding.Subjects = newComponents.ClusterRoleBinding.Subjects
+	oldComponents.ClusterRoleBinding.Labels = newComponents.ClusterRoleBinding.Labels
+	oldComponents.ClusterRoleBinding.Annotations = newComponents.ClusterRoleBinding.Annotations
+}
+
+func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
+	serviceAccount := r.createServiceAccount(executor)
+	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
+	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
+		return nil, err
+	}
+	deployment := r.createDeployment(executor, secret, serviceAccount)
+	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
+		return nil, err
+	}
+	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels))
+	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
+		return nil, err
+	}
+
+	clusterRole := r.createClusterRole(executor)
+	clusterRoleBinding := r.createClusterRoleBinding(executor, clusterRole, serviceAccount)
+
+	components := &ExecutorComponents{
+		Deployment:         deployment,
+		Service:            service,
+		ServiceAccount:     serviceAccount,
+		Secret:             secret,
+		ClusterRoleBinding: clusterRoleBinding,
+		ClusterRole:        clusterRole,
+	}
+
+	if executor.Spec.Prometheus.Enabled {
+		serviceMonitor := r.createServiceMonitor(executor)
+		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+		components.ServiceMonitor = serviceMonitor
+	}
+
+	return components, nil
+}
+
 type ExecutorComponents struct {
 	Deployment         *appsv1.Deployment
 	Service            *corev1.Service
@@ -191,70 +254,7 @@ func (ec *ExecutorComponents) DeepCopy() *ExecutorComponents {
 	}
 }
 
-func reconcileComponents(oldComponents, newComponents *ExecutorComponents) {
-	oldComponents.Secret.Data = newComponents.Secret.Data
-	oldComponents.Secret.Labels = newComponents.Secret.Labels
-	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
-	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
-	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
-	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
-	oldComponents.Service.Spec = newComponents.Service.Spec
-	oldComponents.Service.Labels = newComponents.Service.Labels
-	oldComponents.Service.Annotations = newComponents.Service.Annotations
-	oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
-	oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
-	oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
-	oldComponents.ClusterRoleBinding.RoleRef = newComponents.ClusterRoleBinding.RoleRef
-	oldComponents.ClusterRoleBinding.Subjects = newComponents.ClusterRoleBinding.Subjects
-	oldComponents.ClusterRoleBinding.Labels = newComponents.ClusterRoleBinding.Labels
-	oldComponents.ClusterRoleBinding.Annotations = newComponents.ClusterRoleBinding.Annotations
-}
-
-func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	serviceAccount := createServiceAccount(executor)
-	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
-		return nil, err
-	}
-	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
-	if err != nil {
-		return nil, err
-	}
-	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
-		return nil, err
-	}
-	deployment := createDeployment(executor, secret, serviceAccount)
-	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
-		return nil, err
-	}
-	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels))
-	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
-		return nil, err
-	}
-
-	clusterRole := createClusterRole(executor)
-	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
-
-	components := &ExecutorComponents{
-		Deployment:         deployment,
-		Service:            service,
-		ServiceAccount:     serviceAccount,
-		Secret:             secret,
-		ClusterRoleBinding: clusterRoleBinding,
-		ClusterRole:        clusterRole,
-	}
-
-	if executor.Spec.Prometheus.Enabled {
-		serviceMonitor := createServiceMonitor(executor)
-		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
-			return nil, err
-		}
-		components.ServiceMonitor = serviceMonitor
-	}
-
-	return components, nil
-}
-
-func createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
+func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
@@ -348,7 +348,7 @@ func createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret,
 	return &deployment
 }
 
-func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
+func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 	podRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
 		APIGroups: []string{""},
@@ -401,7 +401,7 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 	return &clusterRole
 }
 
-func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
+func (r *ExecutorReconciler) createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 	}
@@ -414,7 +414,7 @@ func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAcc
 	return &serviceAccount
 }
 
-func createClusterRoleBinding(
+func (r *ExecutorReconciler) createClusterRoleBinding(
 	executor *installv1alpha1.Executor,
 	clusterRole *rbacv1.ClusterRole,
 	serviceAccount *corev1.ServiceAccount,
@@ -439,7 +439,7 @@ func createClusterRoleBinding(
 	return &clusterRoleBinding
 }
 
-func createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
+func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
 	selectorLabels := IdentityLabel(executor.Name)
 	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
 	return &monitoringv1.ServiceMonitor{
