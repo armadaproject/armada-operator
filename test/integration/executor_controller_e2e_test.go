@@ -32,7 +32,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -50,7 +50,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -70,7 +70,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -82,12 +82,13 @@ var executorYaml3 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
   name: executor-e2e-3
+  namespace: default
 spec:
   image:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -247,14 +248,6 @@ var _ = Describe("Executor Controller", func() {
 				notFoundErr := err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
-				// secret
-				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
-
 				// deployment
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
@@ -271,6 +264,13 @@ var _ = Describe("Executor Controller", func() {
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
+				// secret
+				secret := corev1.Secret{}
+				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
+				err = k8sClient.Get(ctx, secretKey, &secret)
+				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
+				notFoundErr = err.(*errors.StatusError)
+				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 				// clusterrole
 				clusterRole := rbacv1.ClusterRole{}
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}

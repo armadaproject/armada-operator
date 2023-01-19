@@ -10,55 +10,41 @@ metadata:
   name: binoculars-sample
   namespace: default
 spec:
-  ingressClass: "nginx"
+  ingress:
+    ingressClass: "nginx"
+    labels: 
+      hello: "world"
+    annotations:
+      hello: "world2"
   clusterIssuer: "k8s-cluster-issuer"
-  hostnames: [localhost]
+  hostNames: [localhost]
   replicas: 2
-
   image:
     tag: 8f1aa7314e32a071975502fc8127848369fe006a
     repository: gresearchdev/armada-binoculars
   resources:
     limits:
       memory: 1Gi
-      cpu: 0.5
+      cpu: "0.5"
     requests:
       memory: 500Mi
-      cpu: 0.3
+      cpu: "0.3"
 
-  env:
-  - name: KRB5_CONFIG
-    value: /etc/krb5.conf
+  environment:
   - name: LOG_FORMAT
     value: json
 
   additionalVolumes:
-    - name: keytab
+    - name: testsecret
       secret:
-        secretName: armada-binoculars-dev-keytab
-    - name: krb5-conf
-      secret:
-        defaultMode: 420
-        secretName: krb5-conf
-    - name: ca-bundle
-      secret:
-        defaultMode: 420
-        secretName: ca-bundle
+        secretName: testsecret
 
   additionalVolumeMounts:
-    - name: keytab
-      mountPath: /etc/keytab
-      readOnly: true
-    - name: krb5-conf
-      mountPath: /etc/krb5.conf
-      subPath: krb5.conf
-      readOnly: true
-    - name: ca-bundle
-      mountPath: /etc/ssl/certs
-      readOnly: true
-  serviceAccount:
-    imagePullSecrets:
-      - name: prodregistry
+    - name: testsecret
+      volume:
+        name: testsecret
+        mountPath: /etc/vimrc
+        readOnly: true
 
   prometheus:
     enabled: true
@@ -73,6 +59,6 @@ spec:
   applicationConfig:
     impersonateUsers: true
     corsAllowedOrigins:
-    - "https://localhost"
-  auth:
-    anonymousAuth: true
+      - "https://localhost"
+    auth:
+      anonymousAuth: true

@@ -35,7 +35,8 @@ spec:
           spec:
             description: BinocularsSpec defines the desired state of Binoculars
             properties:
-              AdditionalVolumeMounts:
+              additionalVolumeMounts:
+                description: Additional volume mounts that are added as volumes
                 items:
                   properties:
                     name:
@@ -79,7 +80,8 @@ spec:
                       type: object
                   type: object
                 type: array
-              AdditionalVolumes:
+              additionalVolumes:
+                description: Additional volumes that are mounted into deployments
                 items:
                   properties:
                     name:
@@ -158,6 +160,7 @@ spec:
                   Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
               clusterIssuer:
+                description: Who is issuing certificates for CA
                 type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
@@ -165,6 +168,7 @@ spec:
                   defined in spec.serviceAccount field)
                 type: string
               environment:
+                description: Extra environment variables that get added to deployment
                 items:
                   properties:
                     name:
@@ -174,6 +178,7 @@ spec:
                   type: object
                 type: array
               hostNames:
+                description: An array of host names to build ingress rules for
                 items:
                   type: string
                 type: array
@@ -190,6 +195,8 @@ spec:
                 - tag
                 type: object
               ingress:
+                description: Ingress for the binoculars component. Used to inject
+                  labels/annotations into ingress
                 properties:
                   annotations:
                     additionalProperties:
