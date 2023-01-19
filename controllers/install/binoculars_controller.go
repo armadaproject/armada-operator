@@ -424,7 +424,7 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 }
 
 func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
-	grpcIngress := &networking.Ingress{
+	restIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
@@ -438,17 +438,17 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 
 	if binoculars.Spec.Ingress.Annotations != nil {
 		for key, value := range binoculars.Spec.Ingress.Annotations {
-			grpcIngress.ObjectMeta.Annotations[key] = value
+			restIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
 	if binoculars.Spec.Ingress.Labels != nil {
 		for key, value := range binoculars.Spec.Ingress.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
+			restIngress.ObjectMeta.Labels[key] = value
 		}
 	}
 	if len(binoculars.Spec.HostNames) > 0 {
 		secretName := binoculars.Name + "-service-tls"
-		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
 		serviceName := "armada" + "-" + binoculars.Name
 		for _, val := range binoculars.Spec.HostNames {
@@ -469,9 +469,9 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 				},
 			}})
 		}
-		grpcIngress.Spec.Rules = ingressRules
+		restIngress.Spec.Rules = ingressRules
 	}
-	return grpcIngress
+	return restIngress
 }
 
 // SetupWithManager sets up the controller with the Manager.

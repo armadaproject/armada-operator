@@ -10,6 +10,11 @@ metadata:
   name: armadaserver-sample
   namespace: default
 spec:
+  ingressClass: "nginx"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostnames: [localhost]
+  replicas: 2
+
   image:
     repository: gresearchdev/armada-armada-server-dev
     tag: b0f4404a8f3cfa904d68250966e67834ec5a4e54

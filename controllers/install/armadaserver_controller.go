@@ -26,11 +26,13 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networking "k8s.io/api/networking/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -111,7 +113,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if components.Ingress != nil {
-		logger.Info("Upserting ArmadaServer Ingress object")
+		logger.Info("Upserting ArmadaServer GRPC Ingress object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -191,12 +193,12 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingress := createIngress(as)
-	if err := controllerutil.SetOwnerReference(as, ingress, scheme); err != nil {
+	ingressGRPC := createIngressGRPC(as)
+	if err := controllerutil.SetOwnerReference(as, ingressGRPC, scheme); err != nil {
 		return nil, err
 	}
 
-	ingressRest := createIngressRest(as)
+	ingressRest := createIngressREST(as)
 	if err := controllerutil.SetOwnerReference(as, ingressRest, scheme); err != nil {
 		return nil, err
 	}
@@ -236,7 +238,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	return &ArmadaServerComponents{
 		Deployment:          deployment,
-		Ingress:             ingress,
+		Ingress:             ingressGRPC,
 		IngressRest:         ingressRest,
 		Service:             service,
 		ServiceAccount:      svcAcct,
@@ -296,22 +298,120 @@ func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.
 	return &sa
 }
 
-func createIngress(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
-	return &networkingv1.Ingress{
+func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	grpcIngress := &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            as.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               as.Spec.ClusterIssuer,
+			},
+			//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+			//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+		},
 	}
+	if as.Spec.Ingress.Annotations != nil {
+		for key, value := range as.Spec.Ingress.Annotations {
+			grpcIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if as.Spec.Ingress.Labels != nil {
+		for key, value := range as.Spec.Ingress.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if as.Spec.Labels != nil {
+		for key, value := range as.Spec.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if len(as.Spec.HostNames) > 0 {
+		secretName := as.Name + "-service-tls"
+		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + as.Name
+		for _, val := range as.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									// TODO fix port number
+									Number: 50051,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		grpcIngress.Spec.Rules = ingressRules
+	}
+
+	return grpcIngress
 }
 
-func createIngressRest(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
-	return &networkingv1.Ingress{
+func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	restIngress := &networkingv1.Ingress{
 		//	metav1.TypeMeta `json:",inline"`
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                as.Spec.Ingress.IngressClass,
+				"certmanager.k8s.io/cluster-issuer":          as.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":             as.Spec.ClusterIssuer,
+				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
+			},
+		},
 		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 	}
+
+	if as.Spec.Ingress.Annotations != nil {
+		for key, value := range as.Spec.Ingress.Annotations {
+			restIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if as.Spec.Ingress.Labels != nil {
+		for key, value := range as.Spec.Ingress.Labels {
+			restIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if len(as.Spec.HostNames) > 0 {
+		secretName := as.Name + "-service-tls"
+		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + as.Name
+		for _, val := range as.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/api(/|$)(.*)",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									// TODO fix port number
+									Number: 8081,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		restIngress.Spec.Rules = ingressRules
+	}
+	return restIngress
 }
 
 func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {
