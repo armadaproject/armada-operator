@@ -32,7 +32,7 @@ func Test_GenerateSecret(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			output, err := CreateSecret(tt.input, "secret", "default")
+			output, err := CreateSecret(tt.input, "secret", "default", "config.yaml")
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

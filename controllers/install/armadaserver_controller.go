@@ -211,7 +211,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace)
+	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
 		return nil, err
 	}

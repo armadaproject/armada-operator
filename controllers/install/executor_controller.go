@@ -20,10 +20,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/duration"
+
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	builders "github.com/armadaproject/armada-operator/controllers/builders"
+	"github.com/armadaproject/armada-operator/controllers/builders"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -70,7 +74,8 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	components, err := generateExecutorInstallComponents(&executor, r.Scheme)
+	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
+	componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -90,11 +95,12 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	} else {
 		logger.Info("Executor object is being deleted", "finalizer", operatorFinalizer)
+		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(&executor, operatorFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Executor object", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components); err != nil {
+			logger.Info("Running cleanup function for Executor cluster-scoped components", "finalizer", operatorFinalizer)
+			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
 				return ctrl.Result{}, err
@@ -112,7 +118,10 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	mutateFn := func() error { return nil }
+	mutateFn := func() error {
+		r.reconcileComponents(components, componentsCopy)
+		return nil
+	}
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting Executor ServiceAccount object")
@@ -160,24 +169,38 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-type ExecutorComponents struct {
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *ExecutorComponents) {
+	oldComponents.Secret.Data = newComponents.Secret.Data
+	oldComponents.Secret.Labels = newComponents.Secret.Labels
+	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
+	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
+	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
+	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
+	oldComponents.Service.Spec = newComponents.Service.Spec
+	oldComponents.Service.Labels = newComponents.Service.Labels
+	oldComponents.Service.Annotations = newComponents.Service.Annotations
+	oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
+	oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
+	oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
+	oldComponents.ClusterRoleBinding.RoleRef = newComponents.ClusterRoleBinding.RoleRef
+	oldComponents.ClusterRoleBinding.Subjects = newComponents.ClusterRoleBinding.Subjects
+	oldComponents.ClusterRoleBinding.Labels = newComponents.ClusterRoleBinding.Labels
+	oldComponents.ClusterRoleBinding.Annotations = newComponents.ClusterRoleBinding.Annotations
 }
 
-func generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace)
+func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
+	serviceAccount := r.createServiceAccount(executor)
+	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
+	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
 		return nil, err
 	}
 	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createDeployment(executor)
+	deployment := r.createDeployment(executor, secret, serviceAccount)
 	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, err
 	}
@@ -185,29 +208,111 @@ func generateExecutorInstallComponents(executor *installv1alpha1.Executor, schem
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}
-	serviceAccount := createServiceAccount(executor)
-	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
-		return nil, err
-	}
 
-	clusterRole := createClusterRole(executor)
-	clusterRoleBinding := createClusterRoleBinding(executor, clusterRole, serviceAccount)
+	clusterRole := r.createClusterRole(executor)
+	clusterRoleBinding := r.createClusterRoleBinding(executor, clusterRole, serviceAccount)
 
-	return &ExecutorComponents{
+	components := &ExecutorComponents{
 		Deployment:         deployment,
 		Service:            service,
 		ServiceAccount:     serviceAccount,
 		Secret:             secret,
 		ClusterRoleBinding: clusterRoleBinding,
 		ClusterRole:        clusterRole,
-	}, nil
+	}
+
+	if executor.Spec.Prometheus.Enabled {
+		serviceMonitor := r.createServiceMonitor(executor)
+		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+		components.ServiceMonitor = serviceMonitor
+	}
+
+	return components, nil
 }
 
-func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
+type ExecutorComponents struct {
+	Deployment         *appsv1.Deployment
+	Service            *corev1.Service
+	ServiceAccount     *corev1.ServiceAccount
+	Secret             *corev1.Secret
+	ClusterRole        *rbacv1.ClusterRole
+	ClusterRoleBinding *rbacv1.ClusterRoleBinding
+	ServiceMonitor     *monitoringv1.ServiceMonitor
+}
+
+func (ec *ExecutorComponents) DeepCopy() *ExecutorComponents {
+	return &ExecutorComponents{
+		Deployment:         ec.Deployment.DeepCopy(),
+		Service:            ec.Service.DeepCopy(),
+		ServiceAccount:     ec.ServiceAccount.DeepCopy(),
+		Secret:             ec.Secret.DeepCopy(),
+		ClusterRole:        ec.ClusterRole.DeepCopy(),
+		ClusterRoleBinding: ec.ClusterRoleBinding.DeepCopy(),
+		ServiceMonitor:     ec.ServiceMonitor.DeepCopy(),
+	}
+}
+
+func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
+	appConfigMount := "/config/application_config.yaml"
 	allowPrivilegeEscalation := false
+	ports := []corev1.ContainerPort{{
+		Name:          "metrics",
+		ContainerPort: 9001,
+		Protocol:      "TCP",
+	}}
+	env := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: appConfigMount,
+			SubPath:   GetConfigFilename(executor.Name),
+		},
+	}
+	containers := []corev1.Container{{
+		Name:            "executor",
+		ImagePullPolicy: "IfNotPresent",
+		Image:           ImageString(executor.Spec.Image),
+		Args:            []string{"--config", appConfigMount},
+		Ports:           ports,
+		Env:             env,
+		VolumeMounts:    volumeMounts,
+		SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+	}}
+	volumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secret.Name,
+			},
+		},
+	}}
+	serviceAccountName := executor.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccountName = serviceAccount.Name
+	}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -223,59 +328,16 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(executor.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: executor.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,
 						RunAsGroup: &runAsGroup,
 					},
-					Containers: []corev1.Container{{
-						Name:            "executor",
-						ImagePullPolicy: "IfNotPresent",
-						Image:           ImageString(executor.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: 9001,
-							Protocol:      "TCP",
-						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   executor.Name,
-							},
-						},
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
-					}},
+					Containers:   containers,
 					NodeSelector: executor.Spec.NodeSelector,
 					Tolerations:  executor.Spec.Tolerations,
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: executor.Name,
-							},
-						},
-					}},
+					Volumes:      volumes,
 				},
 			},
 		},
@@ -286,7 +348,7 @@ func createDeployment(executor *installv1alpha1.Executor) *appsv1.Deployment {
 	return &deployment
 }
 
-func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
+func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 	podRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection", "patch", "update"},
 		APIGroups: []string{""},
@@ -339,7 +401,7 @@ func createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
 	return &clusterRole
 }
 
-func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
+func (r *ExecutorReconciler) createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
 	serviceAccount := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 	}
@@ -352,16 +414,20 @@ func createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAcc
 	return &serviceAccount
 }
 
-func createClusterRoleBinding(
+func (r *ExecutorReconciler) createClusterRoleBinding(
 	executor *installv1alpha1.Executor,
 	clusterRole *rbacv1.ClusterRole,
 	serviceAccount *corev1.ServiceAccount,
 ) *rbacv1.ClusterRoleBinding {
+	serviceAccountName := executor.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccountName = serviceAccount.Name
+	}
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: AllLabels(executor.Name, executor.Labels)},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
-			Name:      serviceAccount.Name,
+			Name:      serviceAccountName,
 			Namespace: serviceAccount.Namespace,
 		}},
 		RoleRef: rbacv1.RoleRef{
@@ -373,13 +439,38 @@ func createClusterRoleBinding(
 	return &clusterRoleBinding
 }
 
-func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *ExecutorComponents) error {
+func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
+	selectorLabels := IdentityLabel(executor.Name)
+	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	return &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      executor.Name,
+			Namespace: executor.Namespace,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: selectorLabels,
+			},
+			AttachMetadata: &monitoringv1.AttachMetadata{
+				Node: false,
+			},
+			Endpoints: []monitoringv1.Endpoint{{
+				Port:     "metrics",
+				Interval: monitoringv1.Duration(durationString),
+			}},
+		},
+	}
+}
+
+func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *ExecutorComponents, logger logr.Logger) error {
 	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
 	}
+	logger.Info("Successfully deleted Executor ClusterRole")
 	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
 	}
+	logger.Info("Successfully deleted Executor ClusterRoleBinding")
 	return nil
 }
 

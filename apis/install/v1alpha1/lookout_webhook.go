@@ -17,8 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -63,7 +66,7 @@ func (r *Lookout) Default() {
 	}
 
 	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == "" {
-		r.Spec.Prometheus.ScrapeInterval = "10s"
+	if r.Spec.Prometheus.ScrapeInterval == nil {
+		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
 	}
 }

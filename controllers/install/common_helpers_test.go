@@ -16,7 +16,7 @@ func TestImageString(t *testing.T) {
 		{
 			name:     "Generate Image Name",
 			Image:    install.Image{Repository: "blah", Tag: "tag"},
-			expected: "blah/tag",
+			expected: "blah:tag",
 		},
 	}
 
