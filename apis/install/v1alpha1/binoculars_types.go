@@ -48,6 +48,7 @@ type BinocularsList struct {
 
 // BinocularsSpec defines the desired state of Binoculars
 type BinocularsSpec struct {
+	Replicas int32 `json:"replicas"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
@@ -69,8 +70,13 @@ type BinocularsSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	Ingress        IngressConfig        `json:"ingress,omitempty"`
+	ServiceAccount         ServiceAccountConfig     `json:"serviceAccount,omitempty"`
+	Ingress                *IngressConfig           `json:"ingress,omitempty"`
+	HostNames              []string                 `json:"hostNames,omitempty"`
+	ClusterIssuer          string                   `json:"clusterIssuer"`
+	Environment            []Env                    `json:"environment,omitempty"`
+	AdditionalVolumes      []AdditionalVolume       `json:"AdditionalVolumes,omitempty"`
+	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"AdditionalVolumeMounts,omitempty"`
 }
 
 // BinocularsStatus defines the observed state of binoculars

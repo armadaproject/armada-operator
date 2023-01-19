@@ -63,6 +63,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  ingressClass:
+                    type: string
                   labels:
                     additionalProperties:
                       type: string
