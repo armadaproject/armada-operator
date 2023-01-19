@@ -32,7 +32,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -50,7 +50,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -70,7 +70,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
@@ -87,7 +87,7 @@ spec:
     repository: test-executor
     tag: latest
   applicationConfig:
-	apiConnection:
+    apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
     toleratedTaints:
