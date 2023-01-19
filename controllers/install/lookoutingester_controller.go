@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
 // TODO: Pretty sure all these constants need re-visiting.
@@ -158,7 +159,7 @@ func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester) (*LookoutIngesterComponents, error) {
-	secret, err := createSecret(lookoutIngester.Name, lookoutIngester.Namespace, lookoutIngester.Spec.ApplicationConfig)
+	secret, err := builders.CreateSecret(lookoutIngester.Spec.ApplicationConfig, lookoutIngester.Name, lookoutIngester.Namespace, GetConfigFilename(lookoutIngester.Name))
 	if err != nil {
 		return nil, err
 	}
