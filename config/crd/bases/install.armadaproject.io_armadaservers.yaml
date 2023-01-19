@@ -41,11 +41,17 @@ spec:
                   Kubernetes Deployment object
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              clusterIssuer:
+                type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
                 type: string
+              hostNames:
+                items:
+                  type: string
+                type: array
               image:
                 description: Image is the configuration block for the image repository
                   and tag
@@ -57,6 +63,21 @@ spec:
                 required:
                 - repository
                 - tag
+                type: object
+              ingress:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  ingressClass:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
                 type: object
               labels:
                 additionalProperties:
@@ -243,6 +264,7 @@ spec:
                 type: array
             required:
             - applicationConfig
+            - clusterIssuer
             - image
             type: object
           status:
