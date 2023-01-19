@@ -41,10 +41,12 @@ type ArmadaServerSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	Ingress        *IngressConfig        `json:"ingress,omitempty"`
-	HostNames      []string              `json:"hostNames,omitempty"`
-	ClusterIssuer  string                `json:"clusterIssuer"`
+	ServiceAccount         *ServiceAccountConfig    `json:"serviceAccount,omitempty"`
+	Ingress                *IngressConfig           `json:"ingress,omitempty"`
+	HostNames              []string                 `json:"hostNames,omitempty"`
+	ClusterIssuer          string                   `json:"clusterIssuer"`
+	AdditionalVolumes      []AdditionalVolume       `json:"AdditionalVolumes,omitempty"`
+	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"AdditionalVolumeMounts,omitempty"`
 }
 
 // ArmadaServerStatus defines the observed state of ArmadaServer
