@@ -91,9 +91,11 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
+		err := waitForJob(ctx, r.Client, components.Job)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-
-	// TODO wait for migration Job before upserting Deployment
 
 	if components.Deployment != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
