@@ -35,7 +35,8 @@ spec:
           spec:
             description: 'TODO: Clif - should this just look like the other services
               or is there unique functionality? LookoutIngesterSpec defines the desired
-              state of LookoutIngester'
+              state of LookoutIngester TODO: Should we be using OpenAPI validation
+              markers on our Specs? See: https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#openapi-validation'
             properties:
               applicationConfig:
                 description: ApplicationConfig is the internal LookoutIngester configuration
@@ -92,6 +93,7 @@ spec:
                   scrapeInterval:
                     description: ScrapeInterval defines the interval at which Prometheus
                       should scrape Executor metrics
+                    format: duration
                     type: string
                 type: object
               resources:
@@ -209,6 +211,7 @@ spec:
                 description: TerminationGracePeriodSeconds specifies how many seconds
                   should Kubernetes wait for the application to shut down gracefully
                   before sending a KILL signal
+                format: int64
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
