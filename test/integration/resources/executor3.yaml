@@ -1,0 +1,15 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  name: executor-e2e-3
+spec:
+  image:
+    repository: test-executor
+    tag: latest
+  applicationConfig:
+    apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in
