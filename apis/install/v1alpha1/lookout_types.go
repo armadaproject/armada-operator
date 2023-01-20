@@ -48,6 +48,8 @@ type LookoutList struct {
 
 // LookoutSpec defines the desired state of Lookout
 type LookoutSpec struct {
+	// Replicas is the number of replicated instances for ArmadaServer
+	Replicas int32 `json:"replicas,omitempty"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
@@ -71,6 +73,16 @@ type LookoutSpec struct {
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	Ingress        IngressConfig        `json:"ingress,omitempty"`
+	// An array of host names to build ingress rules for
+	HostNames []string `json:"hostNames,omitempty"`
+	// Who is issuing certificates for CA
+	ClusterIssuer string `json:"clusterIssuer"`
+	// Extra environment variables that get added to deployment
+	Environment []Environment `json:"environment,omitempty"`
+	// Additional volumes that are mounted into deployments
+	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
+	// Additional volume mounts that are added as volumes
+	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"additionalVolumeMounts,omitempty"`
 }
 
 // LookoutStatus defines the observed state of lookout
