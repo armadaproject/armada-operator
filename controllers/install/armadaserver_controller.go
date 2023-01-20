@@ -168,8 +168,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// TODO init logic
-
 	logger.Info("Successfully reconciled ArmadaServer object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -300,7 +298,6 @@ func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.
 
 func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	grpcIngress := &networkingv1.Ingress{
-		//	metav1.TypeMeta `json:",inline"`
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
@@ -309,8 +306,6 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 				"certmanager.k8s.io/cluster-issuer":            as.Spec.ClusterIssuer,
 				"cert-manager.io/cluster-issuer":               as.Spec.ClusterIssuer,
 			},
-			//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-			//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 		},
 	}
 	if as.Spec.Ingress.Annotations != nil {
@@ -359,7 +354,6 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 
 func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	restIngress := &networkingv1.Ingress{
-		//	metav1.TypeMeta `json:",inline"`
 		ObjectMeta: metav1.ObjectMeta{
 			Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
@@ -370,8 +364,6 @@ func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 			},
 		},
-		//	Spec IngressSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-		//	Status IngressStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 	}
 
 	if as.Spec.Ingress.Annotations != nil {
