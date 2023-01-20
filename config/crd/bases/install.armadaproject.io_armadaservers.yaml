@@ -81,6 +81,7 @@ spec:
                   scrapeInterval:
                     description: ScrapeInterval defines the interval at which Prometheus
                       should scrape Executor metrics
+                    format: duration
                     type: string
                 type: object
               resources:

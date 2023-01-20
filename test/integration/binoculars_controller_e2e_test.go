@@ -125,7 +125,7 @@ var _ = Describe("Binoculars Controller", func() {
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
+				Expect(secret.Data["binoculars-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}

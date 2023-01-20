@@ -23,6 +23,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -549,11 +550,7 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 	}
 	out.Image = in.Image
 	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
-	if in.Prometheus != nil {
-		in, out := &in.Prometheus, &out.Prometheus
-		*out = new(PrometheusConfig)
-		(*in).DeepCopyInto(*out)
-	}
+	in.Prometheus.DeepCopyInto(&out.Prometheus)
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
@@ -783,6 +780,11 @@ func (in *PrometheusConfig) DeepCopyInto(out *PrometheusConfig) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.ScrapeInterval != nil {
+		in, out := &in.ScrapeInterval, &out.ScrapeInterval
+		*out = new(metav1.Duration)
+		**out = **in
 	}
 }
 

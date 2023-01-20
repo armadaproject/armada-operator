@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Image struct {
@@ -31,7 +32,9 @@ type PrometheusConfig struct {
 	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
 	Labels map[string]string `json:"labels,omitempty"`
 	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
+	// +kubebuilder:validation:Type:=string
+	// +kubebuilder:validation:Format:=duration
+	ScrapeInterval *metav1.Duration `json:"scrapeInterval,omitempty"`
 }
 
 type ServiceAccountConfig struct {

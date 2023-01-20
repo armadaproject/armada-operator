@@ -6,8 +6,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func CreateSecret(appConfig runtime.RawExtension, secretName, secretNamespace string) (*corev1.Secret, error) {
-	armadaConfig, err := GenerateArmadaConfig(appConfig)
+func CreateSecret(appConfig runtime.RawExtension, secretName, secretNamespace, filename string) (*corev1.Secret, error) {
+	armadaConfig, err := GenerateArmadaConfig(appConfig, filename)
 	if err != nil {
 		return nil, err
 	}
