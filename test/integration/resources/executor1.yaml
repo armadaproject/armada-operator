@@ -1,0 +1,20 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  labels:
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/instance: executor-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/created-by: armada-operator
+  name: executor-e2e-1
+spec:
+  image:
+    repository: test-executor
+    tag: latest
+  applicationConfig:
+    apiConnection:
+      armadaUrl: example.com:443
+      forceNoTls: false
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

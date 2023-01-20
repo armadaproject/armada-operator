@@ -70,13 +70,19 @@ type BinocularsSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount         ServiceAccountConfig     `json:"serviceAccount,omitempty"`
-	Ingress                *IngressConfig           `json:"ingress,omitempty"`
-	HostNames              []string                 `json:"hostNames,omitempty"`
-	ClusterIssuer          string                   `json:"clusterIssuer"`
-	Environment            []Env                    `json:"environment,omitempty"`
-	AdditionalVolumes      []AdditionalVolume       `json:"AdditionalVolumes,omitempty"`
-	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"AdditionalVolumeMounts,omitempty"`
+	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	// Ingress for the binoculars component. Used to inject labels/annotations into ingress
+	Ingress *IngressConfig `json:"ingress,omitempty"`
+	// An array of host names to build ingress rules for
+	HostNames []string `json:"hostNames,omitempty"`
+	// Who is issuing certificates for CA
+	ClusterIssuer string `json:"clusterIssuer"`
+	// Extra environment variables that get added to deployment
+	Environment []Env `json:"environment,omitempty"`
+	// Additional volumes that are mounted into deployments
+	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
+	// Additional volume mounts that are added as volumes
+	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"additionalVolumeMounts,omitempty"`
 }
 
 // BinocularsStatus defines the observed state of binoculars

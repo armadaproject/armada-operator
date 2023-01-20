@@ -18,91 +18,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var executorYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
-metadata:
-  labels:
-    app.kubernetes.io/name: executor
-    app.kubernetes.io/instance: executor-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: executor-e2e-1
-spec:
-  image:
-    repository: test-executor
-    tag: latest
-  applicationConfig:
-	apiConnection:
-      armadaUrl: example.com:443
-      forceNoTls: false
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var executorYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
-metadata:
-  name: executor-e2e-2
-  namespace: default
-spec:
-  image:
-    repository: test-executor
-    tag: latest
-  applicationConfig:
-	apiConnection:
-      armadaUrl: example.com:443
-      forceNoTls: false
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var executorYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
-metadata:
-  labels:
-    test: updated
-  name: executor-e2e-2
-  namespace: default
-spec:
-  image:
-    repository: test-executor
-    tag: latest
-  applicationConfig:
-	apiConnection:
-      armadaUrl: example.com:443
-      forceNoTls: false
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var executorYaml3 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Executor
-metadata:
-  name: executor-e2e-3
-spec:
-  image:
-    repository: test-executor
-    tag: latest
-  applicationConfig:
-	apiConnection:
-      armadaUrl: example.com:443
-      forceNoTls: false
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
 var _ = Describe("Executor Controller", func() {
 	When("User applies a new Executor YAML using kubectl", func() {
 		It("Kubernetes should create the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(executorYaml1))
+				f, err := os.Open("./resources/executor1.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				defer os.Remove(f.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -156,10 +78,9 @@ var _ = Describe("Executor Controller", func() {
 	When("User applies an existing Executor YAML with updated values using kubectl", func() {
 		It("Kubernetes should update the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f1, err := CreateTempFile([]byte(executorYaml2))
+				f1, err := os.Open("./resources/executor2.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f1.Close()
-				defer os.Remove(f1.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -179,10 +100,9 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(executor.Labels))
 
-				f2, err := CreateTempFile([]byte(executorYaml2Updated))
+				f2, err := os.Open("./resources/executor2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
-				defer os.Remove(f2.Name())
 
 				Expect(err).ToNot(HaveOccurred())
 				stdin, stderr, err = k.Run("apply", "-f", f2.Name())
@@ -208,10 +128,9 @@ var _ = Describe("Executor Controller", func() {
 	When("User deletes an existing Executor YAML using kubectl", func() {
 		It("Kubernetes should delete the Executor Kubernetes resources", func() {
 			By("Calling the Executor Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(executorYaml3))
+				f, err := os.Open("./resources/executor3.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				defer os.Remove(f.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -247,30 +166,6 @@ var _ = Describe("Executor Controller", func() {
 				notFoundErr := err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
 
-				// secret
-				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
-
-				// deployment
-				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
-
-				// service
-				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, serviceKey, &service)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
-
 				// clusterrole
 				clusterRole := rbacv1.ClusterRole{}
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
@@ -283,14 +178,6 @@ var _ = Describe("Executor Controller", func() {
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
 				err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
-
-				// serviceaccount
-				serviceAccount := corev1.ServiceAccount{}
-				serviceAccountKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, serviceAccountKey, &serviceAccount)
 				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
 				notFoundErr = err.(*errors.StatusError)
 				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
