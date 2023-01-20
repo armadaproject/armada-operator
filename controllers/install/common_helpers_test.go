@@ -148,9 +148,9 @@ func Test_waitForJob(t *testing.T) {
 		},
 		{
 			name: "it returns an error if timeout is reached before completion",
-			jobs: []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"]},
+			jobs: []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["stuck"]},
 			ctxFn: func() context.Context {
-				timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Millisecond*10)
+				timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Millisecond*3)
 				_ = fmt.Sprintf("ignoring cancel function to avoid timing issue: %v", cancelFn)
 				return timeoutCtx
 			},
@@ -164,7 +164,7 @@ func Test_waitForJob(t *testing.T) {
 			defer mockCtrl.Finish()
 			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 			expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
-			sleepTime := time.Millisecond * 4
+			sleepTime := time.Millisecond * 1
 
 			for _, jb := range tt.jobs {
 				mockK8sClient.
