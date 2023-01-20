@@ -343,7 +343,6 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									// TODO fix port number
 									Number: 50051,
 								},
 							},
@@ -400,8 +399,7 @@ func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									// TODO fix port number
-									Number: 8081,
+									Number: 8080,
 								},
 							},
 						},
