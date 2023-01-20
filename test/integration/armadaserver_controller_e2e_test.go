@@ -18,6 +18,7 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
   name: armadaserver-e2e
 spec:
+  clusterIssuer: "k8s-cluster-issuer"
   image:
     repository: test-armadaserver
     tag: latest
