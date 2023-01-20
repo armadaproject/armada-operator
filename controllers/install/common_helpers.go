@@ -66,7 +66,7 @@ func AllLabels(name string, labels map[string]string) map[string]string {
 }
 
 // waitForJob will wait for some resolution of the job. Provide context with timeout if needed.
-func waitForJob(ctx context.Context, cl client.Client, job *batchv1.Job) (err error) {
+func waitForJob(ctx context.Context, cl client.Client, job *batchv1.Job, sleepTime time.Duration) (err error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,7 +81,7 @@ func waitForJob(ctx context.Context, cl client.Client, job *batchv1.Job) (err er
 				return nil
 			}
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(sleepTime)
 	}
 }
 

@@ -37,7 +37,10 @@ import (
 )
 
 // migrationTimeout is how long we'll wait for the Lookout db migration job
-const migrationTimeout = time.Second * 120
+const (
+	migrationTimeout   = time.Second * 120
+	migrationPollSleep = time.Second * 5
+)
 
 // LookoutReconciler reconciles a Lookout object
 type LookoutReconciler struct {
@@ -97,7 +100,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
 		defer cancel()
-		err := waitForJob(ctxTimeout, r.Client, components.Job)
+		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -217,7 +220,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 
 	job := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name,
+			Name:        lookout.Name + "-migration",
 			Namespace:   lookout.Namespace,
 			Labels:      AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
@@ -228,8 +231,9 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "lookout-migration",
-					Labels: AllLabels(lookout.Name, lookout.Labels),
+					Name:      lookout.Name + "-migration",
+					Namespace: lookout.Namespace,
+					Labels:    AllLabels(lookout.Name, lookout.Labels),
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:                 "Never",

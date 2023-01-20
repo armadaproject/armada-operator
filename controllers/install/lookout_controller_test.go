@@ -76,7 +76,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 
 	expectedJob := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedLookout.Name,
+			Name:            expectedLookout.Name + "-migration",
 			Namespace:       expectedLookout.Namespace,
 			OwnerReferences: ownerReference,
 		},
@@ -87,9 +87,10 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 			}},
 		},
 	}
+	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
 	mockK8sClient.
 		EXPECT().
@@ -98,7 +99,8 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		SetArg(1, expectedJob)
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		AnyTimes().
 		Return(nil).
 		SetArg(2, expectedJob)
 
