@@ -35,7 +35,8 @@ spec:
           spec:
             description: ArmadaServerSpec defines the desired state of ArmadaServer
             properties:
-              AdditionalVolumeMounts:
+              additionalVolumeMounts:
+                description: Additional volume mounts that are added as volumes
                 items:
                   properties:
                     name:
@@ -79,7 +80,8 @@ spec:
                       type: object
                   type: object
                 type: array
-              AdditionalVolumes:
+              additionalVolumes:
+                description: Additional volumes that are mounted into deployments
                 items:
                   properties:
                     name:
@@ -159,13 +161,28 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               clusterIssuer:
+                description: Who is issuing certificates for CA
                 type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
                 type: string
+              environment:
+                description: Extra environment variables that get added to deployment
+                items:
+                  properties:
+                    name:
+                      description: The name of the environment variable
+                      type: string
+                    value:
+                      description: The value of the environment variable corresponding
+                        to the name
+                      type: string
+                  type: object
+                type: array
               hostNames:
+                description: An array of host names to build ingress rules for
                 items:
                   type: string
                 type: array
@@ -182,12 +199,17 @@ spec:
                 - tag
                 type: object
               ingress:
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Armada Server
                 properties:
                   annotations:
                     additionalProperties:
                       type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
                     type: object
                   ingressClass:
+                    description: The type of ingress that is used
                     type: string
                   labels:
                     additionalProperties:
@@ -195,6 +217,9 @@ spec:
                     description: Labels is the map of labels which wil be added to
                       all objects
                     type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
                 type: object
               labels:
                 additionalProperties:
@@ -222,6 +247,10 @@ spec:
                     format: duration
                     type: string
                 type: object
+              replicas:
+                description: Replicas is the number of replicated instances for ArmadaServer
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting Executor
                   resource requirements

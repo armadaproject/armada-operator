@@ -20,7 +20,7 @@ metadata:
 spec:
   ingress:
     ingressClass: nginx
-  clusterIssuer: test
+  clusterIssuer: "k8s-cluster-issuer"
   image:
     repository: test-armadaserver
     tag: latest
