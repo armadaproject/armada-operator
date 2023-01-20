@@ -18,6 +18,7 @@ package install
 
 import (
 	"context"
+	"time"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
@@ -34,6 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// migrationTimeout is how long we'll wait for the Lookout db migration job
+const migrationTimeout = time.Second * 120
 
 // LookoutReconciler reconciles a Lookout object
 type LookoutReconciler struct {
@@ -91,7 +95,9 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
-		err := waitForJob(ctx, r.Client, components.Job)
+		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+		defer cancel()
+		err := waitForJob(ctxTimeout, r.Client, components.Job)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
