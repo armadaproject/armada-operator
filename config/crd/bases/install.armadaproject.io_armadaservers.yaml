@@ -198,6 +198,29 @@ spec:
                 - repository
                 - tag
                 type: object
+              ingress:
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Armada Server
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
+                    type: object
+                  ingressClass:
+                    description: The type of ingress that is used
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
+                type: object
               labels:
                 additionalProperties:
                   type: string

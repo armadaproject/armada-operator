@@ -18,6 +18,8 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
   name: armadaserver-e2e
 spec:
+  ingress:
+    ingressClass: nginx
   clusterIssuer: "k8s-cluster-issuer"
   image:
     repository: test-armadaserver

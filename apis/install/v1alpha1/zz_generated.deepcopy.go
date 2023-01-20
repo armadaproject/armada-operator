@@ -152,6 +152,11 @@ func (in *ArmadaServerSpec) DeepCopyInto(out *ArmadaServerSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = new(IngressConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ServiceAccount != nil {
 		in, out := &in.ServiceAccount, &out.ServiceAccount
 		*out = new(ServiceAccountConfig)

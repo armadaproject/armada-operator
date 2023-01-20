@@ -42,6 +42,8 @@ type ArmadaServerSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
+	// Ingress defines labels and annotations for the Ingress controller of Armada Server
+	Ingress *IngressConfig `json:"ingress,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	// An array of host names to build ingress rules for
