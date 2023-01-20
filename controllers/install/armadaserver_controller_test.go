@@ -44,6 +44,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
