@@ -80,6 +80,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 			Namespace:       expectedLookout.Namespace,
 			OwnerReferences: ownerReference,
 		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			}},
+		},
 	}
 	mockK8sClient.
 		EXPECT().
@@ -90,7 +96,11 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
 		SetArg(1, expectedJob)
-
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(2, expectedJob)
 
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
