@@ -78,7 +78,7 @@ type BinocularsSpec struct {
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
 	// Extra environment variables that get added to deployment
-	Environment []Env `json:"environment,omitempty"`
+	Environment []Environment `json:"environment,omitempty"`
 	// Additional volumes that are mounted into deployments
 	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes

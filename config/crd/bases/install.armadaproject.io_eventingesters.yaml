@@ -90,6 +90,10 @@ spec:
                     format: duration
                     type: string
                 type: object
+              replicas:
+                description: Replicas is the number of replicated instances for ArmadaServer
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting Executor
                   resource requirements
