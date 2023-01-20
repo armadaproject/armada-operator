@@ -243,7 +243,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookout.Spec.Image),
 						Args: []string{
-							"--migrate",
+							"--migrateDatabase",
 							"--config",
 							"/config/application_config.yaml",
 						},
