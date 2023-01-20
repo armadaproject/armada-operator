@@ -120,35 +120,74 @@ func TestGenerateChecksumConfig(t *testing.T) {
 
 func Test_waitForJob(t *testing.T) {
 
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
 	tests := []struct {
-		name    string
-		jobs    []*batchv1.Job
-		ctxFn   func() context.Context
-		wantErr bool
+		name        string
+		setupMockFn func(*k8sclient.MockClient)
+		ctxFn       func() context.Context
+		wantErr     bool
 	}{
 		{
-			name:    "it returns right away when job is complete",
-			jobs:    []*batchv1.Job{sampleJobs()["complete"]},
+			name: "it returns right away when job is complete",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(nil).
+					SetArg(2, *sampleJobs()["complete"])
+			},
 			wantErr: false,
 		},
 		{
-			name:    "it returns right away when job is failed",
-			jobs:    []*batchv1.Job{sampleJobs()["failed"]},
+			name: "it returns right away when job is failed",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(nil).
+					SetArg(2, *sampleJobs()["failed"])
+			},
 			wantErr: false,
 		},
 		{
-			name:    "it retries until the job is complete",
-			jobs:    []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["complete"]},
+			name: "it retries until the job is complete",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				jobs := []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["complete"]}
+				for _, jb := range jobs {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(nil).
+						SetArg(2, *jb)
+				}
+			},
 			wantErr: false,
 		},
 		{
-			name:    "it retries until the job is failed",
-			jobs:    []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["failed"]},
+			name: "it retries until the job is failed",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				jobs := []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["failed"]}
+				for _, jb := range jobs {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(nil).
+						SetArg(2, *jb)
+				}
+			},
 			wantErr: false,
 		},
 		{
 			name: "it returns an error if timeout is reached before completion",
-			jobs: []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["stuck"]},
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				job := sampleJobs()["stuck"]
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					AnyTimes().
+					Return(nil).
+					SetArg(2, *job)
+			},
 			ctxFn: func() context.Context {
 				timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Millisecond*3)
 				_ = fmt.Sprintf("ignoring cancel function to avoid timing issue: %v", cancelFn)
@@ -163,23 +202,20 @@ func Test_waitForJob(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
 			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
-			expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
 			sleepTime := time.Millisecond * 1
-
-			for _, jb := range tt.jobs {
-				mockK8sClient.
-					EXPECT().
-					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
-					Return(nil).
-					SetArg(2, *jb)
-			}
+			tt.setupMockFn(mockK8sClient)
 
 			ctx := context.Background()
 			if tt.ctxFn != nil {
 				ctx = tt.ctxFn()
 			}
-			job := tt.jobs[0]
-			rslt := waitForJob(ctx, mockK8sClient, job, sleepTime)
+			job := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      expectedNamespacedName.Name,
+					Namespace: expectedNamespacedName.Namespace,
+				},
+			}
+			rslt := waitForJob(ctx, mockK8sClient, &job, sleepTime)
 			if tt.wantErr {
 				assert.Error(t, rslt)
 			} else {
