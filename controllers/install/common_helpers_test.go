@@ -1,10 +1,22 @@
 package install
 
 import (
+	"fmt"
 	"testing"
+	"time"
+
+	"context"
 
 	install "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/armadaproject/armada-operator/test/k8sclient"
+
+	"github.com/golang/mock/gomock"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestImageString(t *testing.T) {
@@ -104,4 +116,186 @@ func TestGenerateChecksumConfig(t *testing.T) {
 			assert.Equal(t, tt.expected, actual)
 		})
 	}
+}
+
+func Test_waitForJob(t *testing.T) {
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
+	tests := []struct {
+		name        string
+		setupMockFn func(*k8sclient.MockClient)
+		ctxFn       func() context.Context
+		wantErr     bool
+	}{
+		{
+			name: "it returns right away when job is complete",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(nil).
+					SetArg(2, *sampleJobs()["complete"])
+			},
+			wantErr: false,
+		},
+		{
+			name: "it returns right away when job is failed",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(nil).
+					SetArg(2, *sampleJobs()["failed"])
+			},
+			wantErr: false,
+		},
+		{
+			name: "it retries until the job is complete",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				jobs := []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["complete"]}
+				for _, jb := range jobs {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(nil).
+						SetArg(2, *jb)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "it retries until the job is failed",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				jobs := []*batchv1.Job{sampleJobs()["stuck"], sampleJobs()["stuck"], sampleJobs()["failed"]}
+				for _, jb := range jobs {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(nil).
+						SetArg(2, *jb)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "it returns an error if timeout is reached before completion",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				job := sampleJobs()["stuck"]
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					AnyTimes().
+					Return(nil).
+					SetArg(2, *job)
+			},
+			ctxFn: func() context.Context {
+				timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Millisecond*3)
+				_ = fmt.Sprintf("ignoring cancel function to avoid timing issue: %v", cancelFn)
+				return timeoutCtx
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+			sleepTime := time.Millisecond * 1
+			tt.setupMockFn(mockK8sClient)
+
+			ctx := context.Background()
+			if tt.ctxFn != nil {
+				ctx = tt.ctxFn()
+			}
+			job := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      expectedNamespacedName.Name,
+					Namespace: expectedNamespacedName.Namespace,
+				},
+			}
+			rslt := waitForJob(ctx, mockK8sClient, &job, sleepTime)
+			if tt.wantErr {
+				assert.Error(t, rslt)
+			} else {
+				assert.NoError(t, rslt)
+			}
+		})
+	}
+
+}
+
+func Test_isJobFinished(t *testing.T) {
+	tests := []struct {
+		name       string
+		job        *batchv1.Job
+		wantResult bool
+	}{
+		{
+			name:       "it returns true when job has a complete status",
+			job:        sampleJobs()["complete"],
+			wantResult: true,
+		},
+		{
+			name:       "it returns true when job has a failed status",
+			job:        sampleJobs()["failed"],
+			wantResult: true,
+		},
+		{
+			name:       "it returns false when job lacks a terminal status",
+			job:        sampleJobs()["stuck"],
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rslt := isJobFinished(tt.job)
+			assert.Equal(t, tt.wantResult, rslt)
+		})
+	}
+}
+
+func sampleJobs() map[string]*batchv1.Job {
+	completeJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "lookout-migration",
+			Namespace: "default",
+		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+
+	failedJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "lookout-migration",
+			Namespace: "default",
+		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobFailed,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+
+	stuckJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "lookout-migration",
+			Namespace: "default",
+		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	}
+
+	return map[string]*batchv1.Job{"stuck": &stuckJob, "complete": &completeJob, "failed": &failedJob}
 }
