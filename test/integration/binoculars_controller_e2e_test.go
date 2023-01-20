@@ -25,6 +25,10 @@ metadata:
   name: binoculars-e2e-1
   namespace: default
 spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest
@@ -47,6 +51,10 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest
@@ -70,6 +78,10 @@ metadata:
   name: binoculars-e2e-2
   namespace: default
 spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-binoculars
     tag: latest
@@ -113,7 +125,7 @@ var _ = Describe("Binoculars Controller", func() {
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
+				Expect(secret.Data["binoculars-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
