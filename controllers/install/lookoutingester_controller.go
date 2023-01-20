@@ -36,9 +36,7 @@ import (
 
 // TODO: Pretty sure all these constants need re-visiting.
 const (
-	lookoutIngesterApplicationConfigKey = "lookout-ingester-config.yaml"
-	lookoutIngesterVolumeConfigKey      = "user-config"
-	lookoutIngesterFinalizer            = "batch.tutorial.kubebuilder.io/finalizer"
+	lookoutIngesterFinalizer = "batch.tutorial.kubebuilder.io/finalizer" // TODO(Clif): Do we need finalizers?
 )
 
 // LookoutIngesterReconciler reconciles a LookoutIngester object
@@ -170,14 +168,6 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	if err := controllerutil.SetOwnerReference(lookoutIngester, deployment, r.Scheme); err != nil {
 		return nil, err
 	}
-	// namespace-scoped lookoutIngester cannot own cluster-scoped ClusterRole resource
-	//if err := controllerutil.SetOwnerReference(lookoutIngester, clusterRole, r.Scheme); err != nil {
-	//	return nil, err
-	//}
-	// namespace-scoped lookoutIngester cannot own cluster-scoped ClusterRole resource
-	//if err := controllerutil.SetOwnerReference(lookoutIngester, clusterRoleBinding, r.Scheme); err != nil {
-	//	return nil, err
-	//}
 
 	return &LookoutIngesterComponents{
 		Deployment:     deployment,
@@ -189,24 +179,83 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 // TODO: Flesh this out for lookoutingester
 func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester) *appsv1.Deployment {
 	var replicas int32 = 1
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: lookoutIngester.Name, Namespace: lookoutIngester.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: lookoutIngester.Name, Namespace: lookoutIngester.Namespace, Labels: AllLabels(lookoutIngester.Name, lookoutIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels:      nil,
-				MatchExpressions: nil,
+				MatchLabels: IdentityLabel(lookoutIngester.Name),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       corev1.PodSpec{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        lookoutIngester.Name,
+					Namespace:   lookoutIngester.Namespace,
+					Labels:      AllLabels(lookoutIngester.Name, lookoutIngester.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookoutIngester.Spec.ApplicationConfig.Raw)},
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: lookoutIngester.Spec.TerminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "lookoutIngester",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(lookoutIngester.Spec.Image),
+						Args:            []string{"--config", "/config/application_config.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   lookoutIngester.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: lookoutIngester.Spec.NodeSelector,
+					Tolerations:  lookoutIngester.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: lookoutIngester.Name,
+							},
+						},
+					}},
+				},
 			},
-			Strategy:                appsv1.DeploymentStrategy{},
-			MinReadySeconds:         0,
-			RevisionHistoryLimit:    nil,
-			Paused:                  false,
-			ProgressDeadlineSeconds: nil,
 		},
+	}
+	if lookoutIngester.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *lookoutIngester.Spec.Resources
 	}
 	return &deployment
 }
