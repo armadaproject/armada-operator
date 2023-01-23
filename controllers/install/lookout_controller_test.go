@@ -11,7 +11,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -205,15 +204,6 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
-	// Cleanup
-	mockK8sClient.
-		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(nil)
-	mockK8sClient.
-		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
-		Return(nil)
 	// Remove Lookout Finalizer
 	mockK8sClient.
 		EXPECT().

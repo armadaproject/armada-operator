@@ -27,7 +27,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -298,40 +297,6 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
 	}
 	return &deployment
-}
-
-func createLookoutClusterRole(lookout *installv1alpha1.Lookout) *rbacv1.ClusterRole {
-	binocularRules := rbacv1.PolicyRule{
-		Verbs:     []string{"impersonate"},
-		APIGroups: []string{""},
-		Resources: []string{"users", "groups"},
-	}
-	clusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name},
-		Rules:      []rbacv1.PolicyRule{binocularRules},
-	}
-	return &clusterRole
-}
-
-func generateLookoutClusterRoleBinding(lookout installv1alpha1.Lookout) *rbacv1.ClusterRoleBinding {
-	clusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   lookout.Name,
-			Labels: AllLabels(lookout.Name, lookout.Labels),
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     lookout.Name,
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      lookout.Name,
-			Namespace: lookout.Namespace,
-		},
-		},
-	}
-	return &clusterRoleBinding
 }
 
 // SetupWithManager sets up the controller with the Manager.
