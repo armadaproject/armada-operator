@@ -25,7 +25,10 @@ metadata:
   name: lookout-e2e-1
   namespace: default
 spec:
-  clusterIssuer: "k8s-cluster-issuer"
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-lookout
     tag: latest
@@ -48,6 +51,10 @@ metadata:
   name: lookout-e2e-2
   namespace: default
 spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-lookout
     tag: latest
@@ -71,6 +78,10 @@ metadata:
   name: lookout-e2e-2
   namespace: default
 spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-lookout
     tag: latest
