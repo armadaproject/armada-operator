@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Image struct {
@@ -31,7 +32,9 @@ type PrometheusConfig struct {
 	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
 	Labels map[string]string `json:"labels,omitempty"`
 	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
-	ScrapeInterval string `json:"scrapeInterval,omitempty"`
+	// +kubebuilder:validation:Type:=string
+	// +kubebuilder:validation:Format:=duration
+	ScrapeInterval *metav1.Duration `json:"scrapeInterval,omitempty"`
 }
 
 type ServiceAccountConfig struct {
@@ -40,8 +43,30 @@ type ServiceAccountConfig struct {
 	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
 }
 
+type Environment struct {
+	// The name of the environment variable
+	Name string `json:"name,omitempty"`
+	// The value of the environment variable corresponding to the name
+	Value string `json:"value,omitempty"`
+}
+
+type AdditionalVolume struct {
+	Name   string                    `json:"name,omitempty"`
+	Secret corev1.SecretVolumeSource `json:"secret,omitempty"`
+}
+
+type AdditionalVolumeMounts struct {
+	Name   string             `json:"name,omitempty"`
+	Volume corev1.VolumeMount `json:"volume,omitempty"`
+}
+
 type IngressConfig struct {
 	// Labels is the map of labels which wil be added to all objects
-	Labels      map[string]string `json:"labels,omitempty"`
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations is a map of annotations which will be added to all ingress rules
 	Annotations map[string]string `json:"annotations,omitempty"`
+	// The type of ingress that is used
+	IngressClass string `json:"ingressClass,omitempty"`
+	// Overide name for ingress
+	NameOverride string `json:"nameOverride,omitempty"`
 }

@@ -24,9 +24,9 @@ import (
 )
 
 // log is for logging in this package.
-var serverlog = logf.Log.WithName("server-resource")
+var armadaServerLog = logf.Log.WithName("armada-server-resource")
 
-func (r *Server) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *ArmadaServer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -34,41 +34,41 @@ func (r *Server) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=servers,verbs=create;update,versions=v1alpha1,name=mserver.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armada-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=armada-server.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Server{}
+var _ webhook.Defaulter = &ArmadaServer{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Server) Default() {
-	serverlog.Info("default", "name", r.Name)
+func (r *ArmadaServer) Default() {
+	armadaServerLog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=servers,verbs=create;update,versions=v1alpha1,name=vserver.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-armada-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=varmada-server.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Server{}
+var _ webhook.Validator = &ArmadaServer{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Server) ValidateCreate() error {
-	serverlog.Info("validate create", "name", r.Name)
+func (r *ArmadaServer) ValidateCreate() error {
+	armadaServerLog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Server) ValidateUpdate(old runtime.Object) error {
-	serverlog.Info("validate update", "name", r.Name)
+func (r *ArmadaServer) ValidateUpdate(old runtime.Object) error {
+	armadaServerLog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Server) ValidateDelete() error {
-	serverlog.Info("validate delete", "name", r.Name)
+func (r *ArmadaServer) ValidateDelete() error {
+	armadaServerLog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil

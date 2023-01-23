@@ -24,6 +24,8 @@ import (
 
 // EventIngesterSpec defines the desired state of EventIngester
 type EventIngesterSpec struct {
+	// Replicas is the number of replicated instances for ArmadaServer
+	Replicas int32 `json:"replicas,omitempty"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag

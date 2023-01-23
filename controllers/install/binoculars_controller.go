@@ -31,6 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -49,11 +50,6 @@ type BinocularsReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Server object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -157,6 +153,18 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, err
 		}
 	}
+	if components.Ingress != nil {
+		logger.Info("Upserting GRPC Ingress object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if components.IngressRest != nil {
+		logger.Info("Upserting Rest Ingress object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	logger.Info("Successfully reconciled Binoculars object", "durationMilis", time.Since(started).Milliseconds())
 
@@ -175,7 +183,7 @@ type BinocularsComponents struct {
 }
 
 func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*BinocularsComponents, error) {
-	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace)
+	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +198,17 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
+
+	ingress := createBinocularsIngress(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
+		return nil, err
+	}
+
+	ingressGrpc := createBinocularsGRPCIngress(binoculars)
+	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
+		return nil, err
+	}
+
 	clusterRole := createBinocularsClusterRole(binoculars)
 	clusterRoleBinding := generateBinocularsClusterRoleBinding(*binoculars)
 
@@ -200,6 +219,8 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		Secret:             secret,
 		ClusterRole:        clusterRole,
 		ClusterRoleBinding: clusterRoleBinding,
+		Ingress:            ingressGrpc,
+		IngressRest:        ingress,
 	}, nil
 }
 
@@ -345,6 +366,112 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
 	}
 	return nil
+}
+
+func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	grpcIngress := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            binoculars.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               binoculars.Spec.ClusterIssuer,
+			},
+		},
+	}
+	if binoculars.Spec.Ingress.Annotations != nil {
+		for key, value := range binoculars.Spec.Ingress.Annotations {
+			grpcIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if binoculars.Spec.Ingress.Labels != nil {
+		for key, value := range binoculars.Spec.Ingress.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if binoculars.Spec.Labels != nil {
+		for key, value := range binoculars.Spec.Labels {
+			grpcIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if len(binoculars.Spec.HostNames) > 0 {
+		secretName := binoculars.Name + "-service-tls"
+		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + binoculars.Name
+		for _, val := range binoculars.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									Number: 50051,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		grpcIngress.Spec.Rules = ingressRules
+	}
+	return grpcIngress
+}
+
+func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	restIngress := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
+				"certmanager.k8s.io/cluster-issuer":          binoculars.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":             binoculars.Spec.ClusterIssuer,
+				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
+			},
+		},
+	}
+
+	if binoculars.Spec.Ingress.Annotations != nil {
+		for key, value := range binoculars.Spec.Ingress.Annotations {
+			restIngress.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if binoculars.Spec.Ingress.Labels != nil {
+		for key, value := range binoculars.Spec.Ingress.Labels {
+			restIngress.ObjectMeta.Labels[key] = value
+		}
+	}
+	if len(binoculars.Spec.HostNames) > 0 {
+		secretName := binoculars.Name + "-service-tls"
+		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := "armada" + "-" + binoculars.Name
+		for _, val := range binoculars.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/api(/|$)(.*)",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									Number: 8081,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		restIngress.Spec.Rules = ingressRules
+	}
+	return restIngress
 }
 
 // SetupWithManager sets up the controller with the Manager.

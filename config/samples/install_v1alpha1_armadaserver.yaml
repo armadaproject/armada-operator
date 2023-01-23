@@ -1,0 +1,26 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: ArmadaServer
+metadata:
+  labels:
+    app.kubernetes.io/name: armadaserver
+    app.kubernetes.io/instance: armadaserver-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: armadaserver-sample
+  namespace: default
+spec:
+  ingressClass: "nginx"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostnames: [localhost]
+  replicas: 2
+
+  image:
+    repository: gresearchdev/armada-armada-server-dev
+    tag: b0f4404a8f3cfa904d68250966e67834ec5a4e54
+  applicationConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

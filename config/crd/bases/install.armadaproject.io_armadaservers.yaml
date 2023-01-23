@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: binoculars.install.armadaproject.io
+  name: armadaservers.install.armadaproject.io
 spec:
   group: install.armadaproject.io
   names:
-    kind: Binoculars
-    listKind: BinocularsList
-    plural: binoculars
-    singular: binoculars
+    kind: ArmadaServer
+    listKind: ArmadaServerList
+    plural: armadaservers
+    singular: armadaserver
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Binoculars is the Schema for the binoculars API
+        description: ArmadaServer is the Schema for the Armada Server API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: BinocularsSpec defines the desired state of Binoculars
+            description: ArmadaServerSpec defines the desired state of ArmadaServer
             properties:
               additionalVolumeMounts:
                 description: Additional volume mounts that are added as volumes
@@ -155,9 +155,10 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal Binoculars configuration
+                description: ApplicationConfig is the internal ArmadaServer configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
+                type: object
                 x-kubernetes-preserve-unknown-fields: true
               clusterIssuer:
                 description: Who is issuing certificates for CA
@@ -198,8 +199,8 @@ spec:
                 - tag
                 type: object
               ingress:
-                description: Ingress for the binoculars component. Used to inject
-                  labels/annotations into ingress
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Armada Server
                 properties:
                   annotations:
                     additionalProperties:
@@ -226,12 +227,6 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              nodeSelector:
-                additionalProperties:
-                  type: string
-                description: NodeSelector restricts the Binoculars pod to run on nodes
-                  matching the configured selectors
-                type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
                   monitoring
@@ -253,10 +248,11 @@ spec:
                     type: string
                 type: object
               replicas:
+                description: Replicas is the number of replicated instances for ArmadaServer
                 format: int32
                 type: integer
               resources:
-                description: Resources is the configuration block for setting Binoculars
+                description: Resources is the configuration block for setting Executor
                   resource requirements
                 properties:
                   limits:
@@ -370,10 +366,11 @@ spec:
                 description: TerminationGracePeriodSeconds specifies how many seconds
                   should Kubernetes wait for the application to shut down gracefully
                   before sending a KILL signal
+                format: int64
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the Binoculars pod tolerate
+                  which taints the ArmadaServer pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
@@ -416,10 +413,9 @@ spec:
             - applicationConfig
             - clusterIssuer
             - image
-            - replicas
             type: object
           status:
-            description: BinocularsStatus defines the observed state of binoculars
+            description: ArmadaServerStatus defines the observed state of ArmadaServer
             type: object
         type: object
     served: true

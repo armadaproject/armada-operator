@@ -22,9 +22,9 @@ import (
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
-	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,6 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+// migrationTimeout is how long we'll wait for the Lookout db migration job
+const (
+	migrationTimeout   = time.Second * 120
+	migrationPollSleep = time.Second * 5
 )
 
 // LookoutReconciler reconciles a Lookout object
@@ -95,13 +101,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Lookout object", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
 
 			// remove our finalizer from the list and update it.
 			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
@@ -123,23 +122,21 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.ClusterRole != nil {
-		logger.Info("Upserting Lookout ClusterRole object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRoleBinding != nil {
-		logger.Info("Upserting Lookout ClusterRoleBinding object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if components.Secret != nil {
 		logger.Info("Upserting Lookout Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Job != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+		defer cancel()
+		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -164,18 +161,16 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type LookoutComponents struct {
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
-	Ingress            *networking.Ingress
-	IngressRest        *networking.Ingress
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
+	Ingress        *networking.Ingress
+	Deployment     *appsv1.Deployment
+	Service        *corev1.Service
+	ServiceAccount *corev1.ServiceAccount
+	Secret         *corev1.Secret
+	Job            *batchv1.Job
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
-	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace)
+	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -190,16 +185,17 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-	clusterRole := createLookoutClusterRole(lookout)
-	clusterRoleBinding := generateLookoutClusterRoleBinding(*lookout)
+	job := createLookoutMigrationJob(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
+		return nil, err
+	}
 
 	return &LookoutComponents{
-		Deployment:         deployment,
-		Service:            service,
-		ServiceAccount:     nil,
-		Secret:             secret,
-		ClusterRole:        clusterRole,
-		ClusterRoleBinding: clusterRoleBinding,
+		Deployment:     deployment,
+		Service:        service,
+		ServiceAccount: nil,
+		Secret:         secret,
+		Job:            job,
 	}, nil
 }
 
@@ -337,19 +333,103 @@ func generateLookoutClusterRoleBinding(lookout installv1alpha1.Lookout) *rbacv1.
 	}
 	return &clusterRoleBinding
 }
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents) error {
-	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
-	}
-	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
-	}
-	return nil
-}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.Lookout{}).
 		Complete(r)
+}
+
+func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        lookout.Name + "-migration",
+			Namespace:   lookout.Namespace,
+			Labels:      AllLabels(lookout.Name, lookout.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			Completions:  &completions,
+			BackoffLimit: &backoffLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lookout.Name + "-migration",
+					Namespace: lookout.Namespace,
+					Labels:    AllLabels(lookout.Name, lookout.Labels),
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 "Never",
+					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "lookout",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(lookout.Spec.Image),
+						Args: []string{
+							"--migrateDatabase",
+							"--config",
+							"/config/application_config.yaml",
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   lookout.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: lookout.Spec.NodeSelector,
+					Tolerations:  lookout.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: lookout.Name,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	return &job
 }

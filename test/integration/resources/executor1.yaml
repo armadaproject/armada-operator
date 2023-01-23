@@ -5,15 +5,16 @@ metadata:
     app.kubernetes.io/name: executor
     app.kubernetes.io/instance: executor-sample
     app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: executor-sample
-  namespace: default
+  name: executor-e2e-1
 spec:
   image:
-    repository: gresearchdev/armada-executor
-    tag: v0.3.44
+    repository: test-executor
+    tag: latest
   applicationConfig:
     apiConnection:
-      armadaUrl: armada.demo.armadaproject.io:443
+      armadaUrl: example.com:443
       forceNoTls: false
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

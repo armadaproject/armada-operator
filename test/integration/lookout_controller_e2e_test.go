@@ -25,6 +25,7 @@ metadata:
   name: lookout-e2e-1
   namespace: default
 spec:
+  clusterIssuer: "k8s-cluster-issuer"
   image:
     repository: test-lookout
     tag: latest
