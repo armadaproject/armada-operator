@@ -56,6 +56,11 @@ func TestLookoutIngesterReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.LookoutIngester{})).
 		Return(nil).
 		SetArg(2, expectedLookoutIngester)
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.LookoutIngester{})).
+		Return(nil).
+		SetArg(1, expectedLookoutIngester)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -179,6 +184,12 @@ func TestLookoutIngesterReconciler_ReconcileDelete(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.LookoutIngester{})).
 		Return(nil).
 		SetArg(2, expectedLookoutIngester)
+
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.LookoutIngester{})).
+		Return(nil).
+		SetArg(1, expectedLookoutIngester)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
