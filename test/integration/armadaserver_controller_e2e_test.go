@@ -17,6 +17,7 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: armadaserver-e2e
+  namespace: default
 spec:
   ingress:
     ingressClass: nginx
