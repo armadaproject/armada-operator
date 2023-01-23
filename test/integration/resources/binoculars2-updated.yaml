@@ -1,0 +1,21 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Binoculars
+metadata:
+  labels:
+    test: updated
+  name: binoculars-e2e-2
+  namespace: default
+spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
+  image:
+    repository: test-binoculars
+    tag: latest
+  applicationConfig:
+    impersonateUsers: true
+    corsAllowedOrigins:
+      - "https://localhost"
+    auth:
+      anonymousAuth: true
