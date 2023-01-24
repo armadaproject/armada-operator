@@ -206,7 +206,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	svcAcct := createArmadaServerServiceAccount(as)
+	svcAcct := builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
 	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
 		return nil, err
 	}
@@ -286,19 +286,10 @@ func createArmadaServerService(as *installv1alpha1.ArmadaServer) *corev1.Service
 	return &service
 }
 
-func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.ServiceAccount {
-	sa := corev1.ServiceAccount{
-		ObjectMeta:                   metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Secrets:                      []corev1.ObjectReference{},
-		ImagePullSecrets:             []corev1.LocalObjectReference{},
-		AutomountServiceAccountToken: nil,
-	}
-	return &sa
-}
-
 func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	ingressGRPCName := as.Name + "-grpc"
 	grpcIngress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+		ObjectMeta: metav1.ObjectMeta{Name: ingressGRPCName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
@@ -353,9 +344,10 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 }
 
 func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	restIngressName := as.Name + "-rest"
 	restIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+			Name: restIngressName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                as.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          as.Spec.ClusterIssuer,

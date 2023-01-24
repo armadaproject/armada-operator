@@ -70,7 +70,7 @@ type BinocularsSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	// Ingress for the binoculars component. Used to inject labels/annotations into ingress
 	Ingress *IngressConfig `json:"ingress,omitempty"`
 	// An array of host names to build ingress rules for
