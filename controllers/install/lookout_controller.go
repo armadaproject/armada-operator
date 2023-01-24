@@ -1,12 +1,9 @@
 /*
 Copyright 2022.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,16 +21,22 @@ import (
 	"github.com/armadaproject/armada-operator/controllers/builders"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+// migrationTimeout is how long we'll wait for the Lookout db migration job
+const (
+	migrationTimeout   = time.Second * 120
+	migrationPollSleep = time.Second * 5
 )
 
 // LookoutReconciler reconciles a Lookout object
@@ -48,6 +51,11 @@ type LookoutReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+// TODO(user): Modify the Reconcile function to compare the state specified by
+// the Server object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -71,36 +79,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
-	}
 	mutateFn := func() error { return nil }
 
 	if components.ServiceAccount != nil {
@@ -113,6 +91,18 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if components.Secret != nil {
 		logger.Info("Upserting Lookout Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Job != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+		defer cancel()
+		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -144,21 +134,15 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type LookoutComponents struct {
-	Deployment     *appsv1.Deployment
 	IngressWeb     *networking.Ingress
-	Secret         *corev1.Secret
+	Deployment     *appsv1.Deployment
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount
-
-	// ToDo: add other components
-	// CronJob        *batchv1beta1.CronJob
+	Secret         *corev1.Secret
+	Job            *batchv1.Job
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
-	// serviceAccount := r.createServiceAccount(lookout)
-	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-	// 	return nil, err
-	// }
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -170,13 +154,16 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels))
+	service := createLookoutService(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-
-	ingressWeb := createLookoutIngressWeb(lookout)
-	if err := controllerutil.SetOwnerReference(lookout, ingressWeb, scheme); err != nil {
+	// serviceAccount := r.createServiceAccount(lookout)
+	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+	// 	return nil, err
+	// }
+	job := createLookoutMigrationJob(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
 		return nil, err
 	}
 
@@ -185,10 +172,12 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Service:        service,
 		ServiceAccount: nil,
 		Secret:         secret,
-		IngressWeb:     ingressWeb,
+		Job:            job,
 	}, nil
 }
 
+// Function to build the deployment object for Lookout.
+// This should be changing from CRD to CRD.  Not sure if generailize this helps much
 // Function to build the deployment object for Lookout.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
 func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
@@ -287,58 +276,115 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 	if lookout.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
 	}
+
 	return &deployment
 }
 
-func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingress {
-	ingressWeb := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                lookout.Spec.Ingress.IngressClass,
-				"certmanager.k8s.io/cluster-issuer":          lookout.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":             lookout.Spec.ClusterIssuer,
-				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
-			},
+func createLookoutService(lookout *installv1alpha1.Lookout) *corev1.Service {
+	service := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name:     "metrics",
+				Protocol: corev1.ProtocolTCP,
+				Port:     9001,
+			}},
 		},
 	}
+	return &service
+}
 
-	if lookout.Spec.Ingress.Annotations != nil {
-		for key, value := range lookout.Spec.Ingress.Annotations {
-			ingressWeb.ObjectMeta.Annotations[key] = value
-		}
-	}
-	if lookout.Spec.Ingress.Labels != nil {
-		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressWeb.ObjectMeta.Labels[key] = value
-		}
-	}
-	if len(lookout.Spec.HostNames) > 0 {
-		secretName := lookout.Name + "-service-tls"
-		ingressWeb.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + lookout.Name
-		for _, val := range lookout.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/api(/|$)(.*)",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: 8081,
+func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        lookout.Name + "-migration",
+			Namespace:   lookout.Namespace,
+			Labels:      AllLabels(lookout.Name, lookout.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			Completions:  &completions,
+			BackoffLimit: &backoffLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lookout.Name + "-migration",
+					Namespace: lookout.Namespace,
+					Labels:    AllLabels(lookout.Name, lookout.Labels),
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 "Never",
+					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "lookout",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(lookout.Spec.Image),
+						Args: []string{
+							"--migrateDatabase",
+							"--config",
+							"/config/application_config.yaml",
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
 								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   lookout.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: lookout.Spec.NodeSelector,
+					Tolerations:  lookout.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: lookout.Name,
 							},
 						},
 					}},
 				},
-			}})
-		}
-		ingressWeb.Spec.Rules = ingressRules
+			},
+		},
 	}
-	return ingressWeb
+
+	return &job
 }
 
 // SetupWithManager sets up the controller with the Manager.

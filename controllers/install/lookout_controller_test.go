@@ -3,14 +3,13 @@ package install
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,6 +70,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 
 	mockK8sClient.
 		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(nil).
+		SetArg(2, expectedLookout)
+
+	mockK8sClient.
+		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
 	mockK8sClient.
@@ -79,10 +84,27 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Secret)
 
+	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(1, *lookout.Job)
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		AnyTimes().
+		Return(nil).
+		SetArg(2, *lookout.Job)
+
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1.Deployment{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
@@ -92,23 +114,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, *lookout.Service)
-
-	// IngressWeb
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-		Return(nil).
-		SetArg(1, *lookout.IngressWeb)
 
 	r := LookoutReconciler{
 		Client: mockK8sClient,
@@ -157,6 +168,7 @@ func TestLookoutReconciler_ReconcileNoLookout(t *testing.T) {
 		t.Fatalf("reconcile should not return error")
 	}
 }
+
 func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	t.Parallel()
 
@@ -169,24 +181,14 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 			Kind:       "Lookout",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "default",
-			Name:              "lookout",
-			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{operatorFinalizer},
-		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout"},
 		Spec: installv1alpha1.LookoutSpec{
-			Replicas: 2,
-			Labels:   nil,
+			Labels: nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
-			Ingress: installv1alpha1.IngressConfig{
-				IngressClass: "nginx",
-			},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -196,11 +198,6 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
-	// Remove Lookout Finalizer
-	mockK8sClient.
-		EXPECT().
-		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
-		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
