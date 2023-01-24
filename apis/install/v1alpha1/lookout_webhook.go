@@ -23,8 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
+
+// log is for logging in this package.
+var lookoutlog = logf.Log.WithName("lookout-resource")
 
 func (r *Lookout) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -40,7 +44,7 @@ var _ webhook.Defaulter = &Lookout{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Lookout) Default() {
-	executorlog.Info("default", "name", r.Name)
+	lookoutlog.Info("default", "name", r.Name)
 
 	// image
 	if r.Spec.Image.Repository == "" {
