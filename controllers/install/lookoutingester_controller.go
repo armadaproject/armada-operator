@@ -204,7 +204,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 						RunAsGroup: &runAsGroup,
 					},
 					Containers: []corev1.Container{{
-						Name:            "lookoutIngester",
+						Name:            "lookoutingester",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookoutIngester.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
