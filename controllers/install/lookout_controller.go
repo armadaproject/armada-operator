@@ -155,6 +155,10 @@ type LookoutComponents struct {
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
+	// serviceAccount := r.createServiceAccount(lookout)
+	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+	// 	return nil, err
+	// }
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
