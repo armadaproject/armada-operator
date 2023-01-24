@@ -46,12 +46,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - armadaservers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - armadaservers/status
   verbs:
   - get
