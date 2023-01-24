@@ -1,0 +1,20 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: EventIngester
+metadata:
+  labels:
+    app.kubernetes.io/name: eventingester
+    app.kubernetes.io/instance: eventingester-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/created-by: armada-operator
+  name: eventingester-e2e-1
+  namespace: default
+spec:
+  image:
+    repository: test-eventingester
+    tag: latest
+  applicationConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in
