@@ -131,6 +131,13 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	if components.IngressWeb != nil {
+		logger.Info("Upserting Lookout Ingress object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressWeb, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Lookout object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -174,7 +181,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Service:        service,
 		ServiceAccount: nil,
 		Secret:         secret,
-		IngressWeb:     ingressWeb,
+		// IngressWeb:     ingressWeb,
 	}, nil
 }
 

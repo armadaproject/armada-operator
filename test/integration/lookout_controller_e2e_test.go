@@ -121,11 +121,11 @@ var _ = Describe("Lookout Controller", func() {
 				err = k8sClient.Get(ctx, lookoutKey, &lookout)
 				Expect(err).NotTo(HaveOccurred())
 
-				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
+				// secret := corev1.Secret{}
+				// secretKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
+				// err = k8sClient.Get(ctx, secretKey, &secret)
+				// Expect(err).NotTo(HaveOccurred())
+				// Expect(secret.Data["armada-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}

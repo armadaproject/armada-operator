@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,16 +99,16 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Service)
 
-	// // IngressWeb
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-	// 	Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-	// 	Return(nil).
-	// 	SetArg(1, *lookout.IngressWeb)
+	// IngressWeb
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(nil).
+		SetArg(1, *lookout.IngressWeb)
 
 	r := LookoutReconciler{
 		Client: mockK8sClient,
