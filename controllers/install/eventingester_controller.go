@@ -136,9 +136,13 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 		return nil, err
 	}
 
+	serviceAccount := builders.CreateServiceAccount(eventIngester.Name, eventIngester.Namespace, AllLabels(eventIngester.Name, eventIngester.Labels), eventIngester.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(eventIngester, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
 	return &EventIngesterComponents{
 		Deployment:     deployment,
-		ServiceAccount: nil,
+		ServiceAccount: serviceAccount,
 		Secret:         secret,
 	}, nil
 }

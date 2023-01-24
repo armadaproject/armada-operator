@@ -43,8 +43,9 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 		Spec: v1alpha1.BinocularsSpec{
-			Replicas: 2,
-			Labels:   nil,
+			Replicas:  2,
+			HostNames: []string{"localhost"},
+			Labels:    map[string]string{"test": "hello"},
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
@@ -53,6 +54,8 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 			ClusterIssuer:     "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
 			},
 		},
 	}
@@ -122,24 +125,35 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *binoculars.ClusterRoleBinding)
 	// Ingress
+	ingressNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars-rest"}
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Get(gomock.Any(), ingressNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
 		SetArg(1, *binoculars.Ingress)
+	ingressGRPCNamespaceNamed := types.NamespacedName{Namespace: "default", Name: "binoculars-grpc"}
 	// IngressRest
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Get(gomock.Any(), ingressGRPCNamespaceNamed, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "binoculars"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).SetArg(1, *binoculars.IngressRest)
+	// ServiceAccount
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil)
 
 	r := BinocularsReconciler{
 		Client: mockK8sClient,
