@@ -172,8 +172,11 @@ spec:
                 items:
                   properties:
                     name:
+                      description: The name of the environment variable
                       type: string
                     value:
+                      description: The value of the environment variable corresponding
+                        to the name
                       type: string
                   type: object
                 type: array
@@ -201,8 +204,11 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
                     type: object
                   ingressClass:
+                    description: The type of ingress that is used
                     type: string
                   labels:
                     additionalProperties:
@@ -210,6 +216,9 @@ spec:
                     description: Labels is the map of labels which wil be added to
                       all objects
                     type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
                 type: object
               labels:
                 additionalProperties:

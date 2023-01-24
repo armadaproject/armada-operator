@@ -5,19 +5,15 @@ metadata:
     app.kubernetes.io/name: armadaserver
     app.kubernetes.io/instance: armadaserver-sample
     app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: armadaserver-sample
-  namespace: default
+  name: armadaserver-e2e
 spec:
   ingress:
-    ingressClass: "nginx"
+    ingressClass: nginx
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
-  replicas: 1
   image:
-    repository: gresearch/armada-server
-    tag: f0102f1ba985a289e97e990b822d457a45a4ef73
+    repository: test-armadaserver
+    tag: latest
   applicationConfig:
     server: example.com:443
     forceNoTls: true

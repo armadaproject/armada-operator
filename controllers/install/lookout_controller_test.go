@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,12 +67,42 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "executor"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 		Return(nil).
 		SetArg(1, expectedSecret)
+
+	expectedJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedLookout.Name + "-migration",
+			Namespace:       expectedLookout.Namespace,
+			OwnerReferences: ownerReference,
+		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(1, expectedJob)
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		AnyTimes().
+		Return(nil).
+		SetArg(2, expectedJob)
 
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
