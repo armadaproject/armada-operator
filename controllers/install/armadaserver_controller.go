@@ -47,7 +47,6 @@ type ArmadaServerReconciler struct {
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,32 +72,8 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	deletionTimestamp := as.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
-			logger.Info("Attaching finalizer to ArmadaServer object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&as, operatorFinalizer)
-			if err := r.Update(ctx, &as); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("ArmadaServer object is being deleted", "finalizer", operatorFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for ArmadaServer object", "finalizer", operatorFinalizer)
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from ArmadaServer object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&as, operatorFinalizer)
-			if err := r.Update(ctx, &as); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
+	if !deletionTimestamp.IsZero() {
+		logger.Info("ArmadaServer object is being deleted")
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}

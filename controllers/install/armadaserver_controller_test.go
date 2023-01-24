@@ -59,11 +59,6 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNS, gomock.AssignableToTypeOf(&v1alpha1.ArmadaServer{})).
 		Return(nil).
 		SetArg(2, expectedAS)
-	// Armada Server finalizer
-	mockK8sClient.
-		EXPECT().
-		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
-		Return(nil)
 	// Deployment
 	mockK8sClient.
 		EXPECT().
@@ -240,11 +235,6 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
 		Return(nil).
 		SetArg(2, expectedArmadaServer)
-	// Remove ArmadaServer Finalizer
-	mockK8sClient.
-		EXPECT().
-		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
-		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
