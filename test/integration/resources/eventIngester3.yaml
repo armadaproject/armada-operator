@@ -1,0 +1,15 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: EventIngester
+metadata:
+  name: eventingester-e2e-3
+  namespace: default
+spec:
+  image:
+    repository: test-eventingester
+    tag: latest
+  applicationConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

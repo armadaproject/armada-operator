@@ -1,0 +1,24 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Binoculars
+metadata:
+  labels:
+    app.kubernetes.io/name: binoculars
+    app.kubernetes.io/instance: binoculars-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/created-by: armada-operator
+  name: binoculars-e2e-1
+  namespace: default
+spec:
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
+  image:
+    repository: test-binoculars
+    tag: latest
+  applicationConfig:
+    impersonateUsers: true
+    corsAllowedOrigins:
+      - "https://localhost"
+    auth:
+      anonymousAuth: true
