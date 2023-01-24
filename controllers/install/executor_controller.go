@@ -69,7 +69,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.Client.Get(ctx, req.NamespacedName, &executor); err != nil {
 		if k8serrors.IsNotFound(err) {
 			logger.Info("Executor not found in cache, ending reconcile")
-			// TODO: Should the error be returned here?
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err

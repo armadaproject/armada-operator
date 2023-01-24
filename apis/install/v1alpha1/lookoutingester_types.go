@@ -28,8 +28,6 @@ import (
 // TODO: Should we be using OpenAPI validation markers on our Specs?
 // See: https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#openapi-validation
 type LookoutIngesterSpec struct {
-	// Name specifies the base name for all Kubernetes Resources
-	Name string `json:"name"`
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
@@ -44,8 +42,6 @@ type LookoutIngesterSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
-	// NodeSelector restricts the LookoutIngester pod to run on nodes matching the configured selectors
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
