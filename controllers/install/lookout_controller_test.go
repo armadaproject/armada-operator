@@ -10,8 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,16 +98,16 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Service)
 
-	// IngressWeb
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-		Return(nil).
-		SetArg(1, *lookout.IngressWeb)
+	// // IngressWeb
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+	// 	Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+	// 	Return(nil).
+	// 	SetArg(1, *lookout.IngressWeb)
 
 	r := LookoutReconciler{
 		Client: mockK8sClient,
@@ -197,15 +195,6 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
-	// Cleanup
-	mockK8sClient.
-		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
-		Return(nil)
-	mockK8sClient.
-		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
-		Return(nil)
 	// Remove Lookout Finalizer
 	mockK8sClient.
 		EXPECT().
