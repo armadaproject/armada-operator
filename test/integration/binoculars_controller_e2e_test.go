@@ -44,7 +44,7 @@ var binocularsYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Binoculars
 metadata:
   labels:
-    app.kubernetes.io/name: bincoulars
+    app.kubernetes.io/name: binoculars
     app.kubernetes.io/instance: binoculars-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator

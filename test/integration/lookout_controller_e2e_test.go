@@ -44,7 +44,7 @@ var lookoutYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
   labels:
-    app.kubernetes.io/name: bincoulars
+    app.kubernetes.io/name: lookout
     app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
