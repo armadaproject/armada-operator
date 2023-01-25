@@ -21,7 +21,7 @@ spec:
   replicas: 2
   image:
     tag: 8f1aa7314e32a071975502fc8127848369fe006a
-    repository: gresearchdev/armada-binoculars
+    repository: gresearch/armada-binoculars
   resources:
     limits:
       memory: 1Gi
