@@ -62,6 +62,7 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	components, err := r.generateInstallComponents(&lookoutIngester)
+	componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -77,7 +78,10 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	}
 
-	mutateFn := func() error { return nil }
+	mutateFn := func() error {
+		r.reconcileComponents(components, componentsCopy)
+		return nil
+	}
 
 	logger.Info("Upserting LookoutIngester ServiceAccount object")
 	if components.ServiceAccount != nil {
@@ -109,6 +113,14 @@ type LookoutIngesterComponents struct {
 	Deployment     *appsv1.Deployment
 	ServiceAccount *corev1.ServiceAccount
 	Secret         *corev1.Secret
+}
+
+func (ec *LookoutIngesterComponents) DeepCopy() *LookoutIngesterComponents {
+	return &LookoutIngesterComponents{
+		Deployment:     ec.Deployment.DeepCopy(),
+		ServiceAccount: ec.ServiceAccount.DeepCopy(),
+		Secret:         ec.Secret.DeepCopy(),
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -224,4 +236,13 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 func (r *LookoutIngesterReconciler) deleteExternalResources(ctx context.Context, components *LookoutIngesterComponents) error {
 	// Nothing to do for now.
 	return nil
+}
+
+func (r *LookoutIngesterReconciler) reconcileComponents(oldComponents, newComponents *LookoutIngesterComponents) {
+	oldComponents.Secret.Data = newComponents.Secret.Data
+	oldComponents.Secret.Labels = newComponents.Secret.Labels
+	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
+	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
+	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
+	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
 }
