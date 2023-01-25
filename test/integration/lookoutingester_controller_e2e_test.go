@@ -32,11 +32,31 @@ spec:
     repository: test-lookoutingester
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
 `
 
 var lookoutIngesterYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
@@ -49,11 +69,31 @@ spec:
     repository: test-lookoutingester
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
 `
 
 var lookoutIngesterYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
@@ -68,11 +108,31 @@ spec:
     repository: test-lookoutingester
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
 `
 
 var lookoutIngesterYaml3 = `apiVersion: install.armadaproject.io/v1alpha1
@@ -85,11 +145,31 @@ spec:
     repository: test-lookoutingester
     tag: latest
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
 `
 
 var _ = Describe("LookoutIngester Controller", func() {

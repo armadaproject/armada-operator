@@ -18,6 +18,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -61,8 +62,9 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
+	logger.Info(fmt.Sprintf("LookoutIngester Name %s", lookoutIngester.Name))
 	components, err := r.generateInstallComponents(&lookoutIngester)
-	componentsCopy := components.DeepCopy()
+	// componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -73,26 +75,28 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if !deletionTimestamp.IsZero() {
 		logger.Info("LookoutIngester is being deleted")
 
+		// FIXME: Seems like something actually has to happen here?
+
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 
 	}
 
 	mutateFn := func() error {
-		r.reconcileComponents(components, componentsCopy)
+		// r.reconcileComponents(components, componentsCopy)
 		return nil
-	}
-
-	logger.Info("Upserting LookoutIngester ServiceAccount object")
-	if components.ServiceAccount != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	logger.Info("Upserting LookoutIngester Secret object")
 	if components.Secret != nil {
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Upserting LookoutIngester ServiceAccount object")
+	if components.ServiceAccount != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -138,20 +142,24 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	if err := controllerutil.SetOwnerReference(lookoutIngester, secret, r.Scheme); err != nil {
 		return nil, err
 	}
-	deployment := r.createDeployment(lookoutIngester)
+	deployment := r.createDeployment(lookoutIngester, secret)
 	if err := controllerutil.SetOwnerReference(lookoutIngester, deployment, r.Scheme); err != nil {
+		return nil, err
+	}
+	serviceAccount := builders.CreateServiceAccount(lookoutIngester.Name, lookoutIngester.Namespace, AllLabels(lookoutIngester.Name, lookoutIngester.Labels), lookoutIngester.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(lookoutIngester, serviceAccount, r.Scheme); err != nil {
 		return nil, err
 	}
 
 	return &LookoutIngesterComponents{
 		Deployment:     deployment,
-		ServiceAccount: nil,
+		ServiceAccount: serviceAccount,
 		Secret:         secret,
 	}, nil
 }
 
 // TODO: Flesh this out for lookoutingester
-func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester) *appsv1.Deployment {
+func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, secret *corev1.Secret) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
@@ -181,6 +189,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookoutIngester.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
+						// FIXME(Clif): Needs to change
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: 9001,
@@ -219,7 +228,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 						Name: volumeConfigKey,
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: lookoutIngester.Name,
+								SecretName: secret.Name,
 							},
 						},
 					}},
@@ -245,4 +254,7 @@ func (r *LookoutIngesterReconciler) reconcileComponents(oldComponents, newCompon
 	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
 	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
 	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
+	oldComponents.ServiceAccount.Secrets = newComponents.ServiceAccount.Secrets
+	oldComponents.ServiceAccount.ImagePullSecrets = newComponents.ServiceAccount.ImagePullSecrets
+	oldComponents.ServiceAccount.AutomountServiceAccountToken = newComponents.ServiceAccount.AutomountServiceAccountToken
 }

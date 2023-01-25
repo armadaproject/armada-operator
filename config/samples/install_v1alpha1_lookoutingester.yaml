@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
   name: lookoutingester-sample
 spec:
-  name: lookoutingester-sample
   image:
     repository: gresearchdev/armada-lookout-ingester
     tag: v0.3.44
