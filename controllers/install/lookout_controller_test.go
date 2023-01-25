@@ -98,7 +98,6 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
-		AnyTimes().
 		Return(nil).
 		SetArg(2, *lookout.Job)
 
