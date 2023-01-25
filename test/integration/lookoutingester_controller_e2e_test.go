@@ -17,161 +17,6 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var lookoutIngesterYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
-  labels:
-    app.kubernetes.io/name: lookoutingester
-    app.kubernetes.io/instance: lookoutingester-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: lookoutingester-e2e-1
-  namespace: default
-spec:
-  image:
-    repository: test-lookoutingester
-    tag: latest
-  applicationConfig:
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgres
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: postgres
-        sslmode: disable
-    metrics:
-      port: 9000
-    pulsar:
-      enabled: true
-      URL: "pulsar://pulsar:6650"
-      jobsetEventsTopic: "events"
-      receiveTimeout: 5s
-      backoffTime: 1s
-    paralellism: 1
-    subscriptionName: "lookout-ingester"
-    batchSize: 10000
-    batchDuration: 500ms
-    minJobSpecCompressionSize: 1024
-    userAnnotationPrefix: "armadaproject.io/"
-`
-
-var lookoutIngesterYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
-  name: lookoutingester-e2e-2
-  namespace: default
-spec:
-  image:
-    repository: test-lookoutingester
-    tag: latest
-  applicationConfig:
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgres
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: postgres
-        sslmode: disable
-    metrics:
-      port: 9000
-    pulsar:
-      enabled: true
-      URL: "pulsar://pulsar:6650"
-      jobsetEventsTopic: "events"
-      receiveTimeout: 5s
-      backoffTime: 1s
-    paralellism: 1
-    subscriptionName: "lookout-ingester"
-    batchSize: 10000
-    batchDuration: 500ms
-    minJobSpecCompressionSize: 1024
-    userAnnotationPrefix: "armadaproject.io/"
-`
-
-var lookoutIngesterYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
-  labels:
-    test: updated
-  name: lookoutingester-e2e-2
-  namespace: default
-spec:
-  image:
-    repository: test-lookoutingester
-    tag: latest
-  applicationConfig:
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgres
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: postgres
-        sslmode: disable
-    metrics:
-      port: 9000
-    pulsar:
-      enabled: true
-      URL: "pulsar://pulsar:6650"
-      jobsetEventsTopic: "events"
-      receiveTimeout: 5s
-      backoffTime: 1s
-    paralellism: 1
-    subscriptionName: "lookout-ingester"
-    batchSize: 10000
-    batchDuration: 500ms
-    minJobSpecCompressionSize: 1024
-    userAnnotationPrefix: "armadaproject.io/"
-`
-
-var lookoutIngesterYaml3 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
-  name: lookoutingester-e2e-3
-  namespace: default
-spec:
-  image:
-    repository: test-lookoutingester
-    tag: latest
-  applicationConfig:
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgres
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: postgres
-        sslmode: disable
-    metrics:
-      port: 9000
-    pulsar:
-      enabled: true
-      URL: "pulsar://pulsar:6650"
-      jobsetEventsTopic: "events"
-      receiveTimeout: 5s
-      backoffTime: 1s
-    paralellism: 1
-    subscriptionName: "lookout-ingester"
-    batchSize: 10000
-    batchDuration: 500ms
-    minJobSpecCompressionSize: 1024
-    userAnnotationPrefix: "armadaproject.io/"
-`
-
 var _ = Describe("LookoutIngester Controller", func() {
 	// BeforeEach(func() {
 	// 	Expect(k8sClient.Create(ctx, &namespaceObject)).ToNot(HaveOccurred())
@@ -183,10 +28,12 @@ var _ = Describe("LookoutIngester Controller", func() {
 		It("Kubernetes should create the LookoutIngester Kubernetes resources", func() {
 			By("Calling the LookoutIngester Controller Reconcile function", func() {
 				const namespace = "default"
-				f, err := CreateTempFile([]byte(lookoutIngesterYaml1))
+				f, err := os.Open("./resources/lookoutIngester1.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				defer os.Remove(f.Name())
+
+				Expect(err).ToNot(HaveOccurred())
+				defer f.Close()
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -232,10 +79,9 @@ var _ = Describe("LookoutIngester Controller", func() {
 	When("User applies an existing LookoutIngester YAML with updated values using kubectl", func() {
 		It("Kubernetes should update the LookoutIngester Kubernetes resources", func() {
 			By("Calling the LookoutIngester Controller Reconcile function", func() {
-				f1, err := CreateTempFile([]byte(lookoutIngesterYaml2))
+				f1, err := os.Open("./resources/lookoutIngester2.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f1.Close()
-				defer os.Remove(f1.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -255,10 +101,9 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(lookoutIngester.Labels))
 
-				f2, err := CreateTempFile([]byte(lookoutIngesterYaml2Updated))
+				f2, err := os.Open("./resources/lookoutIngester2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
-				defer os.Remove(f2.Name())
 
 				Expect(err).ToNot(HaveOccurred())
 				stdin, stderr, err = k.Run("apply", "-f", f2.Name())
@@ -291,10 +136,9 @@ var _ = Describe("LookoutIngester Controller", func() {
 	When("User deletes an existing LookoutIngester YAML using kubectl", func() {
 		It("Kubernetes should delete the LookoutIngester Kubernetes resources", func() {
 			By("Calling the LookoutIngester Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(lookoutIngesterYaml3))
+				f, err := os.Open("./resources/lookoutIngester3.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				defer os.Remove(f.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
