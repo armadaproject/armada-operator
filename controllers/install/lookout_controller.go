@@ -78,30 +78,8 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
+	if !deletionTimestamp.IsZero() {
+		logger.Info("ArmadaServer object is being deleted")
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
