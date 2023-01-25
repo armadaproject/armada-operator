@@ -5,16 +5,57 @@ metadata:
     app.kubernetes.io/name: lookout
     app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
   name: lookout-sample
   namespace: default
 spec:
+  ingress:
+    ingressClass: "nginx"
+    labels:
+      hello: "world"
+    annotations:
+      hello: "world2"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostNames: [localhost]
+  replicas: 2
   image:
+    tag: 8f1aa7314e32a071975502fc8127848369fe006a
     repository: gresearchdev/armada-lookout
-    tag: v0.3.44
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
+
+  additionalVolumes:
+    - name: testsecret
+      secret:
+        secretName: testsecret
+
+  additionalVolumeMounts:
+    - name: testsecret
+      volume:
+        name: testsecret
+        mountPath: /etc/vimrc
+        readOnly: true
+
+  prometheus:
+    enabled: true
+    labels:
+      metrics: "true"
+      prometheus: armada
+      role: prometheus-rulefiles
+
   applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
+    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
+    # for the full list of configuration options.
+    grpcPort: 50059
+    httpPort: 8080
+    metricsPort: 9000
