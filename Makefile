@@ -122,6 +122,11 @@ test: manifests generate fmt vet gotestsum ## Run tests.
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/...
 
+# Integration test without Ginkgo colorized output and control chars, for logging purposes
+.PHONY: test-integration-debug
+test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run integration tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/... ./apis/... --coverprofile integration.out -args --ginkgo.no-color
+
 ##@ Build
 
 .PHONY: build

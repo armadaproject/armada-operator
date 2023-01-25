@@ -479,8 +479,18 @@ func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.Promet
 
 func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Spec:       monitoringv1.ServiceMonitorSpec{},
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      as.Name,
+			Namespace: as.Namespace,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				monitoringv1.Endpoint{Port: "metrics", Interval: "15s"},
+			},
+		},
 	}
 }
 
