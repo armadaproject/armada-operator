@@ -304,7 +304,11 @@ func (in *BinocularsSpec) DeepCopyInto(out *BinocularsSpec) {
 			(*out)[key] = val
 		}
 	}
-	in.ServiceAccount.DeepCopyInto(&out.ServiceAccount)
+	if in.ServiceAccount != nil {
+		in, out := &in.ServiceAccount, &out.ServiceAccount
+		*out = new(ServiceAccountConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Ingress != nil {
 		in, out := &in.Ingress, &out.Ingress
 		*out = new(IngressConfig)

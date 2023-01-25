@@ -2,6 +2,7 @@ apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
   name: executor-e2e-3
+  namespace: default
 spec:
   image:
     repository: test-executor

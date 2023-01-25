@@ -6,7 +6,8 @@ metadata:
     app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: lookout-e2e-1
+    test: updated
+  name: lookout-e2e-2
   namespace: default
 spec:
   replicas: 2

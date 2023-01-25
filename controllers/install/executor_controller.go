@@ -189,7 +189,7 @@ func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *E
 }
 
 func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	serviceAccount := r.createServiceAccount(executor)
+	serviceAccount := builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
 	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
@@ -399,19 +399,6 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
-}
-
-func (r *ExecutorReconciler) createServiceAccount(executor *installv1alpha1.Executor) *corev1.ServiceAccount {
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
-	}
-	if executor.Spec.ServiceAccount != nil {
-		serviceAccount.AutomountServiceAccountToken = executor.Spec.ServiceAccount.AutomountServiceAccountToken
-		serviceAccount.Secrets = executor.Spec.ServiceAccount.Secrets
-		serviceAccount.ImagePullSecrets = executor.Spec.ServiceAccount.ImagePullSecrets
-	}
-
-	return &serviceAccount
 }
 
 func (r *ExecutorReconciler) createClusterRoleBinding(
