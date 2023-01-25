@@ -189,6 +189,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		ServiceAccount: nil,
 		Secret:         secret,
 		IngressWeb:     ingressWeb,
+		Job:            job,
 	}, nil
 }
 
