@@ -14,93 +14,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var binocularsYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Binoculars
-metadata:
-  labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: binoculars-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: binoculars-e2e-1
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-binoculars
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var binocularsYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Binoculars
-metadata:
-  labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: binoculars-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: binoculars-e2e-2
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-binoculars
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var BinocularsYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Binoculars
-metadata:
-  labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: binoculars-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-    test: updated
-  name: binoculars-e2e-2
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-binoculars
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
 var _ = Describe("Binoculars Controller", func() {
 	When("User applies a new Binoculars YAML using kubectl", func() {
 		It("Kubernetes should create the Binoculars Kubernetes resources", func() {
 			By("Calling the Binoculars Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(binocularsYaml1))
+				f, err := os.Open("./resources/binoculars1.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				defer os.Remove(f.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -144,14 +64,13 @@ var _ = Describe("Binoculars Controller", func() {
 	When("User applies an existing Binoculars YAML with updated values using kubectl", func() {
 		It("Kubernetes should update the Binoculars Kubernetes resources", func() {
 			By("Calling the Binoculars Controller Reconcile function", func() {
-				f1, err := CreateTempFile([]byte(binocularsYaml2))
+				f, err := os.Open("./resources/binoculars2.yaml")
 				Expect(err).ToNot(HaveOccurred())
-				defer f1.Close()
-				defer os.Remove(f1.Name())
+				defer f.Close()
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("create", "-f", f1.Name())
+				stdin, stderr, err := k.Run("create", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
@@ -167,10 +86,9 @@ var _ = Describe("Binoculars Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(binoculars.Labels))
 
-				f2, err := CreateTempFile([]byte(BinocularsYaml2Updated))
+				f2, err := os.Open("./resources/binoculars2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
-				defer os.Remove(f2.Name())
 
 				Expect(err).ToNot(HaveOccurred())
 				stdin, stderr, err = k.Run("apply", "-f", f2.Name())

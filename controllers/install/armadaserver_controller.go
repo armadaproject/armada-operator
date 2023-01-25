@@ -47,7 +47,6 @@ type ArmadaServerReconciler struct {
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,32 +72,8 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	deletionTimestamp := as.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
-			logger.Info("Attaching finalizer to ArmadaServer object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&as, operatorFinalizer)
-			if err := r.Update(ctx, &as); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("ArmadaServer object is being deleted", "finalizer", operatorFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for ArmadaServer object", "finalizer", operatorFinalizer)
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from ArmadaServer object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&as, operatorFinalizer)
-			if err := r.Update(ctx, &as); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
+	if !deletionTimestamp.IsZero() {
+		logger.Info("ArmadaServer object is being deleted")
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
@@ -206,7 +181,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	svcAcct := createArmadaServerServiceAccount(as)
+	svcAcct := builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
 	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
 		return nil, err
 	}
@@ -286,19 +261,10 @@ func createArmadaServerService(as *installv1alpha1.ArmadaServer) *corev1.Service
 	return &service
 }
 
-func createArmadaServerServiceAccount(as *installv1alpha1.ArmadaServer) *corev1.ServiceAccount {
-	sa := corev1.ServiceAccount{
-		ObjectMeta:                   metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Secrets:                      []corev1.ObjectReference{},
-		ImagePullSecrets:             []corev1.LocalObjectReference{},
-		AutomountServiceAccountToken: nil,
-	}
-	return &sa
-}
-
 func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	ingressGRPCName := as.Name + "-grpc"
 	grpcIngress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+		ObjectMeta: metav1.ObjectMeta{Name: ingressGRPCName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
@@ -353,9 +319,10 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 }
 
 func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+	restIngressName := as.Name + "-rest"
 	restIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: as.Name, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
+			Name: restIngressName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                as.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          as.Spec.ClusterIssuer,

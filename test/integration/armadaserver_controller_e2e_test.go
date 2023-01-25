@@ -8,42 +8,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var armadaserverYaml = `apiVersion: install.armadaproject.io/v1alpha1
-kind: ArmadaServer
-metadata:
-  labels:
-    app.kubernetes.io/name: armadaserver
-    app.kubernetes.io/instance: armadaserver-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: armadaserver-e2e
-  namespace: default
-spec:
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: "k8s-cluster-issuer"
-  image:
-    repository: test-armadaserver
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
 var _ = Describe("Armada Operator", func() {
 	When("User applies ArmadaServer YAML using kubectl", func() {
 		It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
 			By("Calling the ArmadaServer Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(armadaserverYaml))
-				defer func() {
-					Expect(f.Close()).ToNot(HaveOccurred())
-				}()
-				defer func() {
-					Expect(os.Remove(f.Name())).ToNot(HaveOccurred())
-				}()
+				f, err := os.Open("./resources/server1.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				defer f.Close()
 				Expect(err).ToNot(HaveOccurred())
 
 				k, err := testUser.Kubectl()

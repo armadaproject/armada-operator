@@ -14,90 +14,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var lookoutYaml1 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
-metadata:
-  labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: lookout-e2e-1
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-lookout
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var lookoutYaml2 = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
-metadata:
-  labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-  name: lookout-e2e-2
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-lookout
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var LookoutYaml2Updated = `apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
-metadata:
-  labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/created-by: armada-operator
-    test: updated
-  name: lookout-e2e-2
-  namespace: default
-spec:
-  replicas: 2
-  ingress:
-    ingressClass: nginx
-  clusterIssuer: test
-  image:
-    repository: test-lookout
-    tag: latest
-  applicationConfig:
-    server: example.com:443
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-`
-
-var _ = Describe("Lookout Controller", func() {
-	When("User applies a new Lookout YAML using kubectl", func() {
-		It("Kubernetes should create the Lookout Kubernetes resources", func() {
+var _ = Describe("Armada Operator", func() {
+	When("User applies Lookout YAML using kubectl", func() {
+		It("Kubernetes should create Lookout Kubernetes resources", func() {
 			By("Calling the Lookout Controller Reconcile function", func() {
-				f, err := CreateTempFile([]byte(lookoutYaml1))
+				f, err := os.Open("./resources/lookout1.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				defer f.Close()
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 				defer os.Remove(f.Name())
@@ -144,9 +67,9 @@ var _ = Describe("Lookout Controller", func() {
 	When("User applies an existing Lookout YAML with updated values using kubectl", func() {
 		It("Kubernetes should update the Lookout Kubernetes resources", func() {
 			By("Calling the Lookout Controller Reconcile function", func() {
-				f1, err := CreateTempFile([]byte(lookoutYaml2))
+				f1, err := os.Open("./resources/lookout2.yaml")
 				Expect(err).ToNot(HaveOccurred())
-				defer f1.Close()
+				defer f.Close()
 				defer os.Remove(f1.Name())
 
 				k, err := testUser.Kubectl()
@@ -167,7 +90,7 @@ var _ = Describe("Lookout Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(lookout.Labels))
 
-				f2, err := CreateTempFile([]byte(LookoutYaml2Updated))
+				f2, err := os.Open("./resources/lookout2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
 				defer os.Remove(f2.Name())
