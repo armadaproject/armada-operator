@@ -410,10 +410,10 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 					InitContainers: []corev1.Container{{
 						Name:  "lookout-migration-db-wait",
 						Image: "alpine:3.10",
-                                                Command: []string{
-                                                        "/bin/sh",
-                                                        "-c",
-                                                        `echo "Waiting for Postres..."
+						Command: []string{
+							"/bin/sh",
+							"-c",
+							`echo "Waiting for Postres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
