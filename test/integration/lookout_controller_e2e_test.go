@@ -21,9 +21,6 @@ var _ = Describe("Armada Operator", func() {
 				f, err := os.Open("./resources/lookout1.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
-				Expect(err).ToNot(HaveOccurred())
-				defer f.Close()
-				defer os.Remove(f.Name())
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -69,8 +66,7 @@ var _ = Describe("Armada Operator", func() {
 			By("Calling the Lookout Controller Reconcile function", func() {
 				f1, err := os.Open("./resources/lookout2.yaml")
 				Expect(err).ToNot(HaveOccurred())
-				defer f.Close()
-				defer os.Remove(f1.Name())
+				defer f1.Close()
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
@@ -93,7 +89,6 @@ var _ = Describe("Armada Operator", func() {
 				f2, err := os.Open("./resources/lookout2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f2.Close()
-				defer os.Remove(f2.Name())
 
 				Expect(err).ToNot(HaveOccurred())
 				stdin, stderr, err = k.Run("apply", "-f", f2.Name())
