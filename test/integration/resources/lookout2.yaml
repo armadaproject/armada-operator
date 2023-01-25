@@ -1,19 +1,20 @@
 apiVersion: install.armadaproject.io/v1alpha1
-kind: ArmadaServer
+kind: Lookout
 metadata:
   labels:
-    app.kubernetes.io/name: armadaserver
-    app.kubernetes.io/instance: armadaserver-sample
+    app.kubernetes.io/name: lookout
+    app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: armadaserver-e2e
+  name: lookout-e2e-2
   namespace: default
 spec:
+  replicas: 2
   ingress:
     ingressClass: nginx
-  clusterIssuer: "k8s-cluster-issuer"
+  clusterIssuer: test
   image:
-    repository: test-armadaserver
+    repository: test-lookout
     tag: latest
   applicationConfig:
     server: example.com:443
