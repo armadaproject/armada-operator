@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,8 +42,9 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout"},
 		Spec: v1alpha1.LookoutSpec{
-			Replicas: 2,
-			Labels:   nil,
+			MigrateDatabase: true,
+			Replicas:        2,
+			Labels:          nil,
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
@@ -67,13 +69,6 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedLookout)
 
-	// TODO: This causes errors.
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
-	// 	Return(nil).
-	// 	SetArg(2, expectedLookout)
-
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
@@ -84,23 +79,28 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Secret)
 
-	// TODO: This causes errors.
-	// expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
-	// 	Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
-	// 	Return(nil).
-	// 	SetArg(1, *lookout.Job)
-	// mockK8sClient.
-	// 	EXPECT().
-	// 	Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
-	// 	AnyTimes().
-	// 	Return(nil).
-	// 	SetArg(2, *lookout.Job)
+	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
+	lookout.Job.Status = batchv1.JobStatus{
+		Conditions: []batchv1.JobCondition{{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(1, *lookout.Job)
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		AnyTimes().
+		Return(nil).
+		SetArg(2, *lookout.Job)
 
 	mockK8sClient.
 		EXPECT().
