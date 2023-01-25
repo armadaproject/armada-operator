@@ -12,6 +12,8 @@ metadata:
 spec:
   ingress:
     ingressClass: "nginx"
+  prometheusRule:
+    kind: "prometheus"
   clusterIssuer: "k8s-cluster-issuer"
   hostNames: [localhost]
   replicas: 1

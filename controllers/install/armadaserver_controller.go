@@ -60,12 +60,13 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var as installv1alpha1.ArmadaServer
 	if err := r.Client.Get(ctx, req.NamespacedName, &as); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("ArmadaServer not found in cache, ending reconcile")
+			logger.Info("ArmadaServer not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
+	var components *ArmadaServerComponents
 	components, err := generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -186,8 +187,21 @@ type ArmadaServerComponents struct {
 }
 
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
+	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(as, secret, scheme); err != nil {
+		return nil, err
+	}
+
 	deployment := createArmadaServerDeployment(as)
 	if err := controllerutil.SetOwnerReference(as, deployment, scheme); err != nil {
+		return nil, err
+	}
+
+	service := createArmadaServerService(as)
+	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
 		return nil, err
 	}
 
@@ -201,21 +215,8 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	service := createArmadaServerService(as)
-	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
-		return nil, err
-	}
-
 	svcAcct := createArmadaServerServiceAccount(as)
 	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
-		return nil, err
-	}
-
-	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
-	if err != nil {
-		return nil, err
-	}
-	if err := controllerutil.SetOwnerReference(as, secret, scheme); err != nil {
 		return nil, err
 	}
 
@@ -329,7 +330,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 							{
 								Name:      volumeConfigKey,
 								ReadOnly:  true,
-								MountPath: "/config/armaada.yaml",
+								MountPath: "/config/application_config.yaml",
 								SubPath:   as.Name,
 							},
 						},
@@ -501,6 +502,7 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 
 func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.PrometheusRule {
 	return &monitoringv1.PrometheusRule{
+		TypeMeta:   metav1.TypeMeta{Kind: "prometheus"},
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{},

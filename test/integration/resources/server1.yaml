@@ -7,7 +7,9 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
   name: armadaserver-e2e
+  namespace: default
 spec:
+  replicas: 1
   ingress:
     ingressClass: nginx
   clusterIssuer: "k8s-cluster-issuer"
@@ -16,6 +18,8 @@ spec:
     tag: latest
   applicationConfig:
     server: example.com:443
+    prometheusRule:
+      kind: "prometheus"
     forceNoTls: true
     toleratedTaints:
       - key: armada.io/batch

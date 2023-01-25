@@ -25,15 +25,15 @@ var _ = Describe("Armada Operator", func() {
 
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
-				stdin, stderr, err := k.Run("create", "-f", f.Name())
+				stdout, stderr, err := k.Run("create", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
 					Expect(err).ToNot(HaveOccurred())
 					Fail(string(stderrBytes))
 				}
-				stdinBytes, err := io.ReadAll(stdin)
+				stdoutBytes, err := io.ReadAll(stdout)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(stdinBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e created\n"))
+				Expect(string(stdoutBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e created\n"))
 
 				time.Sleep(2 * time.Second)
 
@@ -58,7 +58,6 @@ var _ = Describe("Armada Operator", func() {
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				err = k8sClient.Get(ctx, serviceKey, &service)
 				Expect(err).NotTo(HaveOccurred())
-
 			})
 		})
 	})
