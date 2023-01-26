@@ -294,7 +294,8 @@ func TestBinoculars_upsertComponents(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 
-			_, err := upsertComponents(context.Background(), tt.bc, mockK8sClient, func() error { return nil }, tt.mockFnc)
+			params := &UpsertParams{Context: context.Background(), BincularsComponents: tt.bc, Client: mockK8sClient, MutaFnc: func() error { return nil }, CreateOrUpdate: tt.mockFnc}
+			_, err := upsertComponents(params)
 			if tt.expectedError && err == nil {
 				t.Fatalf("Expected Error but did not get one")
 			}

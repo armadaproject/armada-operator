@@ -44,6 +44,14 @@ type BinocularsReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+type UpsertParams struct {
+	Context             context.Context
+	BincularsComponents *BinocularsComponents
+	Client              client.Client
+	MutaFnc             func() error
+	CreateOrUpdate      func(ctx context.Context, c client.Client, obj client.Object, f controllerutil.MutateFn) (controllerutil.OperationResult, error)
+}
+
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/finalizers,verbs=update
@@ -112,7 +120,8 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	mutateFn := func() error { return nil }
 
-	_, err = upsertComponents(ctx, components, r.Client, mutateFn, controllerutil.CreateOrUpdate)
+	upsertParams := &UpsertParams{Context: ctx, BincularsComponents: components, Client: r.Client, MutaFnc: mutateFn, CreateOrUpdate: controllerutil.CreateOrUpdate}
+	_, err = upsertComponents(upsertParams)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -133,7 +142,12 @@ type BinocularsComponents struct {
 	Secret             *corev1.Secret
 }
 
-func upsertComponents(ctx context.Context, bc *BinocularsComponents, r client.Client, mutateFn func() error, createOrUpdate func(ctx context.Context, c client.Client, obj client.Object, f controllerutil.MutateFn) (controllerutil.OperationResult, error)) (ctrl.Result, error) {
+func upsertComponents(params *UpsertParams) (ctrl.Result, error) {
+	ctx := params.Context
+	bc := params.BincularsComponents
+	r := params.Client
+	mutateFn := params.MutaFnc
+	createOrUpdate := params.CreateOrUpdate
 	logger := log.FromContext(ctx).WithValues("namespace", bc.Secret.Namespace, "name", bc.Secret.Name)
 
 	if bc.ServiceAccount != nil {
@@ -192,7 +206,8 @@ func upsertComponents(ctx context.Context, bc *BinocularsComponents, r client.Cl
 	return ctrl.Result{}, nil
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme, ownerReference func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error) (*BinocularsComponents, error) {
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme,
+	ownerReference func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error) (*BinocularsComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
 		return nil, err
