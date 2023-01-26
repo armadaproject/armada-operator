@@ -32,9 +32,6 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 
-				Expect(err).ToNot(HaveOccurred())
-				defer f.Close()
-
 				k, err := testUser.Kubectl()
 				Expect(err).ToNot(HaveOccurred())
 				stdin, stderr, err := k.Run("create", "-f", f.Name())
