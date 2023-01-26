@@ -583,7 +583,11 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 	}
 	out.Image = in.Image
 	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
-	in.Prometheus.DeepCopyInto(&out.Prometheus)
+	if in.Prometheus != nil {
+		in, out := &in.Prometheus, &out.Prometheus
+		*out = new(PrometheusConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
