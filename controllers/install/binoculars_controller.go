@@ -112,58 +112,9 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	mutateFn := func() error { return nil }
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Binoculars ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRole != nil {
-		logger.Info("Upserting Binoculars ClusterRole object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRoleBinding != nil {
-		logger.Info("Upserting Binoculars ClusterRoleBinding object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Secret != nil {
-		logger.Info("Upserting Binoculars Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Deployment != nil {
-		logger.Info("Upserting Binoculars Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Service != nil {
-		logger.Info("Upserting Binoculars Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	if components.Ingress != nil {
-		logger.Info("Upserting GRPC Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	if components.IngressRest != nil {
-		logger.Info("Upserting Rest Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	_, err = upsertComponents(ctx, components, r.Client, mutateFn, controllerutil.CreateOrUpdate)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Successfully reconciled Binoculars object", "durationMilis", time.Since(started).Milliseconds())
@@ -180,6 +131,65 @@ type BinocularsComponents struct {
 	Service            *corev1.Service
 	ServiceAccount     *corev1.ServiceAccount
 	Secret             *corev1.Secret
+}
+
+func upsertComponents(ctx context.Context, bc *BinocularsComponents, r client.Client, mutateFn func() error, createOrUpdate func(ctx context.Context, c client.Client, obj client.Object, f controllerutil.MutateFn) (controllerutil.OperationResult, error)) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("namespace", bc.Secret.Namespace, "name", bc.Secret.Name)
+
+	if bc.ServiceAccount != nil {
+		logger.Info("Upserting Binoculars ServiceAccount object")
+		if _, err := createOrUpdate(ctx, r, bc.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bc.ClusterRole != nil {
+		logger.Info("Upserting Binoculars ClusterRole object")
+		if _, err := createOrUpdate(ctx, r, bc.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bc.ClusterRoleBinding != nil {
+		logger.Info("Upserting Binoculars ClusterRoleBinding object")
+		if _, err := createOrUpdate(ctx, r, bc.ClusterRoleBinding, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bc.Secret != nil {
+		logger.Info("Upserting Binoculars Secret object")
+		if _, err := createOrUpdate(ctx, r, bc.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bc.Deployment != nil {
+		logger.Info("Upserting Binoculars Deployment object")
+		if _, err := createOrUpdate(ctx, r, bc.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bc.Service != nil {
+		logger.Info("Upserting Binoculars Service object")
+		if _, err := createOrUpdate(ctx, r, bc.Service, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if bc.Ingress != nil {
+		logger.Info("Upserting GRPC Ingress object")
+		if _, err := createOrUpdate(ctx, r, bc.Ingress, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if bc.IngressRest != nil {
+		logger.Info("Upserting Rest Ingress object")
+		if _, err := createOrUpdate(ctx, r, bc.IngressRest, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme, ownerReference func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error) (*BinocularsComponents, error) {
