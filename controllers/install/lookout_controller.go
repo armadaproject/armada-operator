@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 // migrationTimeout is how long we'll wait for the Lookout db migration job
@@ -143,10 +144,22 @@ type LookoutComponents struct {
 	Secret         *corev1.Secret
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount
+	Job            *batchv1.Job
 	// ToDo: add other components
 	// CronJob        *batchv1beta1.CronJob
+}
 
-	Job *batchv1.Job
+type LookoutConfig struct {
+	Postgres PostgresConfig
+}
+
+type PostgresConfig struct {
+	Connection ConnectionConfig
+}
+
+type ConnectionConfig struct {
+	Host string
+	Port string
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
@@ -173,9 +186,15 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
 	// 	return nil, err
 	// }
-	job := createLookoutMigrationJob(lookout)
-	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
-		return nil, err
+	var job *batchv1.Job
+	if lookout.Spec.MigrateDatabase {
+		job, err = createLookoutMigrationJob(lookout)
+		if err != nil {
+			return nil, err
+		}
+		if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	ingressWeb := createLookoutIngressWeb(lookout)
@@ -345,7 +364,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 	return ingressWeb
 }
 
-func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
+func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
 	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
@@ -353,6 +372,16 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
+
+	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+	var lookoutConfig LookoutConfig
+	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	job := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -378,8 +407,31 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 						RunAsUser:  &runAsUser,
 						RunAsGroup: &runAsGroup,
 					},
+					InitContainers: []corev1.Container{{
+						Name:  "lookout-migration-db-wait",
+						Image: "alpine:3.10",
+						Command: []string{
+							"/bin/sh",
+							"-c",
+							`echo "Waiting for Postres..."
+                                                         while ! nc -z $PGHOST $PGPORT; do
+                                                           sleep 1
+                                                         done
+                                                         echo "Postres started!"`,
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "PGHOST",
+								Value: lookoutConfig.Postgres.Connection.Host,
+							},
+							{
+								Name:  "PGPORT",
+								Value: lookoutConfig.Postgres.Connection.Port,
+							},
+						},
+					}},
 					Containers: []corev1.Container{{
-						Name:            "lookout",
+						Name:            "lookout-migration",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookout.Spec.Image),
 						Args: []string{
@@ -435,7 +487,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) *batchv1.Job {
 		},
 	}
 
-	return &job
+	return &job, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
