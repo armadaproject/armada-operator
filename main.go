@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -146,6 +145,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Queue")
 		os.Exit(1)
 	}
+	if err = (&install.LookoutIngesterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LookoutIngester")
+		os.Exit(1)
+	}
 
 	disableWebhooks := os.Getenv("DISABLE_WEBHOOKS") == "true"
 	if !disableWebhooks {
@@ -169,7 +175,10 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Lookout")
 			os.Exit(1)
 		}
-
+		if err = (&installv1alpha1.LookoutIngester{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "LookoutIngester")
+			os.Exit(1)
+		}
 	}
 
 	//+kubebuilder:scaffold:builder
