@@ -23,6 +23,83 @@ import (
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
+func TestBinoculars_GenerateInstallComponents(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	tests := map[string]struct {
+		binoculars    *installv1alpha1.Binoculars
+		expectedError bool
+	}{
+		"it builds binoculars components": {
+			binoculars: &v1alpha1.Binoculars{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Binoculars",
+					APIVersion: "install.armadaproject.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
+				Spec: v1alpha1.BinocularsSpec{
+					Replicas:  2,
+					HostNames: []string{"localhost"},
+					Labels:    map[string]string{"test": "hello"},
+					Image: installv1alpha1.Image{
+						Repository: "testrepo",
+						Tag:        "1.0.0",
+					},
+					ApplicationConfig: runtime.RawExtension{},
+					ClusterIssuer:     "test",
+					Ingress: &installv1alpha1.IngressConfig{
+						IngressClass: "nginx",
+						Labels:       map[string]string{"test": "hello"},
+						Annotations:  map[string]string{"test": "hello"},
+					},
+				},
+			},
+		},
+		"it generates an error if binoculars config is malformed": {
+			expectedError: true,
+			binoculars: &v1alpha1.Binoculars{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Binoculars",
+					APIVersion: "install.armadaproject.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
+				Spec: v1alpha1.BinocularsSpec{
+					Replicas:  2,
+					HostNames: []string{"localhost"},
+					Labels:    map[string]string{"test": "hello"},
+					Image: installv1alpha1.Image{
+						Repository: "testrepo",
+						Tag:        "1.0.0",
+					},
+					ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+					ClusterIssuer:     "test",
+					Ingress: &installv1alpha1.IngressConfig{
+						IngressClass: "nginx",
+						Labels:       map[string]string{"test": "hello"},
+						Annotations:  map[string]string{"test": "hello"},
+					},
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := generateBinocularsInstallComponents(tt.binoculars, scheme)
+			if tt.expectedError && err == nil {
+				t.Fatalf("Expected Error but did not get one")
+			}
+		})
+	}
+}
 func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	t.Parallel()
 
@@ -273,5 +350,66 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 	_, err = r.Reconcile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
+	}
+}
+
+func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := installv1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "binoculars",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.BinocularsSpec{
+			Replicas: 2,
+			Labels:   nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil).
+		SetArg(2, expectedBinoculars)
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("Expected error but did not get one")
 	}
 }
