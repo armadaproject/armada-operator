@@ -10,6 +10,7 @@ metadata:
   name: lookout-sample
   namespace: default
 spec:
+  migrateDatabase: true
   ingress:
     ingressClass: "nginx"
     labels:
@@ -21,6 +22,7 @@ spec:
   replicas: 2
   image:
     repository: gresearchdev/armada-lookout
+    tag: v0.3.44
   resources:
     limits:
       memory: 1Gi
@@ -58,3 +60,7 @@ spec:
     grpcPort: 50059
     httpPort: 8080
     metricsPort: 9000
+    postgres:
+      connection:
+        host: pghost
+        port: 5432
