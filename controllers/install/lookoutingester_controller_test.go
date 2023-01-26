@@ -74,6 +74,23 @@ func TestLookoutIngesterReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, expectedSecret)
 
+	expectedServiceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedLookoutIngester.Name,
+			Namespace:       expectedLookoutIngester.Namespace,
+			OwnerReferences: ownerReference,
+		},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "LookoutIngesterSecret"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil).
+		SetArg(1, expectedServiceAccount)
+
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            expectedLookoutIngester.Name,

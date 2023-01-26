@@ -64,7 +64,6 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	logger.Info(fmt.Sprintf("LookoutIngester Name %s", lookoutIngester.Name))
 	components, err := r.generateInstallComponents(&lookoutIngester)
-	// componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -83,26 +82,25 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	mutateFn := func() error {
-		// r.reconcileComponents(components, componentsCopy)
 		return nil
 	}
 
-	logger.Info("Upserting LookoutIngester Secret object")
 	if components.Secret != nil {
+		logger.Info("Upserting LookoutIngester Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting LookoutIngester ServiceAccount object")
 	if components.ServiceAccount != nil {
+		logger.Info("Upserting LookoutIngester ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Upserting LookoutIngester Deployment object")
 	if components.Deployment != nil {
+		logger.Info("Upserting LookoutIngester Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -240,21 +238,4 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookoutIngester.Spec.Resources
 	}
 	return &deployment
-}
-
-func (r *LookoutIngesterReconciler) deleteExternalResources(ctx context.Context, components *LookoutIngesterComponents) error {
-	// Nothing to do for now.
-	return nil
-}
-
-func (r *LookoutIngesterReconciler) reconcileComponents(oldComponents, newComponents *LookoutIngesterComponents) {
-	oldComponents.Secret.Data = newComponents.Secret.Data
-	oldComponents.Secret.Labels = newComponents.Secret.Labels
-	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
-	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
-	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
-	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
-	oldComponents.ServiceAccount.Secrets = newComponents.ServiceAccount.Secrets
-	oldComponents.ServiceAccount.ImagePullSecrets = newComponents.ServiceAccount.ImagePullSecrets
-	oldComponents.ServiceAccount.AutomountServiceAccountToken = newComponents.ServiceAccount.AutomountServiceAccountToken
 }
