@@ -1,0 +1,85 @@
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Binoculars
+metadata:
+  labels:
+    app.kubernetes.io/name: binoculars
+    app.kubernetes.io/instance: binoculars-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: binoculars-sample
+  namespace: default
+spec:
+  ingress:
+    ingressClass: "nginx"
+    labels: 
+      hello: "world"
+    annotations:
+      hello: "world2"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostNames: [localhost]
+  replicas: 2
+  image:
+    tag: 8f1aa7314e32a071975502fc8127848369fe006a
+    repository: gresearch/armada-binoculars
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
+
+  additionalVolumes:
+    - name: testsecret
+      secret:
+        secretName: testsecret
+
+  additionalVolumeMounts:
+    - name: testsecret
+      volume:
+        name: testsecret
+        mountPath: /etc/vimrc
+        readOnly: true
+
+  prometheus:
+    enabled: true
+    labels:
+      metrics: "true"
+      prometheus: armada
+      role: prometheus-rulefiles
+
+  labels:
+    armadaproject.io/app-id: "9670"
+
+  applicationConfig:
+    impersonateUsers: true
+    corsAllowedOrigins:
+      - "https://localhost"
+    auth:
+      anonymousAuth: true
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  labels:
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/instance: executor-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: executor-sample
+  namespace: default
+spec:
+  image:
+    repository: gresearchdev/armada-executor
+    tag: v0.3.44
+  applicationConfig:
+    apiConnection:
+      armadaUrl: armada.demo.armadaproject.io:443
+      forceNoTls: false
