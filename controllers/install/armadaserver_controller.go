@@ -59,12 +59,13 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var as installv1alpha1.ArmadaServer
 	if err := r.Client.Get(ctx, req.NamespacedName, &as); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("ArmadaServer not found in cache, ending reconcile")
+			logger.Info("ArmadaServer not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
+	var components *ArmadaServerComponents
 	components, err := generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -161,6 +162,14 @@ type ArmadaServerComponents struct {
 }
 
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
+	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(as, secret, scheme); err != nil {
+		return nil, err
+	}
+
 	deployment := createArmadaServerDeployment(as)
 	if err := controllerutil.SetOwnerReference(as, deployment, scheme); err != nil {
 		return nil, err
@@ -183,14 +192,6 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	svcAcct := builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
 	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
-		return nil, err
-	}
-
-	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
-	if err != nil {
-		return nil, err
-	}
-	if err := controllerutil.SetOwnerReference(as, secret, scheme); err != nil {
 		return nil, err
 	}
 
@@ -225,17 +226,100 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Deployment {
 	var replicas int32 = 1
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
+
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      as.Name,
+			Namespace: as.Namespace,
+			Labels:    AllLabels(as.Name, as.Labels),
+		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels:      nil,
-				MatchExpressions: nil,
+				MatchLabels: IdentityLabel(as.Name),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       corev1.PodSpec{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      as.Name,
+					Namespace: as.Namespace,
+					Labels:    AllLabels(as.Name, as.Labels),
+					Annotations: map[string]string{
+						"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw),
+					},
+				},
+				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: as.DeletionGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{{
+											Key:      "app",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{as.Name},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					Containers: []corev1.Container{{
+						Name:            "armadaserver",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           ImageString(as.Spec.Image),
+						Args:            []string{"--config", "/config/armada.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   as.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: as.Name,
+							},
+						},
+					}},
+				},
 			},
 			Strategy:                appsv1.DeploymentStrategy{},
 			MinReadySeconds:         0,
@@ -244,6 +328,10 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 			ProgressDeadlineSeconds: nil,
 		},
 	}
+	if as.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *as.Spec.Resources
+	}
+
 	return &deployment
 }
 
@@ -381,6 +469,7 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 
 func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.PrometheusRule {
 	return &monitoringv1.PrometheusRule{
+		TypeMeta:   metav1.TypeMeta{Kind: "prometheus"},
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{},
@@ -390,8 +479,18 @@ func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.Promet
 
 func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Spec:       monitoringv1.ServiceMonitorSpec{},
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      as.Name,
+			Namespace: as.Namespace,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				monitoringv1.Endpoint{Port: "metrics", Interval: "15s"},
+			},
+		},
 	}
 }
 

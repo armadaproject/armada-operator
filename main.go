@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/armadaproject/armada-operator/controllers/install"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
@@ -94,6 +95,11 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if err := monitoringv1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "error registering monitoringv1 schema")
 		os.Exit(1)
 	}
 

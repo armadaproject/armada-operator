@@ -158,7 +158,6 @@ spec:
                 description: ApplicationConfig is the internal ArmadaServer configuration
                   which will be created as a Kubernetes Secret and mounted in the
                   Kubernetes Deployment object
-                type: object
                 x-kubernetes-preserve-unknown-fields: true
               clusterIssuer:
                 description: Who is issuing certificates for CA
