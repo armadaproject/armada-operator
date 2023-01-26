@@ -31,6 +31,8 @@ type ArmadaServerSpec struct {
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
 	// ApplicationConfig is the internal ArmadaServer configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
