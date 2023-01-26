@@ -795,7 +795,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 		}
 	}
 	in.ServiceAccount.DeepCopyInto(&out.ServiceAccount)
-	in.Ingress.DeepCopyInto(&out.Ingress)
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = new(IngressConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.HostNames != nil {
 		in, out := &in.HostNames, &out.HostNames
 		*out = make([]string, len(*in))

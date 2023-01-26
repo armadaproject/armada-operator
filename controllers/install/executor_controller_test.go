@@ -41,6 +41,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			Resources:         &corev1.ResourceRequirements{},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
