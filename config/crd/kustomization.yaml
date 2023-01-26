@@ -8,6 +8,7 @@ resources:
 - bases/core.armadaproject.io_queues.yaml
 - bases/install.armadaproject.io_eventingesters.yaml
 - bases/install.armadaproject.io_lookouts.yaml
+- bases/install.armadaproject.io_lookoutingesters.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -19,6 +20,7 @@ patchesStrategicMerge:
 - patches/webhook_in_eventingesters.yaml
 - patches/webhook_in_lookouts.yaml
 - patches/webhook_in_binoculars.yaml
+- patches/webhook_in_lookoutingesters.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
@@ -29,6 +31,7 @@ patchesStrategicMerge:
 - patches/cainjection_in_eventingesters.yaml
 - patches/cainjection_in_queues.yaml
 - patches/cainjection_in_lookouts.yaml
+- patches/cainjection_in_lookoutingesters.yaml
 
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 

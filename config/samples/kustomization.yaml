@@ -6,4 +6,5 @@ resources:
 - install_v1alpha1_eventingester.yaml
 - install_v1alpha1_binoculars.yaml
 - install_v1alpha1_lookout.yaml
+- install_v1alpha1_lookoutingester.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
