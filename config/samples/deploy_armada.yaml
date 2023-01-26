@@ -17,7 +17,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: f0102f1ba985a289e97e990b822d457a45a4ef73
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     server: example.com:443
     prometheusRule:
@@ -39,8 +39,8 @@ metadata:
   name: eventingester-sample
 spec:
   image:
-    repository: gresearchdev/armada-eventingester
-    tag: v0.3.44
+    repository: gresearch/armada-eventingester
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     redis:
       addrs:
@@ -85,8 +85,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearchdev/armada-lookout
-    tag: v0.3.44
+    repository: gresearch/armada-lookout
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   resources:
     limits:
       memory: 1Gi

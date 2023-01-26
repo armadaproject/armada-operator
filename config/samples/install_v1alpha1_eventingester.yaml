@@ -10,8 +10,8 @@ metadata:
   name: eventingester-sample
 spec:
   image:
-    repository: gresearchdev/armada-eventingester
-    tag: v0.3.44
+    repository: gresearch/armada-eventingester
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     redis:
       addrs:
