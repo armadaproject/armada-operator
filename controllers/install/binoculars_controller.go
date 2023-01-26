@@ -69,7 +69,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	var components *BinocularsComponents
-	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
+	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme, controllerutil.SetOwnerReference)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -182,34 +182,34 @@ type BinocularsComponents struct {
 	Secret             *corev1.Secret
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*BinocularsComponents, error) {
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme, ownerReference func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error) (*BinocularsComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
+	if err := ownerReference(binoculars, secret, scheme); err != nil {
 		return nil, err
 	}
 	deployment := createBinocularsDeployment(binoculars)
-	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
+	if err := ownerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
 	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels))
-	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
+	if err := ownerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
 	serAct := builders.CreateServiceAccount(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(binoculars, serAct, scheme); err != nil {
+	if err := ownerReference(binoculars, serAct, scheme); err != nil {
 		return nil, err
 	}
 
 	ingress := createBinocularsIngress(binoculars)
-	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
+	if err := ownerReference(binoculars, ingress, scheme); err != nil {
 		return nil, err
 	}
 
 	ingressGrpc := createBinocularsGRPCIngress(binoculars)
-	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
+	if err := ownerReference(binoculars, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
 

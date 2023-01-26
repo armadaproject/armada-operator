@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -35,10 +37,12 @@ func TestBinoculars_GenerateInstallComponents(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		binoculars    *installv1alpha1.Binoculars
-		expectedError bool
+		binoculars     *installv1alpha1.Binoculars
+		ownerReference func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error
+		expectedError  bool
 	}{
 		"it builds binoculars components": {
+			ownerReference: func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error { return nil },
 			binoculars: &v1alpha1.Binoculars{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Binoculars",
@@ -60,11 +64,45 @@ func TestBinoculars_GenerateInstallComponents(t *testing.T) {
 						Labels:       map[string]string{"test": "hello"},
 						Annotations:  map[string]string{"test": "hello"},
 					},
+					Resources: &corev1.ResourceRequirements{},
 				},
 			},
 		},
 		"it generates an error if binoculars config is malformed": {
+			expectedError:  true,
+			ownerReference: func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error { return nil },
+			binoculars: &v1alpha1.Binoculars{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Binoculars",
+					APIVersion: "install.armadaproject.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
+				Spec: v1alpha1.BinocularsSpec{
+					Replicas:  2,
+					HostNames: []string{"localhost"},
+					Labels:    map[string]string{"test": "hello"},
+					Image: installv1alpha1.Image{
+						Repository: "testrepo",
+						Tag:        "1.0.0",
+					},
+					ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+					ClusterIssuer:     "test",
+					Ingress: &installv1alpha1.IngressConfig{
+						IngressClass: "nginx",
+						Labels:       map[string]string{"test": "hello"},
+						Annotations:  map[string]string{"test": "hello"},
+					},
+				},
+			},
+		},
+		"it generates an error if ownerReference has an error on Ingress SetOwnerReferences": {
 			expectedError: true,
+			ownerReference: func(owner metav1.Object, object metav1.Object, scheme *runtime.Scheme) error {
+				if object.GetName() != owner.GetName() {
+					return fmt.Errorf("Mock Error for Ingress")
+				}
+				return nil
+			},
 			binoculars: &v1alpha1.Binoculars{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Binoculars",
@@ -93,7 +131,7 @@ func TestBinoculars_GenerateInstallComponents(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := generateBinocularsInstallComponents(tt.binoculars, scheme)
+			_, err := generateBinocularsInstallComponents(tt.binoculars, scheme, tt.ownerReference)
 			if tt.expectedError && err == nil {
 				t.Fatalf("Expected Error but did not get one")
 			}
@@ -137,7 +175,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		},
 	}
 
-	binoculars, err := generateBinocularsInstallComponents(&expectedBinoculars, scheme)
+	binoculars, err := generateBinocularsInstallComponents(&expectedBinoculars, scheme, controllerutil.SetOwnerReference)
 	if err != nil {
 		t.Fatal("We should not fail on generating binoculars")
 	}
@@ -353,6 +391,214 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 	}
 }
 
+func TestBinocularsReconciler_ReconcileErrorOnDeletingInUpdate(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := installv1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "binoculars",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.BinocularsSpec{
+			Replicas: 2,
+			Labels:   nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil).
+		SetArg(2, expectedBinoculars)
+	// Cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(nil)
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(nil)
+	// Remove Binoculars Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(fmt.Errorf("error"))
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("reconcile should return error")
+	}
+}
+
+func TestBinocularsReconciler_ReconcileErrorOnDeletingClusterRoleBinding(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := installv1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "binoculars",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.BinocularsSpec{
+			Replicas: 2,
+			Labels:   nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil).
+		SetArg(2, expectedBinoculars)
+	// Cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(fmt.Errorf("Error on Deleting ClusterRole"))
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("reconcile should return error")
+	}
+}
+
+func TestBinocularsReconciler_ReconcileErrorOnDeletingClusterRole(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	expectedBinoculars := installv1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "binoculars",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.BinocularsSpec{
+			Replicas: 2,
+			Labels:   nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{},
+			ClusterIssuer:     "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil).
+		SetArg(2, expectedBinoculars)
+	// Cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
+		Return(nil)
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(fmt.Errorf("Error"))
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("reconcile should return error")
+	}
+}
+
 func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 	t.Parallel()
 
@@ -398,6 +644,40 @@ func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
 		Return(nil).
 		SetArg(2, expectedBinoculars)
+
+	r := BinocularsReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "binoculars"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("Expected error but did not get one")
+	}
+}
+func TestBinocularsReconciler_ReconcileGetError(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars"}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	// Binoculars
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(fmt.Errorf("Error other than notfound"))
 
 	r := BinocularsReconciler{
 		Client: mockK8sClient,
