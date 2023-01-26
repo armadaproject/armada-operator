@@ -406,7 +406,7 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-		        }
+			}
 
 			if tt.verifyJob != nil {
 				tt.verifyJob(t, rslt)
