@@ -1,0 +1,25 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: LookoutV2
+metadata:
+  labels:
+    app.kubernetes.io/name: lookout-v2
+    app.kubernetes.io/instance: lookout-v2-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/created-by: armada-operator
+  name: lookout-v2-e2e-1
+  namespace: default
+spec:
+  migrateDatabase: false
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
+  image:
+    repository: test-lookout-v2
+    tag: latest
+  applicationConfig:
+    server: example.com:443
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in

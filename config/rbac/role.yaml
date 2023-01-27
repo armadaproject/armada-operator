@@ -158,6 +158,58 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
+  - lookoutV2
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutV2/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutV2/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutV2ingesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutV2ingesters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutV2ingesters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
   - lookoutingesters
   verbs:
   - create

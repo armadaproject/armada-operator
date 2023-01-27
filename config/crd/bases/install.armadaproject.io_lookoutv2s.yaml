@@ -1,0 +1,431 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
+  creationTimestamp: null
+  name: lookoutv2s.install.armadaproject.io
+spec:
+  group: install.armadaproject.io
+  names:
+    kind: LookoutV2
+    listKind: LookoutV2List
+    plural: lookoutv2s
+    singular: lookoutv2
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: LookoutV2 is the Schema for the lookoutV2 API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: LookoutV2Spec defines the desired state of LookoutV2
+            properties:
+              additionalVolumeMounts:
+                description: Additional volume mounts that are added as volumes
+                items:
+                  properties:
+                    name:
+                      type: string
+                    volume:
+                      description: VolumeMount describes a mounting of a Volume within
+                        a container.
+                      properties:
+                        mountPath:
+                          description: Path within the container at which the volume
+                            should be mounted.  Must not contain ':'.
+                          type: string
+                        mountPropagation:
+                          description: mountPropagation determines how mounts are
+                            propagated from the host to container and the other way
+                            around. When not set, MountPropagationNone is used. This
+                            field is beta in 1.10.
+                          type: string
+                        name:
+                          description: This must match the Name of a Volume.
+                          type: string
+                        readOnly:
+                          description: Mounted read-only if true, read-write otherwise
+                            (false or unspecified). Defaults to false.
+                          type: boolean
+                        subPath:
+                          description: Path within the volume from which the container's
+                            volume should be mounted. Defaults to "" (volume's root).
+                          type: string
+                        subPathExpr:
+                          description: Expanded path within the volume from which
+                            the container's volume should be mounted. Behaves similarly
+                            to SubPath but environment variable references $(VAR_NAME)
+                            are expanded using the container's environment. Defaults
+                            to "" (volume's root). SubPathExpr and SubPath are mutually
+                            exclusive.
+                          type: string
+                      required:
+                      - mountPath
+                      - name
+                      type: object
+                  type: object
+                type: array
+              additionalVolumes:
+                description: Additional volumes that are mounted into deployments
+                items:
+                  properties:
+                    name:
+                      type: string
+                    secret:
+                      description: "Adapts a Secret into a volume. \n The contents
+                        of the target Secret's Data field will be presented in a volume
+                        as files using the keys in the Data field as the file names.
+                        Secret volumes support ownership management and SELinux relabeling."
+                      properties:
+                        defaultMode:
+                          description: 'defaultMode is Optional: mode bits used to
+                            set permissions on created files by default. Must be an
+                            octal value between 0000 and 0777 or a decimal value between
+                            0 and 511. YAML accepts both octal and decimal values,
+                            JSON requires decimal values for mode bits. Defaults to
+                            0644. Directories within the path are not affected by
+                            this setting. This might be in conflict with other options
+                            that affect the file mode, like fsGroup, and the result
+                            can be other mode bits set.'
+                          format: int32
+                          type: integer
+                        items:
+                          description: items If unspecified, each key-value pair in
+                            the Data field of the referenced Secret will be projected
+                            into the volume as a file whose name is the key and content
+                            is the value. If specified, the listed keys will be projected
+                            into the specified paths, and unlisted keys will not be
+                            present. If a key is specified which is not present in
+                            the Secret, the volume setup will error unless it is marked
+                            optional. Paths must be relative and may not contain the
+                            '..' path or start with '..'.
+                          items:
+                            description: Maps a string key to a path within a volume.
+                            properties:
+                              key:
+                                description: key is the key to project.
+                                type: string
+                              mode:
+                                description: 'mode is Optional: mode bits used to
+                                  set permissions on this file. Must be an octal value
+                                  between 0000 and 0777 or a decimal value between
+                                  0 and 511. YAML accepts both octal and decimal values,
+                                  JSON requires decimal values for mode bits. If not
+                                  specified, the volume defaultMode will be used.
+                                  This might be in conflict with other options that
+                                  affect the file mode, like fsGroup, and the result
+                                  can be other mode bits set.'
+                                format: int32
+                                type: integer
+                              path:
+                                description: path is the relative path of the file
+                                  to map the key to. May not be an absolute path.
+                                  May not contain the path element '..'. May not start
+                                  with the string '..'.
+                                type: string
+                            required:
+                            - key
+                            - path
+                            type: object
+                          type: array
+                        optional:
+                          description: optional field specify whether the Secret or
+                            its keys must be defined
+                          type: boolean
+                        secretName:
+                          description: 'secretName is the name of the secret in the
+                            pod''s namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret'
+                          type: string
+                      type: object
+                  type: object
+                type: array
+              applicationConfig:
+                description: ApplicationConfig is the internal LookoutV2 configuration
+                  which will be created as a Kubernetes Secret and mounted in the
+                  Kubernetes Deployment object
+                x-kubernetes-preserve-unknown-fields: true
+              clusterIssuer:
+                description: Who is issuing certificates for CA
+                type: string
+              customServiceAccount:
+                description: if CustomServiceAccount is specified, then that service
+                  account is referenced in the Deployment (overrides service account
+                  defined in spec.serviceAccount field)
+                type: string
+              environment:
+                description: Extra environment variables that get added to deployment
+                items:
+                  properties:
+                    name:
+                      description: The name of the environment variable
+                      type: string
+                    value:
+                      description: The value of the environment variable corresponding
+                        to the name
+                      type: string
+                  type: object
+                type: array
+              hostNames:
+                description: An array of host names to build ingress rules for
+                items:
+                  type: string
+                type: array
+              image:
+                description: Image is the configuration block for the image repository
+                  and tag
+                properties:
+                  repository:
+                    type: string
+                  tag:
+                    type: string
+                required:
+                - repository
+                - tag
+                type: object
+              ingress:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
+                    type: object
+                  ingressClass:
+                    description: The type of ingress that is used
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
+                type: object
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels is the map of labels which wil be added to all
+                  objects
+                type: object
+              migrateDatabase:
+                description: MigrateDatabase must be true to enable database migration
+                  job
+                type: boolean
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector restricts the LookoutV2 pod to run on nodes
+                  matching the configured selectors
+                type: object
+              prometheus:
+                description: PrometheusConfig is the configuration block for Prometheus
+                  monitoring
+                properties:
+                  enabled:
+                    description: Enabled toggles should PrometheusRule and ServiceMonitor
+                      be created
+                    type: boolean
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels field enables adding additional labels to
+                      PrometheusRule and ServiceMonitor
+                    type: object
+                  scrapeInterval:
+                    description: ScrapeInterval defines the interval at which Prometheus
+                      should scrape Executor metrics
+                    format: duration
+                    type: string
+                type: object
+              replicas:
+                description: Replicas is the number of replicated instances for ArmadaServer
+                format: int32
+                type: integer
+              resources:
+                description: Resources is the configuration block for setting LookoutV2
+                  resource requirements
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                type: object
+              serviceAccount:
+                description: if ServiceAccount configuration is defined, it creates
+                  a new service account and references it in the deployment
+                properties:
+                  automountServiceAccountToken:
+                    type: boolean
+                  imagePullSecrets:
+                    items:
+                      description: LocalObjectReference contains enough information
+                        to let you locate the referenced object inside the same namespace.
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                  secrets:
+                    items:
+                      description: "ObjectReference contains enough information to
+                        let you inspect or modify the referred object. --- New uses
+                        of this type are discouraged because of difficulty describing
+                        its usage when embedded in APIs. 1. Ignored fields.  It includes
+                        many fields which are not generally honored.  For instance,
+                        ResourceVersion and FieldPath are both very rarely valid in
+                        actual usage. 2. Invalid usage help.  It is impossible to
+                        add specific help for individual usage.  In most embedded
+                        usages, there are particular restrictions like, \"must refer
+                        only to types A and B\" or \"UID not honored\" or \"name must
+                        be restricted\". Those cannot be well described when embedded.
+                        3. Inconsistent validation.  Because the usages are different,
+                        the validation rules are different by usage, which makes it
+                        hard for users to predict what will happen. 4. The fields
+                        are both imprecise and overly precise.  Kind is not a precise
+                        mapping to a URL. This can produce ambiguity during interpretation
+                        and require a REST mapping.  In most cases, the dependency
+                        is on the group,resource tuple and the version of the actual
+                        struct is irrelevant. 5. We cannot easily change it.  Because
+                        this type is embedded in many locations, updates to this type
+                        will affect numerous schemas.  Don't make new APIs embed an
+                        underspecified API type they do not control. \n Instead of
+                        using this type, create a locally provided and used type that
+                        is well-focused on your reference. For example, ServiceReferences
+                        for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                        ."
+                      properties:
+                        apiVersion:
+                          description: API version of the referent.
+                          type: string
+                        fieldPath:
+                          description: 'If referring to a piece of an object instead
+                            of an entire object, this string should contain a valid
+                            JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                            For example, if the object reference is to a container
+                            within a pod, this would take on a value like: "spec.containers{name}"
+                            (where "name" refers to the name of the container that
+                            triggered the event) or if no container name is specified
+                            "spec.containers[2]" (container with index 2 in this pod).
+                            This syntax is chosen only to have some well-defined way
+                            of referencing a part of an object. TODO: this design
+                            is not final and this field is subject to change in the
+                            future.'
+                          type: string
+                        kind:
+                          description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                        resourceVersion:
+                          description: 'Specific resourceVersion to which this reference
+                            is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                          type: string
+                        uid:
+                          description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                type: object
+              terminationGracePeriodSeconds:
+                description: TerminationGracePeriodSeconds specifies how many seconds
+                  should Kubernetes wait for the application to shut down gracefully
+                  before sending a KILL signal
+                type: integer
+              tolerations:
+                description: Tolerations is the configuration block for specifying
+                  which taints can the LookoutV2 pod tolerate
+                items:
+                  description: The pod this Toleration is attached to tolerates any
+                    taint that matches the triple <key,value,effect> using the matching
+                    operator <operator>.
+                  properties:
+                    effect:
+                      description: Effect indicates the taint effect to match. Empty
+                        means match all taint effects. When specified, allowed values
+                        are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Key is the taint key that the toleration applies
+                        to. Empty means match all taint keys. If the key is empty,
+                        operator must be Exists; this combination means to match all
+                        values and all keys.
+                      type: string
+                    operator:
+                      description: Operator represents a key's relationship to the
+                        value. Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod
+                        can tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: TolerationSeconds represents the period of time
+                        the toleration (which must be of effect NoExecute, otherwise
+                        this field is ignored) tolerates the taint. By default, it
+                        is not set, which means tolerate the taint forever (do not
+                        evict). Zero and negative values will be treated as 0 (evict
+                        immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: Value is the taint value the toleration matches
+                        to. If the operator is Exists, the value should be empty,
+                        otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
+            required:
+            - applicationConfig
+            - clusterIssuer
+            - image
+            - migrateDatabase
+            type: object
+          status:
+            description: LookoutV2Status defines the observed state of lookoutV2
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

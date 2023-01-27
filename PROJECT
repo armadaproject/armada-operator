@@ -65,6 +65,19 @@ resources:
     namespaced: true
   controller: true
   domain: armadaproject.io
+  group: install
+  kind: LookoutV2
+  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: armadaproject.io
   group: core
   kind: Queue
   path: github.com/armadaproject/armada-operator/apis/core/v1alpha1
@@ -89,6 +102,19 @@ resources:
   domain: armadaproject.io
   group: install
   kind: LookoutIngester
+  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: armadaproject.io
+  group: install
+  kind: LookoutIngesterV2
   path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
   version: v1alpha1
   webhooks:

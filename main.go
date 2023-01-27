@@ -130,6 +130,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Lookout")
 		os.Exit(1)
 	}
+	if err = (&install.LookoutV2Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Lookout")
+		os.Exit(1)
+	}
 	if err = (&install.EventIngesterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -146,6 +153,13 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&install.LookoutIngesterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LookoutIngester")
+		os.Exit(1)
+	}
+	if err = (&install.LookoutV2IngesterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

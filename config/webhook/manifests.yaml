@@ -91,6 +91,46 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-lookoutV2ingester
+  failurePolicy: Fail
+  name: mlookoutV2ingester.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lookoutV2ingesters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-install-armadaproject-io-v1alpha1-lookoutV2
+  failurePolicy: Fail
+  name: mlookoutV2.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lookoutV2
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-install-armadaproject-io-v1alpha1-lookout
   failurePolicy: Fail
   name: mlookout.kb.io
@@ -191,6 +231,26 @@ webhooks:
     - UPDATE
     resources:
     - executors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-install-armadaproject-io-v1alpha1-lookoutV2ingester
+  failurePolicy: Fail
+  name: vlookoutV2ingester.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lookoutV2ingesters
   sideEffects: None
 - admissionReviewVersions:
   - v1
