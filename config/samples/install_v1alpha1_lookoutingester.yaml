@@ -10,8 +10,8 @@ metadata:
   name: lookoutingester-sample
 spec:
   image:
-    repository: gresearchdev/armada-lookout-ingester
-    tag: v0.3.44
+    repository: gresearch/armada-lookout-ingester
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     postgres:
       maxOpenConns: 100

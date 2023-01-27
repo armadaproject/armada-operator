@@ -10,7 +10,7 @@ metadata:
   name: lookout-sample
   namespace: default
 spec:
-  migrateDatabase: true
+  migrateDatabase: false
   ingress:
     ingressClass: "nginx"
     labels:
