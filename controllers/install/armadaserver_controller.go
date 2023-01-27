@@ -277,7 +277,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 						Name:            "armadaserver",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(as.Spec.Image),
-						Args:            []string{"--config", "/config/armada.yaml"},
+						Args:            []string{"--config", "/config/application_config.yaml"},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: 9001,

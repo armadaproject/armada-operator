@@ -26,6 +26,9 @@ spec:
     toleratedTaints:
       - key: armada.io/batch
         operator: in
+    auth:
+      anonymousAuth: true
+
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: EventIngester
@@ -38,8 +41,9 @@ metadata:
     app.kubernetes.io/created-by: armada-operator
   name: eventingester-sample
 spec:
+  replicas: 1
   image:
-    repository: gresearch/armada-eventingester
+    repository: gresearch/armada-event-ingester
     tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     redis:
