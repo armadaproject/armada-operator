@@ -41,6 +41,8 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			Resources:         &corev1.ResourceRequirements{},
+			Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)

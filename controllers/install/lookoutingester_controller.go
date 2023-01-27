@@ -117,14 +117,6 @@ type LookoutIngesterComponents struct {
 	Secret         *corev1.Secret
 }
 
-func (ec *LookoutIngesterComponents) DeepCopy() *LookoutIngesterComponents {
-	return &LookoutIngesterComponents{
-		Deployment:     ec.Deployment.DeepCopy(),
-		ServiceAccount: ec.ServiceAccount.DeepCopy(),
-		Secret:         ec.Secret.DeepCopy(),
-	}
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).

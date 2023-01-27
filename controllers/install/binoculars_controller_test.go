@@ -57,6 +57,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
+			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 

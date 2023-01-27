@@ -40,6 +40,7 @@ func TestLookoutIngesterReconciler_Reconcile(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			Resources:         &corev1.ResourceRequirements{},
 		},
 	}
 	owner := metav1.OwnerReference{

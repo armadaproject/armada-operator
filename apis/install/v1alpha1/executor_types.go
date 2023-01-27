@@ -57,7 +57,7 @@ type ExecutorSpec struct {
 	// +kubebuilder:validation:Schemaless
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
+	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Executor resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Executor pod tolerate

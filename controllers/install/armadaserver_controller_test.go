@@ -38,16 +38,20 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armadaserver"},
 		Spec: v1alpha1.ArmadaServerSpec{
-			Labels: nil,
+			Labels: map[string]string{"test": "hello"},
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
 			ClusterIssuer:     "test",
+			HostNames:         []string{"localhost"},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
 			},
+			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 

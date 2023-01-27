@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 	"github.com/stretchr/testify/assert"
 
@@ -50,9 +51,13 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 			},
 			ApplicationConfig: runtime.RawExtension{},
 			ClusterIssuer:     "test",
-			Ingress: v1alpha1.IngressConfig{
+			HostNames:         []string{"localhost"},
+			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
 			},
+			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 
@@ -206,7 +211,7 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 			},
 			ApplicationConfig: runtime.RawExtension{},
 			ClusterIssuer:     "test",
-			Ingress: v1alpha1.IngressConfig{
+			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
 		},
@@ -267,7 +272,7 @@ func TestLookoutReconciler_NoMigrate(t *testing.T) {
 			},
 			ApplicationConfig: runtime.RawExtension{},
 			ClusterIssuer:     "test",
-			Ingress: v1alpha1.IngressConfig{
+			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
 		},
