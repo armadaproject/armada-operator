@@ -15,7 +15,9 @@ import (
 	"github.com/golang/mock/gomock"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -192,6 +194,16 @@ func Test_waitForJob(t *testing.T) {
 				timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Millisecond*3)
 				_ = fmt.Sprintf("ignoring cancel function to avoid timing issue: %v", cancelFn)
 				return timeoutCtx
+			},
+			wantErr: true,
+		},
+		{
+			name: "it returns an error if get has an error",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(errors.NewNotFound(schema.GroupResource{}, "job"))
 			},
 			wantErr: true,
 		},
