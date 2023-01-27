@@ -208,7 +208,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 								Name:      volumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   lookoutIngester.Name,
+								SubPath:   GetConfigFilename(lookoutIngester.Name),
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},

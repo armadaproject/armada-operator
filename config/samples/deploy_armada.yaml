@@ -1,0 +1,159 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: ArmadaServer
+metadata:
+  labels:
+    app.kubernetes.io/name: armadaserver
+    app.kubernetes.io/instance: armadaserver-sample
+    app.kubernetes.io/part-of: armada-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: armada-operator
+  name: armadaserver-sample
+  namespace: default
+spec:
+  ingress:
+    ingressClass: "nginx"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostNames: [localhost]
+  replicas: 1
+  image:
+    repository: gresearch/armada-server
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+  applicationConfig:
+    server: example.com:443
+    prometheusRule:
+      kind: "prometheus"
+    forceNoTls: true
+    toleratedTaints:
+      - key: armada.io/batch
+        operator: in
+    auth:
+      anonymousAuth: true
+
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: EventIngester
+metadata:
+  name: eventingester-sample
+  namespace: armada
+spec:
+  replicas: 1
+  image:
+    repository: gresearch/armada-event-ingester
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+  applicationConfig:
+    redis:
+      addrs:
+        - redis:6379
+      password: ""
+      db: 0
+      poolSize: 1000
+    pulsar:
+      URL: pulsar://pulsar:6650
+      jobsetEventsTopic: events
+      receiveTimeout: 5s
+      backoffTime: 1s
+    subscriptionName: "events-ingester"
+    minMessageCompressionSize: 1024
+    batchSize: 1048576  #1MB
+    batchDuration: 500ms
+    batchMessages: 10000
+    eventRetentionPolicy:
+      expiryEnabled: true
+      retentionDuration: 336h
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Lookout
+metadata:
+  name: lookout-sample
+  namespace: armada
+spec:
+  migrateDatabase: false
+  ingress:
+    ingressClass: "nginx"
+    labels:
+      hello: "world"
+    annotations:
+      hello: "world2"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostNames: [localhost]
+  replicas: 2
+  image:
+    repository: gresearch/armada-lookout
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
+
+  additionalVolumes:
+    - name: testsecret
+      secret:
+        secretName: testsecret
+
+  additionalVolumeMounts:
+    - name: testsecret
+      volume:
+        name: testsecret
+        mountPath: /etc/vimrc
+        readOnly: true
+
+  prometheus:
+    enabled: false
+    labels:
+      metrics: "true"
+      prometheus: armada
+      role: prometheus-rulefiles
+
+  applicationConfig:
+    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
+    # for the full list of configuration options.
+    grpcPort: 50059
+    httpPort: 8080
+    metricsPort: 9000
+    postgres:
+      connection:
+        host: pghost
+        port: 5432
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: LookoutIngester
+metadata:
+  namespace: armada
+  name: lookoutingester-sample
+spec:
+  image:
+    repository: gresearch/armada-lookout-ingester
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+  applicationConfig:
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
