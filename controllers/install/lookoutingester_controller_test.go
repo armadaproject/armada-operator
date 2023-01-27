@@ -271,4 +271,3 @@ func TestLookoutIngesterReconciler_ErrorOnApplicationConfig(t *testing.T) {
 	_, err = r.Reconcile(context.Background(), req)
 	assert.Error(t, err)
 }
-
