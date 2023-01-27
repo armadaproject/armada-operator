@@ -96,24 +96,58 @@ func isJobFinished(job *batchv1.Job) bool {
 	return false
 }
 
-// appendEnv will append the CRD environment vars to the provided k8s EnvVar slice
-func appendEnv(envVars []corev1.EnvVar, crdEnv []installv1alpha1.Environment) []corev1.EnvVar {
+// createEnv creates the default EnvVars and appends the CRD environment vars
+func createEnv(crdEnv []installv1alpha1.Environment) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
 	for _, envVar := range crdEnv {
 		envVars = append(envVars, corev1.EnvVar{Name: envVar.Name, Value: envVar.Value})
 	}
 	return envVars
 }
 
-// appendVolumes will append the CRD AdditionalVolumes to the provided k8s Volumes slice
-func appendVolumes(volumes []corev1.Volume, crdVolumes []installv1alpha1.AdditionalVolume) []corev1.Volume {
+// createVolumes creates the appconfig Volume and appends the CRD AdditionalVolumes
+func createVolumes(configVolumeSecretName string, crdVolumes []installv1alpha1.AdditionalVolume) []corev1.Volume {
+	volumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: configVolumeSecretName,
+			},
+		},
+	}}
 	for _, crdVolume := range crdVolumes {
 		volumes = append(volumes, corev1.Volume{Name: crdVolume.Name, VolumeSource: corev1.VolumeSource{Secret: &crdVolume.Secret}})
 	}
 	return volumes
 }
 
-// appendVolumeMountss will append the CRD AdditionalVolumeMounts  to the provided k8s VolumeMounts slice
-func appendVolumeMounts(volumeMounts []corev1.VolumeMount, crdVolumeMounts []installv1alpha1.AdditionalVolumeMounts) []corev1.VolumeMount {
+// createVolumeMounts creates the appconfig VolumeMount and appends the CRD AdditionalVolumeMounts
+func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []installv1alpha1.AdditionalVolumeMounts) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: "/config/application_config.yaml",
+			SubPath:   configVolumeSecretName,
+		},
+	}
 	for _, crdVolume := range crdVolumeMounts {
 		volumeMounts = append(volumeMounts, crdVolume.Volume)
 	}

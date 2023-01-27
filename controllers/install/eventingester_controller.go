@@ -153,43 +153,9 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
-	env := []corev1.EnvVar{
-		{
-			Name: "SERVICE_ACCOUNT",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "spec.serviceAccountName",
-				},
-			},
-		},
-		{
-			Name: "POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		},
-	}
-	env = appendEnv(env, eventIngester.Spec.Environment)
-	volumes := []corev1.Volume{{
-		Name: volumeConfigKey,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: eventIngester.Name,
-			},
-		},
-	}}
-	volumes = appendVolumes(volumes, eventIngester.Spec.AdditionalVolumes)
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      volumeConfigKey,
-			ReadOnly:  true,
-			MountPath: "/config/application_config.yaml",
-			SubPath:   eventIngester.Name,
-		},
-	}
-	volumeMounts = appendVolumeMounts(volumeMounts, eventIngester.Spec.AdditionalVolumeMounts)
+	env := createEnv(env, eventIngester.Spec.Environment)
+	volumes := createVolumes(eventIngester.Name eventIngester.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(eventIngester.Name, eventIngester.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
