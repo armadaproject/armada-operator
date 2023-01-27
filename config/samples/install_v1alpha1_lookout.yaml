@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
   name: lookout-sample
-  namespace: default
+  namespace: armada
 spec:
   migrateDatabase: true
   enableV2: true
