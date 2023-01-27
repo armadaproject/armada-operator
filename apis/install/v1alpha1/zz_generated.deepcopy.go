@@ -169,19 +169,21 @@ func (in *ArmadaServerSpec) DeepCopyInto(out *ArmadaServerSpec) {
 	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
-		*out = make([]Environment, len(*in))
-		copy(*out, *in)
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]AdditionalVolume, len(*in))
+		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.AdditionalVolumeMounts != nil {
 		in, out := &in.AdditionalVolumeMounts, &out.AdditionalVolumeMounts
-		*out = make([]AdditionalVolumeMounts, len(*in))
+		*out = make([]v1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -321,19 +323,21 @@ func (in *BinocularsSpec) DeepCopyInto(out *BinocularsSpec) {
 	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
-		*out = make([]Environment, len(*in))
-		copy(*out, *in)
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]AdditionalVolume, len(*in))
+		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.AdditionalVolumeMounts != nil {
 		in, out := &in.AdditionalVolumeMounts, &out.AdditionalVolumeMounts
-		*out = make([]AdditionalVolumeMounts, len(*in))
+		*out = make([]v1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -487,19 +491,21 @@ func (in *EventIngesterSpec) DeepCopyInto(out *EventIngesterSpec) {
 	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
-		*out = make([]Environment, len(*in))
-		copy(*out, *in)
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]AdditionalVolume, len(*in))
+		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.AdditionalVolumeMounts != nil {
 		in, out := &in.AdditionalVolumeMounts, &out.AdditionalVolumeMounts
-		*out = make([]AdditionalVolumeMounts, len(*in))
+		*out = make([]v1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -634,19 +640,21 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
-		*out = make([]Environment, len(*in))
-		copy(*out, *in)
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]AdditionalVolume, len(*in))
+		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.AdditionalVolumeMounts != nil {
 		in, out := &in.AdditionalVolumeMounts, &out.AdditionalVolumeMounts
-		*out = make([]AdditionalVolumeMounts, len(*in))
+		*out = make([]v1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -822,19 +830,21 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 	}
 	if in.Environment != nil {
 		in, out := &in.Environment, &out.Environment
-		*out = make([]Environment, len(*in))
-		copy(*out, *in)
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]AdditionalVolume, len(*in))
+		*out = make([]v1.Volume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.AdditionalVolumeMounts != nil {
 		in, out := &in.AdditionalVolumeMounts, &out.AdditionalVolumeMounts
-		*out = make([]AdditionalVolumeMounts, len(*in))
+		*out = make([]v1.VolumeMount, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

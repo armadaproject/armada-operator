@@ -97,7 +97,7 @@ func isJobFinished(job *batchv1.Job) bool {
 }
 
 // createEnv creates the default EnvVars and appends the CRD environment vars
-func createEnv(crdEnv []installv1alpha1.Environment) []corev1.EnvVar {
+func createEnv(crdEnv []corev1.EnvVar) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name: "SERVICE_ACCOUNT",
@@ -116,14 +116,12 @@ func createEnv(crdEnv []installv1alpha1.Environment) []corev1.EnvVar {
 			},
 		},
 	}
-	for _, envVar := range crdEnv {
-		envVars = append(envVars, corev1.EnvVar{Name: envVar.Name, Value: envVar.Value})
-	}
+	envVars = append(envVars, crdEnv...)
 	return envVars
 }
 
-// createVolumes creates the appconfig Volume and appends the CRD AdditionalVolumes
-func createVolumes(configVolumeSecretName string, crdVolumes []installv1alpha1.AdditionalVolume) []corev1.Volume {
+// createVolumes creates the default appconfig Volume and appends the CRD AdditionalVolumes
+func createVolumes(configVolumeSecretName string, crdVolumes []corev1.Volume) []corev1.Volume {
 	volumes := []corev1.Volume{{
 		Name: volumeConfigKey,
 		VolumeSource: corev1.VolumeSource{
@@ -132,14 +130,12 @@ func createVolumes(configVolumeSecretName string, crdVolumes []installv1alpha1.A
 			},
 		},
 	}}
-	for _, crdVolume := range crdVolumes {
-		volumes = append(volumes, corev1.Volume{Name: crdVolume.Name, VolumeSource: corev1.VolumeSource{Secret: &crdVolume.Secret}})
-	}
+	volumes = append(volumes, crdVolumes...)
 	return volumes
 }
 
 // createVolumeMounts creates the appconfig VolumeMount and appends the CRD AdditionalVolumeMounts
-func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []installv1alpha1.AdditionalVolumeMounts) []corev1.VolumeMount {
+func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      volumeConfigKey,
@@ -148,8 +144,6 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []install
 			SubPath:   configVolumeSecretName,
 		},
 	}
-	for _, crdVolume := range crdVolumeMounts {
-		volumeMounts = append(volumeMounts, crdVolume.Volume)
-	}
+	volumeMounts = append(volumeMounts, crdVolumeMounts...)
 	return volumeMounts
 }
