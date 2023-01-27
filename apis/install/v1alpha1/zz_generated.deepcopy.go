@@ -583,7 +583,11 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 	}
 	out.Image = in.Image
 	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
-	in.Prometheus.DeepCopyInto(&out.Prometheus)
+	if in.Prometheus != nil {
+		in, out := &in.Prometheus, &out.Prometheus
+		*out = new(PrometheusConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
@@ -920,7 +924,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 		}
 	}
 	in.ServiceAccount.DeepCopyInto(&out.ServiceAccount)
-	in.Ingress.DeepCopyInto(&out.Ingress)
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = new(IngressConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.HostNames != nil {
 		in, out := &in.HostNames, &out.HostNames
 		*out = make([]string, len(*in))

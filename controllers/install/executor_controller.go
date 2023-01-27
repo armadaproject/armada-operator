@@ -221,7 +221,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		ClusterRole:        clusterRole,
 	}
 
-	if executor.Spec.Prometheus.Enabled {
+	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
 		serviceMonitor := r.createServiceMonitor(executor)
 		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
 			return nil, err
