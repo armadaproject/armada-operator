@@ -95,3 +95,27 @@ func isJobFinished(job *batchv1.Job) bool {
 
 	return false
 }
+
+// appendEnv will append the CRD environment vars to the provided k8s EnvVar slice
+func appendEnv(envVars []corev1.EnvVar, crdEnv []installv1alpha1.Environment) []corev1.EnvVar {
+	for _, envVar := range crdEnv {
+		envVars = append(envVars, corev1.EnvVar{Name: envVar.Name, Value: envVar.Value})
+	}
+	return envVars
+}
+
+// appendVolumes will append the CRD AdditionalVolumes to the provided k8s Volumes slice
+func appendVolumes(volumes []corev1.Volume, crdVolumes []installv1alpha1.AdditionalVolume) []corev1.Volume {
+	for _, crdVolume := range crdVolumes {
+		volumes = append(volumes, corev1.Volume{Name: crdVolume.Name, VolumeSource: corev1.VolumeSource{Secret: &crdVolume.Secret}})
+	}
+	return volumes
+}
+
+// appendVolumeMountss will append the CRD AdditionalVolumeMounts  to the provided k8s VolumeMounts slice
+func appendVolumeMounts(volumeMounts []corev1.VolumeMount, crdVolumeMounts []installv1alpha1.AdditionalVolumeMounts) []corev1.VolumeMount {
+	for _, crdVolume := range crdVolumeMounts {
+		volumeMounts = append(volumeMounts, crdVolume.Volume)
+	}
+	return volumeMounts
+}

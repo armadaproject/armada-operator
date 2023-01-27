@@ -25,6 +25,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -152,12 +153,56 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+	env := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	env = appendEnv(env, eventIngester.Spec.Environment)
+	volumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: eventIngester.Name,
+			},
+		},
+	}}
+	volumes = appendVolumes(volumes, eventIngester.Spec.AdditionalVolumes)
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: "/config/application_config.yaml",
+			SubPath:   eventIngester.Name,
+		},
+	}
+	volumeMounts = appendVolumeMounts(volumeMounts, eventIngester.Spec.AdditionalVolumeMounts)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(eventIngester.Name),
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{IntVal: int32(1)},
+				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -172,6 +217,23 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 						RunAsUser:  &runAsUser,
 						RunAsGroup: &runAsGroup,
 					},
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{{
+											Key:      "app",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{eventIngester.Name},
+										}},
+									},
+								},
+							}},
+						},
+					},
 					Containers: []corev1.Container{{
 						Name:            "eventingester",
 						ImagePullPolicy: "IfNotPresent",
@@ -182,44 +244,13 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   eventIngester.Name,
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					NodeSelector: eventIngester.Spec.NodeSelector,
 					Tolerations:  eventIngester.Spec.Tolerations,
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: eventIngester.Name,
-							},
-						},
-					}},
+					Volumes:      volumes,
 				},
 			},
 		},
@@ -227,6 +258,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	if eventIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *eventIngester.Spec.Resources
 	}
+
 	return &deployment
 
 }

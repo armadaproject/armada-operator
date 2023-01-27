@@ -283,6 +283,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			},
 		},
 	}
+	env = appendEnv(env, executor.Spec.Environment)
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      volumeConfigKey,
@@ -291,6 +292,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			SubPath:   GetConfigFilename(executor.Name),
 		},
 	}
+	volumeMounts = appendVolumeMounts(volumeMounts, executor.Spec.AdditionalVolumeMounts)
 	containers := []corev1.Container{{
 		Name:            "executor",
 		ImagePullPolicy: "IfNotPresent",
@@ -309,6 +311,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			},
 		},
 	}}
+	volumes = appendVolumes(volumes, executor.Spec.AdditionalVolumes)
 	serviceAccountName := executor.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
 		serviceAccountName = serviceAccount.Name
