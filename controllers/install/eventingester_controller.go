@@ -153,8 +153,8 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
-	env := createEnv(env, eventIngester.Spec.Environment)
-	volumes := createVolumes(eventIngester.Name eventIngester.Spec.AdditionalVolumes)
+	env := createEnv(eventIngester.Spec.Environment)
+	volumes := createVolumes(eventIngester.Name, eventIngester.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(eventIngester.Name, eventIngester.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{

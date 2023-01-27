@@ -235,8 +235,8 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
-	env := createEnv(env, binoculars.Spec.Environment)
-	volumes := createVolumes(binoculars.Name binoculars.Spec.AdditionalVolumes)
+	env := createEnv(binoculars.Spec.Environment)
+	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(binoculars.Name, binoculars.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{

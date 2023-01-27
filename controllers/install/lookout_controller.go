@@ -219,8 +219,8 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
-	env := createEnv(env, lookout.Spec.Environment)
-	volumes := createVolumes(lookout.Name lookout.Spec.AdditionalVolumes)
+	env := createEnv(lookout.Spec.Environment)
+	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(lookout.Name, lookout.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
@@ -270,8 +270,8 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: env,
-						VolumeMounts: volumeMounts,
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					Volumes: volumes,
