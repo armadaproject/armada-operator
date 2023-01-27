@@ -6,6 +6,45 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - core.armadaproject.io
   resources:
   - queues
@@ -92,12 +131,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - eventingesters/status
   verbs:
   - get
@@ -144,12 +177,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookoutingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookoutingesters/status
   verbs:
   - get
@@ -170,14 +197,33 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookouts/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookouts/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - networking
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
