@@ -145,7 +145,9 @@ type LookoutComponents struct {
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
-	// ToDo: add other components
+
+	// ToDo: add other components for Lookout V1
+	// ServiceMonitor *monitoringv1.ServiceMonitor
 	// CronJob        *batchv1beta1.CronJob
 }
 
@@ -182,10 +184,10 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-	// serviceAccount := r.createServiceAccount(lookout)
-	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-	// 	return nil, err
-	// }
+	serviceAccount := builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
 	var job *batchv1.Job
 	if lookout.Spec.MigrateDatabase {
 		job, err = createLookoutMigrationJob(lookout)
@@ -197,6 +199,23 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
+	// These features need added to the CRD
+	//
+	// var ServiceMonitor *monitoringv1.ServiceMonitor
+	// if lookout.Spec.Monitoring != nil && lookout.Spec.EnableV2 {
+	// 	ServiceMonitor = createLookoutServiceMonitor(lookout)
+	// 	if err := controllerutil.SetOwnerReference(lookout, ServiceMonitor, scheme); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	// var cronJob *batchv1beta1.CronJob
+	// if lookout.Spec.Monitoring.CronJob != nil && lookout.Spec.EnableV2 {
+	// 	cronJob = createLookoutCronJob(lookout)
+	// 	if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
 	ingressWeb := createLookoutIngressWeb(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, ingressWeb, scheme); err != nil {
 		return nil, err
@@ -205,10 +224,13 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	return &LookoutComponents{
 		Deployment:     deployment,
 		Service:        service,
-		ServiceAccount: nil,
+		ServiceAccount: serviceAccount,
 		Secret:         secret,
 		IngressWeb:     ingressWeb,
 		Job:            job,
+
+		// ServiceMonitor: nil,
+		// CronJob:        nil,
 	}, nil
 }
 

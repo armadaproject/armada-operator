@@ -11,6 +11,7 @@ metadata:
   namespace: default
 spec:
   migrateDatabase: true
+  enableV2: true
   ingress:
     ingressClass: "nginx"
     labels:

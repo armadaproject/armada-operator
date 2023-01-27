@@ -50,6 +50,8 @@ type LookoutList struct {
 type LookoutSpec struct {
 	// MigrateDatabase must be true to enable database migration job
 	MigrateDatabase bool `json:"migrateDatabase"`
+	// Set enableV2 to true to enable the new version of Lookout
+	EnableV2 bool `json:"enableV2"`
 	// Replicas is the number of replicated instances for ArmadaServer
 	Replicas int32 `json:"replicas,omitempty"`
 	// Labels is the map of labels which wil be added to all objects
@@ -73,8 +75,8 @@ type LookoutSpec struct {
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	Ingress        *IngressConfig       `json:"ingress,omitempty"`
+	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	Ingress        *IngressConfig        `json:"ingress,omitempty"`
 	// An array of host names to build ingress rules for
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
