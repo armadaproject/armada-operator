@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
   name: lookoutingester-sample
+  namespace: armada
 spec:
   image:
     repository: gresearch/armada-lookout-ingester

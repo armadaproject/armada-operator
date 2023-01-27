@@ -33,13 +33,8 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: EventIngester
 metadata:
-  labels:
-    app.kubernetes.io/name: eventingester
-    app.kubernetes.io/instance: eventingester-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: eventingester-sample
+  namespace: armada
 spec:
   replicas: 1
   image:
@@ -69,14 +64,8 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
-  labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: lookout-sample
-  namespace: default
+  namespace: armada
 spec:
   migrateDatabase: false
   ingress:
@@ -136,12 +125,7 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: LookoutIngester
 metadata:
-  labels:
-    app.kubernetes.io/name: lookoutingester
-    app.kubernetes.io/instance: lookoutingester-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
+  namespace: armada
   name: lookoutingester-sample
 spec:
   image:

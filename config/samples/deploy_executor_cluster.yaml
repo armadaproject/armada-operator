@@ -2,14 +2,8 @@
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Binoculars
 metadata:
-  labels:
-    app.kubernetes.io/name: binoculars
-    app.kubernetes.io/instance: binoculars-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: binoculars-sample
-  namespace: default
+  namespace: armada
 spec:
   ingress:
     ingressClass: "nginx"
@@ -67,14 +61,8 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
 metadata:
-  labels:
-    app.kubernetes.io/name: executor
-    app.kubernetes.io/instance: executor-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: executor-sample
-  namespace: default
+  namespace: armada
 spec:
   image:
     repository: gresearchdev/armada-executor
