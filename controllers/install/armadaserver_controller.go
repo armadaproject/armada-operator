@@ -488,7 +488,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
-				monitoringv1.Endpoint{Port: "metrics", Interval: "15s"},
+				{Port: "metrics", Interval: "15s"},
 			},
 		},
 	}

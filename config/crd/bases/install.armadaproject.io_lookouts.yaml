@@ -167,6 +167,9 @@ spec:
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
                 type: string
+              enableV2:
+                description: Set enableV2 to true to enable the new version of Lookout
+                type: boolean
               environment:
                 description: Extra environment variables that get added to deployment
                 items:
@@ -418,6 +421,7 @@ spec:
             required:
             - applicationConfig
             - clusterIssuer
+            - enableV2
             - image
             - migrateDatabase
             type: object
