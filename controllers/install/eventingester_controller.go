@@ -149,18 +149,17 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 }
 
 func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) *appsv1.Deployment {
-	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(eventIngester.Spec.Environment)
 	volumes := createVolumes(eventIngester.Name, eventIngester.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(eventIngester.Name, eventIngester.Spec.AdditionalVolumeMounts)
+	volumeMounts := createVolumeMounts(GetConfigFilename(eventIngester.Name), eventIngester.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: &eventIngester.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(eventIngester.Name),
 			},

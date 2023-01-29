@@ -231,7 +231,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 	allowPrivilegeEscalation := false
 	env := createEnv(as.Spec.Environment)
 	volumes := createVolumes(as.Name, as.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(as.Name, as.Spec.AdditionalVolumeMounts)
+	volumeMounts := createVolumeMounts(GetConfigFilename(as.Name), as.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -280,7 +280,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 						Name:            "armadaserver",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(as.Spec.Image),
-						Args:            []string{"--config", "/config/armada.yaml"},
+						Args:            []string{"--config", "/config/application_config.yaml"},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: 9001,

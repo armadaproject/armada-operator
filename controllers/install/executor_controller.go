@@ -75,10 +75,11 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
-	componentsCopy := components.DeepCopy()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	componentsCopy := components.DeepCopy()
 
 	deletionTimestamp := executor.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
@@ -189,15 +190,15 @@ func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *E
 }
 
 func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
-	serviceAccount := builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
-		return nil, err
-	}
 	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
 		return nil, err
 	}
 	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
+		return nil, err
+	}
+	serviceAccount := builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
 	deployment := r.createDeployment(executor, secret, serviceAccount)
@@ -221,7 +222,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		ClusterRole:        clusterRole,
 	}
 
-	if executor.Spec.Prometheus.Enabled {
+	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
 		serviceMonitor := r.createServiceMonitor(executor)
 		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
 			return nil, err

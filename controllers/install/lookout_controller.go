@@ -215,18 +215,17 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 // Function to build the deployment object for Lookout.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
 func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
-	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(lookout.Name, lookout.Spec.AdditionalVolumeMounts)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: &lookout.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(lookout.Name),
 			},

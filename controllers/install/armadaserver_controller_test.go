@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -38,16 +39,20 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armadaserver"},
 		Spec: v1alpha1.ArmadaServerSpec{
-			Labels: nil,
+			Labels: map[string]string{"test": "hello"},
 			Image: installv1alpha1.Image{
 				Repository: "testrepo",
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
 			ClusterIssuer:     "test",
+			HostNames:         []string{"localhost"},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
 			},
+			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 
@@ -254,4 +259,59 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
 	}
+}
+func TestArmadaServerReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "armadaserver"}
+	expectedArmadaServer := installv1alpha1.ArmadaServer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ArmadaServer",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "armadaserver",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: installv1alpha1.ArmadaServerSpec{
+			Labels: nil,
+			Image: installv1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// ArmadaServer
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil).
+		SetArg(2, expectedArmadaServer)
+
+	scheme, err := installv1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := ArmadaServerReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "armadaserver"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	assert.Error(t, err)
 }

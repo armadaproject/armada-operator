@@ -155,3 +155,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters/status
+  verbs:
+  - get
+  - patch
+  - update

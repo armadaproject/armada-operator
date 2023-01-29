@@ -21,20 +21,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestEventIngesterReconciler_Reconcile(t *testing.T) {
+func TestLookoutIngesterReconciler_Reconcile(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "EventIngester"}
-	expectedEventIngester := v1alpha1.EventIngester{
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "LookoutIngester"}
+	expectedLookoutIngester := v1alpha1.LookoutIngester{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "EventIngester",
+			Kind:       "LookoutIngester",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "EventIngester"},
-		Spec: v1alpha1.EventIngesterSpec{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "LookoutIngester"},
+		Spec: v1alpha1.LookoutIngesterSpec{
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
@@ -45,76 +45,83 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		},
 	}
 	owner := metav1.OwnerReference{
-		APIVersion: expectedEventIngester.APIVersion,
-		Kind:       expectedEventIngester.Kind,
-		Name:       expectedEventIngester.Name,
-		UID:        expectedEventIngester.UID,
+		APIVersion: expectedLookoutIngester.APIVersion,
+		Kind:       expectedLookoutIngester.Kind,
+		Name:       expectedLookoutIngester.Name,
+		UID:        expectedLookoutIngester.UID,
 	}
 	ownerReference := []metav1.OwnerReference{owner}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.EventIngester{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.LookoutIngester{})).
 		Return(nil).
-		SetArg(2, expectedEventIngester)
+		SetArg(2, expectedLookoutIngester)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedEventIngester.Name,
-			Namespace:       expectedEventIngester.Namespace,
+			Name:            expectedLookoutIngester.Name,
+			Namespace:       expectedLookoutIngester.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "EventIngesterSecret"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "LookoutIngesterSecret"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 		Return(nil).
 		SetArg(1, expectedSecret)
 
+	expectedServiceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            expectedLookoutIngester.Name,
+			Namespace:       expectedLookoutIngester.Namespace,
+			OwnerReferences: ownerReference,
+		},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "LookoutIngesterSecret"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil).
+		SetArg(1, expectedServiceAccount)
+
 	expectedDeployment := v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            expectedEventIngester.Name,
-			Namespace:       expectedEventIngester.Namespace,
+			Name:            expectedLookoutIngester.Name,
+			Namespace:       expectedLookoutIngester.Namespace,
 			OwnerReferences: ownerReference,
 		},
 	}
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1.Deployment{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "EventIngesterDeployment"))
+		Return(errors.NewNotFound(schema.GroupResource{}, "LookoutIngesterDeployment"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
 		Return(nil).
 		SetArg(1, expectedDeployment)
 
-	// ServiceAccount
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
-		Return(nil)
-
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := EventIngesterReconciler{
+	r := LookoutIngesterReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "EventIngester"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "LookoutIngester"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
@@ -123,32 +130,32 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 	}
 }
 
-func TestEventIngesterReconciler_ReconcileNoEventIngester(t *testing.T) {
+func TestLookoutIngesterReconciler_ReconcileNoLookoutIngester(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "EventIngester"}
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "LookoutIngester"}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.EventIngester{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "EventIngester"))
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.LookoutIngester{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "LookoutIngester"))
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := EventIngesterReconciler{
+	r := LookoutIngesterReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "EventIngester"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "LookoutIngester"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
@@ -157,26 +164,26 @@ func TestEventIngesterReconciler_ReconcileNoEventIngester(t *testing.T) {
 	}
 }
 
-func TestEventIngesterReconciler_ReconcileDelete(t *testing.T) {
+func TestLookoutIngesterReconciler_ReconcileDelete(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "EventIngester"}
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "LookoutIngester"}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
-	expectedEventIngester := v1alpha1.EventIngester{
+	expectedLookoutIngester := v1alpha1.LookoutIngester{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "EventIngester",
+			Kind:       "LookoutIngester",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:         "default",
-			Name:              "EventIngester",
+			Name:              "LookoutIngester",
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 			Finalizers:        []string{"batch.tutorial.kubebuilder.io/finalizer"},
 		},
-		Spec: v1alpha1.EventIngesterSpec{
+		Spec: v1alpha1.LookoutIngesterSpec{
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
@@ -188,22 +195,22 @@ func TestEventIngesterReconciler_ReconcileDelete(t *testing.T) {
 	// Executor
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.EventIngester{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.LookoutIngester{})).
 		Return(nil).
-		SetArg(2, expectedEventIngester)
+		SetArg(2, expectedLookoutIngester)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := EventIngesterReconciler{
+	r := LookoutIngesterReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "EventIngester"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "LookoutIngester"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
@@ -212,26 +219,26 @@ func TestEventIngesterReconciler_ReconcileDelete(t *testing.T) {
 	}
 }
 
-func TestEventIngesterReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
+func TestLookoutIngesterReconciler_ErrorOnApplicationConfig(t *testing.T) {
 	t.Parallel()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "EventIngester"}
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "LookoutIngester"}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
-	expectedEventIngester := v1alpha1.EventIngester{
+	expectedLookoutIngester := v1alpha1.LookoutIngester{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "EventIngester",
+			Kind:       "LookoutIngester",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:         "default",
-			Name:              "EventIngester",
+			Name:              "LookoutIngester",
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{operatorFinalizer},
+			Finalizers:        []string{"batch.tutorial.kubebuilder.io/finalizer"},
 		},
-		Spec: v1alpha1.EventIngesterSpec{
+		Spec: v1alpha1.LookoutIngesterSpec{
 			Labels: nil,
 			Image: v1alpha1.Image{
 				Repository: "testrepo",
@@ -243,22 +250,22 @@ func TestEventIngesterReconciler_ReconcileErrorOnApplicationConfig(t *testing.T)
 	// Executor
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.EventIngester{})).
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.LookoutIngester{})).
 		Return(nil).
-		SetArg(2, expectedEventIngester)
+		SetArg(2, expectedLookoutIngester)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
 
-	r := EventIngesterReconciler{
+	r := LookoutIngesterReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
 	}
 
 	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: "default", Name: "EventIngester"},
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "LookoutIngester"},
 	}
 
 	_, err = r.Reconcile(context.Background(), req)
