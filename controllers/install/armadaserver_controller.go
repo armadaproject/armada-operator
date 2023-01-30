@@ -25,6 +25,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -80,6 +81,18 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	mutateFn := func() error { return nil }
+
+	if components.Job != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+		defer cancel()
+		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	if components.Deployment != nil {
 		logger.Info("Upserting ArmadaServer Deployment object")
@@ -159,6 +172,7 @@ type ArmadaServerComponents struct {
 	PodDisruptionBudget *policyv1.PodDisruptionBudget
 	PrometheusRule      *monitoringv1.PrometheusRule
 	ServiceMonitor      *monitoringv1.ServiceMonitor
+	Job                 *batchv1.Job
 }
 
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
@@ -210,6 +224,11 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
+	job := createArmadaServerMigrationJob(as)
+	if err := controllerutil.SetOwnerReference(as, job, scheme); err != nil {
+		return nil, err
+	}
+
 	return &ArmadaServerComponents{
 		Deployment:          deployment,
 		Ingress:             ingressGRPC,
@@ -220,8 +239,107 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		PodDisruptionBudget: pdb,
 		PrometheusRule:      pr,
 		ServiceMonitor:      sm,
+		Job:                 job,
 	}, nil
 
+}
+
+func createArmadaServerMigrationJob(as *installv1alpha1.ArmadaServer) *batchv1.Job {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := as.Spec.TerminationGracePeriodSeconds
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        as.Name + "-migration",
+			Namespace:   as.Namespace,
+			Labels:      AllLabels(as.Name, as.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			Completions:  &completions,
+			BackoffLimit: &backoffLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      as.Name + "-migration",
+					Namespace: as.Namespace,
+					Labels:    AllLabels(as.Name, as.Labels),
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 "Never",
+					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "wait-for-pulsar",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           "alpine:3.16", // TODO put in a config?
+						Args: []string{
+							"--migrateDatabase",
+							"--config",
+							"/config/application_config.yaml",
+							"/bin/sh",
+							"-c",
+							`echo "Waiting for Pulsar... ({{ .Values.pulsar.armadaInit.brokerHost }}:{{ .Values.pulsar.armadaInit.port }})"
+							while ! nc -z {{ .Values.pulsar.armadaInit.brokerHost }} {{ .Values.pulsar.armadaInit.port }}; do; sleep 1; done
+              echo "Pulsar started!"`,
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "SERVICE_ACCOUNT",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "spec.serviceAccountName",
+									},
+								},
+							},
+							{
+								Name: "POD_NAMESPACE",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.namespace",
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   as.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: as.Spec.NodeSelector,
+					Tolerations:  as.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: as.Name,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	return &job
 }
 
 func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Deployment {
