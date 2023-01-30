@@ -86,18 +86,6 @@ spec:
   - name: LOG_FORMAT
     value: json
 
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
-
   prometheus:
     enabled: false
     labels:

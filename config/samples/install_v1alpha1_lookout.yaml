@@ -21,8 +21,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearchdev/armada-lookout
-    tag: v0.3.44
+    repository: gresearch/armada-lookout
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
   resources:
     limits:
       memory: 1Gi
@@ -31,24 +31,8 @@ spec:
       memory: 500Mi
       cpu: "0.3"
 
-  environment:
-  - name: LOG_FORMAT
-    value: json
-
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
-
   prometheus:
-    enabled: true
+    enabled: false
     labels:
       metrics: "true"
       prometheus: armada

@@ -47,7 +47,8 @@ type BinocularsReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=secrets;services;serviceaccounts;users,verbs=get;list;watch;create;update;patch;delete;impersonate
+//+kubebuilder:rbac:groups="",resources=groups;users,verbs=impersonate
+//+kubebuilder:rbac:groups=core,resources=secrets;services;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;users,verbs=get;list;watch;create;update;patch;delete;impersonate

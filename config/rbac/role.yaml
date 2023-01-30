@@ -6,6 +6,13 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - groups
+  - users
+  verbs:
+  - impersonate
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -36,12 +43,10 @@ rules:
   - secrets
   - serviceaccounts
   - services
-  - users
   verbs:
   - create
   - delete
   - get
-  - impersonate
   - list
   - patch
   - update
@@ -208,6 +213,18 @@ rules:
   - networking.k8s.io
   resources:
   - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
   verbs:
   - create
   - delete
