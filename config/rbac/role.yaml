@@ -6,6 +6,27 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  - apps
+  - monitoring.coreos.com
+  - rbac.authorization.k8s.io
+  - scheduling.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - deployments
+  - prometheusrules
+  - serviceaccounts
+  - servicemonitors
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - core.armadaproject.io
   resources:
   - queues

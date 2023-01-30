@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/armadaproject/armada-operator/test/k8sclient"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"

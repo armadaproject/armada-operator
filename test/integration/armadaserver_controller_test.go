@@ -5,12 +5,13 @@ import (
 	"os"
 	"time"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
 var _ = Describe("Armada Operator", func() {

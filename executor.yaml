@@ -1,0 +1,97 @@
+image:
+  tag: branch-danielra-kubenativeauth-32218dc18e8a9651e7e699aaf571dbbf56c30998
+  repository: docker-dockerhub-remote.artifactory.c3.zone/gresearchdev/armada-executor-dev
+
+env:
+  - name: KRB5_CONFIG
+    value: /etc/krb5.conf
+  - name: LOG_FORMAT
+    value: json
+  - name: KRB5CCNAME
+    value: /etc/credentials/svc-armada-exe-dev.ccache
+
+resources:
+  limits:
+    memory: 2Gi
+    cpu: 1
+  requests:
+    memory: 2Gi
+    cpu: 1
+
+additionalVolumes:
+  - name: krb5-conf
+    secret:
+      defaultMode: 420
+      secretName: krb5-conf
+  - name: credentials
+    secret:
+      secretName: armada-executor-dev-credential
+  - name: ca-bundle
+    secret:
+      defaultMode: 420
+      secretName: ca-bundle
+
+additionalVolumeMounts:
+  - name: krb5-conf
+    mountPath: /etc/krb5.conf
+    subPath: krb5.conf
+    readOnly: true
+  - name: credentials
+    mountPath: /etc/credentials
+    readOnly: true
+  - name: ca-bundle
+    mountPath: /etc/ssl/certs
+    readOnly: true
+
+additionalClusterRoleBindings:
+  - nameSuffix: pod-security-policy
+    clusterRoleName: podsecuritypolicy-permissive
+
+serviceAccount:
+  imagePullSecrets:
+    - name: prodregistry
+
+priorityClasses: []
+
+prometheus:
+  enabled: true
+  labels:
+    metrics: "true"
+    prometheus: armada
+    role: prometheus-rulefiles
+
+additionalLabels:
+  appregistry.gresearch.co.uk/app-id: "9670"
+
+applicationConfig:
+  application:
+    pool: "cpu"
+    submitConcurrencyLimit: 10
+    updateConcurrencyLimit: 50
+    deleteConcurrencyLimit: 20
+  kubernetes:
+    impersonateUsers: true
+    minimumPodAge: 10m
+    failedPodExpiry: 12h
+    maxTerminatedPods: 10000
+    trackedNodeLabels: ["gr/domainname","gr/region","gr/clustername","gr/hostname","feature.node.gresearch.co.uk/cpu-class","gresearch.co.uk/a100","nvidia.com/gpu.product", "gresearch.co.uk/rack","gresearch.co.uk/node-type"]
+    toleratedTaints: ["gr/out-of-farm","gresearch.co.uk/batch","gresearch.co.uk/a100","gresearch.co.uk/gpu-operator","gresearch.co.uk/rack","gresearch.co.uk/node-type"]
+    fatalPodSubmissionErrors:
+      - "admission webhook"
+      - "mutateme"
+    podDefaults:
+      schedulerName: bin-packing
+      ingress:
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          cert-manager.io/cluster-issuer: k8s-cluster-issuer
+          certmanager.k8s.io/cluster-issuer: k8s-cluster-issuer
+  metric:
+    exposeQueueUsageMetrics: true
+  apiConnection:
+    armadaUrl: "armada.armada.services-1.ospr-k8s-d.vgis.c3.zone:443"
+    kubernetesNativeAuth:
+      expiry: 3600
+      enabled: true
+
+customServiceAccount: armada-executor

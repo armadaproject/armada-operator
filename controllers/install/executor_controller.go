@@ -18,15 +18,17 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/pkg/errors"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/controllers/builders"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
 // ExecutorReconciler reconciles a Executor object
@@ -49,6 +54,7 @@ type ExecutorReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/finalizers,verbs=update
+//+kubebuilder:rbac:groups="";apps;monitoring.coreos.com;rbac.authorization.k8s.io;scheduling.k8s.io,resources=services;serviceaccounts;clusterroles;clusterrolebindings;deployments;prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -158,14 +164,21 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if components.ClusterRoleBinding != nil {
-		logger.Info("Upserting Executor ClusterRoleBinding object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+	for _, crb := range components.ClusterRoleBindings {
+		logger.Info("Upserting additional Executor ClusterRoleBinding object", "name", crb.Name)
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, crb, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Successfully reconciled Executor object", "durationMilis", time.Since(started).Milliseconds())
+	for _, pc := range components.PriorityClasses {
+		logger.Info("Upserting additional Executor PriorityClass object", "name", pc.Name)
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, pc, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Successfully reconciled Executor object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -183,10 +196,21 @@ func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *E
 	oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
 	oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
 	oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
-	oldComponents.ClusterRoleBinding.RoleRef = newComponents.ClusterRoleBinding.RoleRef
-	oldComponents.ClusterRoleBinding.Subjects = newComponents.ClusterRoleBinding.Subjects
-	oldComponents.ClusterRoleBinding.Labels = newComponents.ClusterRoleBinding.Labels
-	oldComponents.ClusterRoleBinding.Annotations = newComponents.ClusterRoleBinding.Annotations
+	for i := range oldComponents.ClusterRoleBindings {
+		oldComponents.ClusterRoleBindings[i].RoleRef = newComponents.ClusterRoleBindings[i].RoleRef
+		oldComponents.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
+		oldComponents.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
+		oldComponents.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
+	}
+	for i := range oldComponents.PriorityClasses {
+		oldComponents.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
+		oldComponents.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
+		oldComponents.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
+		oldComponents.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
+		oldComponents.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
+		oldComponents.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
+	}
+
 }
 
 func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
@@ -211,15 +235,22 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	}
 
 	clusterRole := r.createClusterRole(executor)
-	clusterRoleBinding := r.createClusterRoleBinding(executor, clusterRole, serviceAccount)
+	serviceAccountName := executor.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccountName = serviceAccount.Name
+	}
+	clusterRoleBindings := make([]*rbacv1.ClusterRoleBinding, 0, len(executor.Spec.AdditionalClusterRoleBindings)+1)
+	clusterRoleBindings = append(clusterRoleBindings, r.createClusterRoleBinding(executor, clusterRole, serviceAccountName))
+	clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 
 	components := &ExecutorComponents{
-		Deployment:         deployment,
-		Service:            service,
-		ServiceAccount:     serviceAccount,
-		Secret:             secret,
-		ClusterRoleBinding: clusterRoleBinding,
-		ClusterRole:        clusterRole,
+		Deployment:          deployment,
+		Service:             service,
+		ServiceAccount:      serviceAccount,
+		Secret:              secret,
+		ClusterRoleBindings: clusterRoleBindings,
+		PriorityClasses:     executor.Spec.PriorityClasses,
+		ClusterRole:         clusterRole,
 	}
 
 	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
@@ -228,31 +259,52 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 			return nil, err
 		}
 		components.ServiceMonitor = serviceMonitor
+		prometheusRule := r.createPrometheusRule(executor)
+		components.PrometheusRule = prometheusRule
 	}
 
 	return components, nil
 }
 
 type ExecutorComponents struct {
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
-	ServiceMonitor     *monitoringv1.ServiceMonitor
+	Deployment          *appsv1.Deployment
+	Service             *corev1.Service
+	ServiceAccount      *corev1.ServiceAccount
+	Secret              *corev1.Secret
+	ClusterRole         *rbacv1.ClusterRole
+	ClusterRoleBindings []*rbacv1.ClusterRoleBinding
+	PriorityClasses     []*schedulingv1.PriorityClass
+	PrometheusRule      *monitoringv1.PrometheusRule
+	ServiceMonitor      *monitoringv1.ServiceMonitor
 }
 
 func (ec *ExecutorComponents) DeepCopy() *ExecutorComponents {
-	return &ExecutorComponents{
-		Deployment:         ec.Deployment.DeepCopy(),
-		Service:            ec.Service.DeepCopy(),
-		ServiceAccount:     ec.ServiceAccount.DeepCopy(),
-		Secret:             ec.Secret.DeepCopy(),
-		ClusterRole:        ec.ClusterRole.DeepCopy(),
-		ClusterRoleBinding: ec.ClusterRoleBinding.DeepCopy(),
-		ServiceMonitor:     ec.ServiceMonitor.DeepCopy(),
+	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
+	for _, crb := range ec.ClusterRoleBindings {
+		clusterRoleBindings = append(clusterRoleBindings, crb.DeepCopy())
 	}
+	var priorityClasses []*schedulingv1.PriorityClass
+	for _, pc := range ec.PriorityClasses {
+		priorityClasses = append(priorityClasses, pc.DeepCopy())
+	}
+	cloned := &ExecutorComponents{
+		Deployment:          ec.Deployment.DeepCopy(),
+		Service:             ec.Service.DeepCopy(),
+		ServiceAccount:      ec.ServiceAccount.DeepCopy(),
+		Secret:              ec.Secret.DeepCopy(),
+		ClusterRole:         ec.ClusterRole.DeepCopy(),
+		ClusterRoleBindings: clusterRoleBindings,
+		PriorityClasses:     priorityClasses,
+		PrometheusRule:      ec.PrometheusRule.DeepCopy(),
+		ServiceMonitor:      ec.ServiceMonitor.DeepCopy(),
+	}
+	if ec.PrometheusRule != nil {
+		cloned.PrometheusRule = ec.PrometheusRule.DeepCopy()
+	}
+	if ec.ServiceMonitor != nil {
+		cloned.Service = ec.Service.DeepCopy()
+	}
+	return cloned
 }
 
 func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
@@ -284,6 +336,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			},
 		},
 	}
+	env = append(env, executor.Spec.Env...)
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      volumeConfigKey,
@@ -292,6 +345,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			SubPath:   GetConfigFilename(executor.Name),
 		},
 	}
+	volumeMounts = append(volumeMounts, executor.Spec.AdditionalVolumeMounts...)
 	containers := []corev1.Container{{
 		Name:            "executor",
 		ImagePullPolicy: "IfNotPresent",
@@ -310,6 +364,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			},
 		},
 	}}
+	volumes = append(volumes, executor.Spec.AdditionalVolumes...)
 	serviceAccountName := executor.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
 		serviceAccountName = serviceAccount.Name
@@ -405,26 +460,71 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 func (r *ExecutorReconciler) createClusterRoleBinding(
 	executor *installv1alpha1.Executor,
 	clusterRole *rbacv1.ClusterRole,
-	serviceAccount *corev1.ServiceAccount,
+	serviceAccountName string,
 ) *rbacv1.ClusterRoleBinding {
-	serviceAccountName := executor.Spec.CustomServiceAccount
-	if serviceAccountName == "" {
-		serviceAccountName = serviceAccount.Name
-	}
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: AllLabels(executor.Name, executor.Labels)},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      serviceAccountName,
-			Namespace: serviceAccount.Namespace,
+			Namespace: executor.Namespace,
 		}},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: rbacv1.GroupName,
 			Name:     clusterRole.Name,
 		},
 	}
 	return &clusterRoleBinding
+}
+
+func (r *ExecutorReconciler) createAdditionalClusterRoleBindings(executor *installv1alpha1.Executor, serviceAccountName string) []*rbacv1.ClusterRoleBinding {
+	var bindings []*rbacv1.ClusterRoleBinding
+	for _, b := range executor.Spec.AdditionalClusterRoleBindings {
+		name := fmt.Sprintf("%s-%s", executor.Name, b.NameSuffix)
+		binding := rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Labels: AllLabels(executor.Name, executor.Labels)},
+			Subjects: []rbacv1.Subject{{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: executor.Namespace,
+			}},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: rbacv1.GroupName,
+				Name:     b.ClusterRoleName,
+			},
+		}
+		bindings = append(bindings, &binding)
+	}
+	return bindings
+}
+
+func (r *ExecutorReconciler) createPrometheusRule(executor *installv1alpha1.Executor) *monitoringv1.PrometheusRule {
+	restRequestHistogram := `histogram_quantile(0.95, ` +
+		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + executor.Name + `"}[2m])) by (endpoint, verb, url, le))`
+	logRate := "sum(rate(log_messages[2m])) by (level)"
+	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	return &monitoringv1.PrometheusRule{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{{
+				Name:     "armada-executor-metrics",
+				Interval: monitoringv1.Duration(durationString),
+				Rules: []monitoringv1.Rule{
+					{
+						Record: "armada:executor:rest:request:histogram95",
+						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
+					},
+					{
+						Record: "armada:executor:log:rate",
+						Expr:   intstr.IntOrString{StrVal: logRate},
+					},
+				},
+			}},
+		},
+	}
 }
 
 func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
@@ -455,10 +555,28 @@ func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, compon
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
 	}
 	logger.Info("Successfully deleted Executor ClusterRole")
-	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
+
+	if components.PrometheusRule != nil {
+		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
+		}
+		logger.Info("Successfully deleted Executor PrometheusRule")
 	}
-	logger.Info("Successfully deleted Executor ClusterRoleBinding")
+
+	for _, crb := range components.ClusterRoleBindings {
+		if err := r.Delete(ctx, crb); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", crb.Name)
+		}
+		logger.Info("Successfully deleted Executor ClusterRoleBinding", "name", crb.Name)
+	}
+
+	for _, pc := range components.PriorityClasses {
+		if err := r.Delete(ctx, pc); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", pc.Name)
+		}
+		logger.Info("Successfully deleted Executor PriorityClass", "name", pc.Name)
+	}
+
 	return nil
 }
 
