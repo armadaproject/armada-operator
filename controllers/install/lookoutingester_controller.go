@@ -154,6 +154,11 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+
+	env := createEnv(lookoutIngester.Spec.Environment)
+	volumes := createVolumes(lookoutIngester.Name, lookoutIngester.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookoutIngester.Name), lookoutIngester.Spec.AdditionalVolumeMounts)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookoutIngester.Name, Namespace: lookoutIngester.Namespace, Labels: AllLabels(lookoutIngester.Name, lookoutIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -185,43 +190,12 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigFilename(lookoutIngester.Name),
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					Tolerations: lookoutIngester.Spec.Tolerations,
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: secret.Name,
-							},
-						},
-					}},
+					Volumes:     volumes,
 				},
 			},
 		},
