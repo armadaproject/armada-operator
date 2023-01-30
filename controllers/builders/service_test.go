@@ -17,6 +17,11 @@ func TestService(t *testing.T) {
 			namespace: "binoculars",
 			labels:    map[string]string{"app": "binoculars"},
 		},
+		"Lookout": {
+			name:      "lookout",
+			namespace: "lookout",
+			labels:    map[string]string{"app": "lookout"},
+		},
 	}
 
 	for name, tc := range testcases {

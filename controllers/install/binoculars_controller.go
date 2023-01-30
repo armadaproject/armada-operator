@@ -198,6 +198,10 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
+	serAct := builders.CreateServiceAccount(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(binoculars, serAct, scheme); err != nil {
+		return nil, err
+	}
 
 	ingress := createBinocularsIngress(binoculars)
 	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
@@ -215,7 +219,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	return &BinocularsComponents{
 		Deployment:         deployment,
 		Service:            service,
-		ServiceAccount:     nil,
+		ServiceAccount:     serAct,
 		Secret:             secret,
 		ClusterRole:        clusterRole,
 		ClusterRoleBinding: clusterRoleBinding,
@@ -227,7 +231,6 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 // Function to build the deployment object for Binoculars.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
 func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
-	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
@@ -235,7 +238,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: &binoculars.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(binoculars.Name),
 			},
@@ -302,7 +305,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 								Name:      volumeConfigKey,
 								ReadOnly:  true,
 								MountPath: "/config/application_config.yaml",
-								SubPath:   binoculars.Name,
+								SubPath:   GetConfigFilename(binoculars.Name),
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -369,8 +372,10 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 }
 
 func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	grpcIngressName := binoculars.Name + "-grpc"
+
 	grpcIngress := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+		ObjectMeta: metav1.ObjectMeta{Name: grpcIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
@@ -424,8 +429,9 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 }
 
 func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
+		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          binoculars.Spec.ClusterIssuer,

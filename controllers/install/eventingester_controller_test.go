@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/armadaproject/armada-operator/test/k8sclient"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -40,6 +41,7 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 				Tag:        "1.0.0",
 			},
 			ApplicationConfig: runtime.RawExtension{},
+			Resources:         &corev1.ResourceRequirements{},
 		},
 	}
 	owner := metav1.OwnerReference{
@@ -90,6 +92,16 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&v1.Deployment{})).
 		Return(nil).
 		SetArg(1, expectedDeployment)
+
+	// ServiceAccount
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
@@ -198,4 +210,57 @@ func TestEventIngesterReconciler_ReconcileDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
 	}
+}
+
+func TestEventIngesterReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "EventIngester"}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	expectedEventIngester := v1alpha1.EventIngester{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "EventIngester",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "EventIngester",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.EventIngesterSpec{
+			Labels: nil,
+			Image: v1alpha1.Image{
+				Repository: "testrepo",
+				Tag:        "1.0.0",
+			},
+			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+		},
+	}
+	// Executor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.EventIngester{})).
+		Return(nil).
+		SetArg(2, expectedEventIngester)
+
+	scheme, err := v1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := EventIngesterReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "EventIngester"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	assert.Error(t, err)
 }

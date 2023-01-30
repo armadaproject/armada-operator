@@ -122,6 +122,15 @@ test: manifests generate fmt vet gotestsum ## Run tests.
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/...
 
+.PHONY: test-e2e
+test-e2e: kind docker-build install-cert-manager
+	kind load docker-image controller:latest
+
+# Integration test without Ginkgo colorized output and control chars, for logging purposes
+.PHONY: test-integration-debug
+test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run integration tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/... ./apis/... --coverprofile integration.out -args --ginkgo.no-color
+
 ##@ Build
 
 .PHONY: build
@@ -183,6 +192,15 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
+## Kubernetes Dependencies
+CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.6.3/cert-manager.yaml"
+.PHONY: install-cert-manager
+install-cert-manager:
+	kubectl apply -f ${CERT_MANAGER_MANIFEST}
+
+.PHONY: uninstall-cert-manager
+uninstall-cert-manager:
+	kubectl delete -f ${CERT_MANAGER_MANIFEST}
 ##@ Build Dependencies
 
 ## Location to install dependencies to
@@ -196,6 +214,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOTESTSUM ?= $(LOCALBIN)/gotestsum
 MOCKGEN ?= $(LOCALBIN)/mockgen
+KIND    ?= $(LOCALBIN)/kind
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
@@ -225,6 +244,11 @@ $(GOTESTSUM): $(LOCALBIN)
 mockgen: $(MOCKGEN)## Download mockgen locally if necessary.
 $(MOCKGEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/mockgen || GOBIN=$(LOCALBIN) go install github.com/golang/mock/mockgen@v1.6.0
+
+.PHONY: kind
+kind: $(KIND)
+$(KIND): $(LOCALBIN)
+	test -s $(LOCALBIN)/kind || GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@v0.14.0
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.

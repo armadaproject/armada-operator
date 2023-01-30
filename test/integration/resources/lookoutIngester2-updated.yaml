@@ -1,0 +1,37 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: LookoutIngester
+metadata:
+  labels:
+    test: updated
+  name: lookoutingester-e2e-2
+  namespace: default
+spec:
+  image:
+    repository: test-lookoutingester
+    tag: latest
+  applicationConfig:
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgres
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"

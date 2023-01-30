@@ -1,8 +1,10 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- install_v1alpha1_server.yaml
+- install_v1alpha1_armadaserver.yaml
 - install_v1alpha1_executor.yaml
 - core_v1alpha1_queue.yaml
 - install_v1alpha1_eventingester.yaml
 - install_v1alpha1_binoculars.yaml
+- install_v1alpha1_lookout.yaml
+- install_v1alpha1_lookoutingester.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

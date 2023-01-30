@@ -6,9 +6,14 @@ metadata:
     app.kubernetes.io/instance: lookout-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/created-by: armada-operator
-  name: lookout-e2e
+  name: lookout-e2e-1
+  namespace: default
 spec:
-  clusterIssuer: "k8s-cluster-issuer"
+  migrateDatabase: false
+  replicas: 2
+  ingress:
+    ingressClass: nginx
+  clusterIssuer: test
   image:
     repository: test-lookout
     tag: latest

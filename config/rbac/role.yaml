@@ -46,12 +46,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - armadaservers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - armadaservers/status
   verbs:
   - get
@@ -157,6 +151,32 @@ rules:
   - install.armadaproject.io
   resources:
   - lookout/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookoutingesters/status
   verbs:
   - get
   - patch
