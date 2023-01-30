@@ -46,6 +46,12 @@ type LookoutIngesterSpec struct {
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	// Extra environment variables that get added to deployment
+	Environment []corev1.EnvVar `json:"environment,omitempty"`
+	// Additional volumes that are mounted into deployments
+	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
+	// Additional volume mounts that are added as volumes
+	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
 }
 
 // LookoutIngesterStatus defines the observed state of LookoutIngester

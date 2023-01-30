@@ -35,7 +35,7 @@ jobs:
         with:
           files: ./operator.out # optional
 
-  go-e2e-tests:
+  go-integration-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

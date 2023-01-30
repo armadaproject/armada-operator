@@ -231,15 +231,17 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 // Function to build the deployment object for Binoculars.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
 func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
-	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+	env := createEnv(binoculars.Spec.Environment)
+	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(binoculars.Name), binoculars.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: &binoculars.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(binoculars.Name),
 			},
@@ -283,42 +285,11 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   binoculars.Name,
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: binoculars.Name,
-							},
-						},
-					}},
+					Volumes: volumes,
 				},
 			},
 		},
