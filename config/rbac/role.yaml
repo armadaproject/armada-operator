@@ -36,10 +36,12 @@ rules:
   - secrets
   - serviceaccounts
   - services
+  - users
   verbs:
   - create
   - delete
   - get
+  - impersonate
   - list
   - patch
   - update
@@ -203,7 +205,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - networking
+  - networking.k8s.io
   resources:
   - ingresses
   verbs:
@@ -219,10 +221,12 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  - users
   verbs:
   - create
   - delete
   - get
+  - impersonate
   - list
   - patch
   - update
