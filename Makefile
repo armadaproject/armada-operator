@@ -113,7 +113,7 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	golangci-lint run --fix
-	
+
 .PHONY: test
 test: manifests generate fmt vet gotestsum ## Run tests.
 	$(GOTESTSUM) -- ./controllers/... -coverprofile operator.out
@@ -315,3 +315,9 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# Install dependencies via helm
+.PHONY: dev-setup
+dev-setup:
+	helm repo add bitnami https://charts.bitnami.com/bitnami
+	helm install armada-operator-dev-postgres -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql

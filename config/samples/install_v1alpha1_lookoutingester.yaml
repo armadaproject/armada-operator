@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
   name: lookoutingester-sample
-  namespace: armada
+  namespace: default
 spec:
   image:
     repository: gresearch/armada-lookout-ingester
@@ -19,7 +19,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres
+        host: armada-operator-dev-postgres-postgresql
         port: 5432
         user: postgres
         password: psw
