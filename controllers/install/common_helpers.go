@@ -95,3 +95,55 @@ func isJobFinished(job *batchv1.Job) bool {
 
 	return false
 }
+
+// createEnv creates the default EnvVars and appends the CRD environment vars
+func createEnv(crdEnv []corev1.EnvVar) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	envVars = append(envVars, crdEnv...)
+	return envVars
+}
+
+// createVolumes creates the default appconfig Volume and appends the CRD AdditionalVolumes
+func createVolumes(configVolumeSecretName string, crdVolumes []corev1.Volume) []corev1.Volume {
+	volumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: configVolumeSecretName,
+			},
+		},
+	}}
+	volumes = append(volumes, crdVolumes...)
+	return volumes
+}
+
+// createVolumeMounts creates the appconfig VolumeMount and appends the CRD AdditionalVolumeMounts
+func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: "/config/application_config.yaml",
+			SubPath:   configVolumeSecretName,
+		},
+	}
+	volumeMounts = append(volumeMounts, crdVolumeMounts...)
+	return volumeMounts
+}

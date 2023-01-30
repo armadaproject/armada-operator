@@ -266,32 +266,9 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		ContainerPort: 9001,
 		Protocol:      "TCP",
 	}}
-	env := []corev1.EnvVar{
-		{
-			Name: "SERVICE_ACCOUNT",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "spec.serviceAccountName",
-				},
-			},
-		},
-		{
-			Name: "POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		},
-	}
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      volumeConfigKey,
-			ReadOnly:  true,
-			MountPath: appConfigMount,
-			SubPath:   GetConfigFilename(executor.Name),
-		},
-	}
+	env := createEnv(executor.Spec.Environment)
+	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
+	volumes := createVolumes(secret.Name, executor.Spec.AdditionalVolumes)
 	containers := []corev1.Container{{
 		Name:            "executor",
 		ImagePullPolicy: "IfNotPresent",
@@ -301,14 +278,6 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
-	}}
-	volumes := []corev1.Volume{{
-		Name: volumeConfigKey,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secret.Name,
-			},
-		},
 	}}
 	serviceAccountName := executor.Spec.CustomServiceAccount
 	if serviceAccountName == "" {

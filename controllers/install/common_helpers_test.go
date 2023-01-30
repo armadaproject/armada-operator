@@ -269,6 +269,132 @@ func Test_isJobFinished(t *testing.T) {
 	}
 }
 
+func Test_createEnv(t *testing.T) {
+	defaultEnv := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name     string
+		input    []corev1.EnvVar
+		expected []corev1.EnvVar
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultEnv,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.EnvVar{
+				{
+					Name:  "ADDITIONAL",
+					Value: "value",
+				},
+			},
+			expected: append(defaultEnv, corev1.EnvVar{
+				Name:  "ADDITIONAL",
+				Value: "value",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createEnv(tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_createVolumes(t *testing.T) {
+	defaultVolumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: "secret-name",
+			},
+		},
+	}}
+	tests := []struct {
+		name     string
+		input    []corev1.Volume
+		expected []corev1.Volume
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultVolumes,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.Volume{
+				{
+					Name: "ADDITIONAL",
+				},
+			},
+			expected: append(defaultVolumes, corev1.Volume{
+				Name: "ADDITIONAL",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createVolumes("secret-name", tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_createVolumeMount(t *testing.T) {
+	defaultVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: "/config/application_config.yaml",
+			SubPath:   "secret-name",
+		},
+	}
+	tests := []struct {
+		name     string
+		input    []corev1.VolumeMount
+		expected []corev1.VolumeMount
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultVolumeMounts,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.VolumeMount{
+				{
+					Name: "ADDITIONAL",
+				},
+			},
+			expected: append(defaultVolumeMounts, corev1.VolumeMount{
+				Name: "ADDITIONAL",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createVolumeMounts("secret-name", tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
 func sampleJobs() map[string]*batchv1.Job {
 	completeJob := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
