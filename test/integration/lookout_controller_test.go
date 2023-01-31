@@ -10,7 +10,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -46,6 +48,28 @@ var _ = Describe("Armada Operator", func() {
 				err = k8sClient.Get(ctx, secretKey, &secret)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(secret.Data["lookout-e2e-1-config.yaml"]).NotTo(BeEmpty())
+
+				// set migrate Job to complete -- there is no JobController in this environment,
+				// so we are mocking the Job's completion
+				job := batchv1.Job{}
+				jobKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1-migration"}
+				err = k8sClient.Get(ctx, jobKey, &job)
+				Expect(err).NotTo(HaveOccurred())
+
+				job.Status = batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{{
+						Type:   batchv1.JobComplete,
+						Status: corev1.ConditionTrue,
+					}},
+				}
+				err = k8sClient.Status().Update(ctx, &job)
+				Expect(err).NotTo(HaveOccurred())
+
+				jobKey = kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1-migration"}
+				err = k8sClient.Get(ctx, jobKey, &job)
+				Expect(job.Status.Conditions[0].Type).To(Equal(batchv1.JobComplete))
+
+				time.Sleep(2 * time.Second)
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}

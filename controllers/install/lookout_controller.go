@@ -186,15 +186,13 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
 	// 	return nil, err
 	// }
-	var job *batchv1.Job
-	if lookout.Spec.MigrateDatabase {
-		job, err = createLookoutMigrationJob(lookout)
-		if err != nil {
-			return nil, err
-		}
-		if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
-			return nil, err
-		}
+
+	job, err := createLookoutMigrationJob(lookout)
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
+		return nil, err
 	}
 
 	ingressWeb := createLookoutIngressWeb(lookout)
