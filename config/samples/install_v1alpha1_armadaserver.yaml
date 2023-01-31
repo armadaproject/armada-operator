@@ -20,3 +20,5 @@ spec:
     toleratedTaints:
       - key: armada.io/batch
         operator: in
+    auth:
+      anonymousAuth: true

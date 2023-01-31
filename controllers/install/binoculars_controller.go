@@ -48,6 +48,11 @@ type BinocularsReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=binoculars/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=groups;users,verbs=impersonate
+//+kubebuilder:rbac:groups=core,resources=secrets;services;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;users,verbs=get;list;watch;create;update;patch;delete;impersonate
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -235,6 +240,9 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+	env := createEnv(binoculars.Spec.Environment)
+	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(binoculars.Name), binoculars.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
@@ -283,42 +291,11 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigFilename(binoculars.Name),
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: binoculars.Name,
-							},
-						},
-					}},
+					Volumes: volumes,
 				},
 			},
 		},

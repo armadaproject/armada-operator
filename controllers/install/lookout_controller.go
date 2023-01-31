@@ -47,9 +47,8 @@ type LookoutReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookout,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookout/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookout/finalizers,verbs=update
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts/status,verbs=get;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -218,6 +217,9 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+	env := createEnv(lookout.Spec.Environment)
+	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
@@ -266,42 +268,11 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigFilename(lookout.Name),
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: lookout.Name,
-							},
-						},
-					}},
+					Volumes: volumes,
 				},
 			},
 		},

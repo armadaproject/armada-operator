@@ -74,7 +74,7 @@ type ExecutorSpec struct {
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	// Extra environment variables that get added to deployment
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	Environment []corev1.EnvVar `json:"env,omitempty"`
 	// Additional ClusterRoleBindings which will be created
 	AdditionalClusterRoleBindings []AdditionalClusterRoleBinding `json:"additionalClusterRoleBindings,omitempty"`
 	// Additional VolumeMounts which will be attached to the app container

@@ -7,6 +7,13 @@ metadata:
 rules:
 - apiGroups:
   - ""
+  resources:
+  - groups
+  - users
+  verbs:
+  - impersonate
+- apiGroups:
+  - ""
   - apps
   - monitoring.coreos.com
   - rbac.authorization.k8s.io
@@ -26,6 +33,45 @@ rules:
   - list
   - patch
   - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - core.armadaproject.io
   resources:
@@ -113,12 +159,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - eventingesters/status
   verbs:
   - get
@@ -153,32 +193,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookout
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - lookout/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - lookout/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookoutingesters
   verbs:
   - create
@@ -191,14 +205,67 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookoutingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookoutingesters/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookouts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookouts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - impersonate
+  - list
+  - patch
+  - update
+  - watch
