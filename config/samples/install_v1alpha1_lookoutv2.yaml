@@ -11,7 +11,7 @@ metadata:
   namespace: armada
 spec:
   migrateDatabase: true
-  enableV2: false
+  enableV2: true
   ingress:
     ingressClass: "nginx"
     labels:

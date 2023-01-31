@@ -421,7 +421,6 @@ spec:
             required:
             - applicationConfig
             - clusterIssuer
-            - enableV2
             - image
             - migrateDatabase
             type: object
