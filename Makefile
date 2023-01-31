@@ -316,8 +316,35 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
+.PHONY: helm
+HELM = ./bin/helm
+OS=$(shell go env GOOS)
+ARCH=$(shell go env GOARCH)
+HELM_VERSION=helm-v3.11.0-$(OS)-$(ARCH)
+HELM_ARCHIVE=$(HELM_VERSION).tar.gz
+
+helm: ## Download helm locally if necessary.
+ifeq (,$(wildcard $(HELM)))
+ifeq (,$(shell which helm 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(HELM)) ;\
+	mkdir -p ./download ;\
+    cd download ;\
+	echo $(OS) $(ARCH) $(HELM_VERSION) $(HELM_ARCHIVE) ;\
+	curl -sSLo ./$(HELM_ARCHIVE) https://get.helm.sh/$(HELM_ARCHIVE) ;\
+	tar -zxvf ./$(HELM_ARCHIVE) ;\
+    cd .. ;\
+	ln -s ./download/$(OS)-$(ARCH)/helm $(HELM) ;\
+	chmod +x $(HELM) ;\
+	}
+else
+HELM = $(shell which helm)
+endif
+endif
+
 # Install dependencies via helm
 .PHONY: dev-setup
-dev-setup:
-	helm repo add bitnami https://charts.bitnami.com/bitnami
-	helm install armada-operator-dev-postgres -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
+dev-setup: helm
+	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
+	$(HELM) install armada-operator-dev-postgres -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
