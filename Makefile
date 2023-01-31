@@ -343,8 +343,31 @@ HELM = $(shell which helm)
 endif
 endif
 
-# Install dependencies via helm
+KIND_DEV_CLUSTER_NAME=armada-operator-dev-env
+
+.PHONY: create-dev-cluster
+create-dev-cluster:
+	kind create cluster -n $(KIND_DEV_CLUSTER_NAME)
+	kubectl create namespace armada
+
+# Setup dependencies for a local development environment
 .PHONY: dev-setup
-dev-setup: helm
+dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres
+
+.PHONY: dev-teardown
+dev-teardown:
+	kind delete cluster -n $(KIND_DEV_CLUSTER_NAME)
+
+.PHONY: helm-install-pulsar
+helm-install-pulsar: helm
+	$(HELM) repo add apache https://pulsar.apache.org/charts
+	$(HELM) repo update
+	git submodule update ./dev/helm-charts/pulsar-helm-chart/
+	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
+	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
+
+.PHONY: helm-install-postgres
+helm-install-postgres: helm
 	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
-	$(HELM) install armada-operator-dev-postgres -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
+	$(HELM) repo update
+	$(HELM) install postgresql -n armada -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
