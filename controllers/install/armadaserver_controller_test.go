@@ -77,13 +77,11 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedAS)
 
-	// Pulsar migration job
-	expectedComponents.Job.Status = batchv1.JobStatus{
-		Conditions: []batchv1.JobCondition{{
-			Type:   batchv1.JobComplete,
-			Status: corev1.ConditionTrue,
-		}},
+	// Pulsar-wait job
+	expectedComponents.Jobs[0].Status = batchv1.JobStatus{
+		Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
 	}
+
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
@@ -92,12 +90,32 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
-		SetArg(1, *expectedComponents.Job)
+		SetArg(1, *expectedComponents.Jobs[0])
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
-		SetArg(2, *expectedComponents.Job)
+		SetArg(2, *expectedComponents.Jobs[0])
+
+	// Pulsar-init job
+	expectedComponents.Jobs[1].Status = batchv1.JobStatus{
+		Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
+	}
+
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver-migration"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(1, *expectedComponents.Jobs[1])
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(2, *expectedComponents.Jobs[1])
 
 	// Deployment
 	mockK8sClient.
