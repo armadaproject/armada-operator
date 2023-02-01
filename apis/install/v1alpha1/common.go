@@ -53,3 +53,8 @@ type IngressConfig struct {
 	// Overide name for ingress
 	NameOverride string `json:"nameOverride,omitempty"`
 }
+
+type AdditionalClusterRoleBinding struct {
+	NameSuffix      string `json:"nameSuffix"`
+	ClusterRoleName string `json:"clusterRoleName"`
+}

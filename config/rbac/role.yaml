@@ -6,6 +6,134 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - groups
+  - users
+  verbs:
+  - impersonate
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/proxy
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  - apps
+  - monitoring.coreos.com
+  - rbac.authorization.k8s.io
+  - scheduling.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - deployments
+  - prometheusrules
+  - serviceaccounts
+  - servicemonitors
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - core.armadaproject.io
   resources:
   - queues
@@ -31,6 +159,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - install.armadaproject.io
   resources:
@@ -92,12 +228,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - eventingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - eventingesters/status
   verbs:
   - get
@@ -132,32 +262,6 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookout
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - lookout/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
-  - lookout/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookoutingesters
   verbs:
   - create
@@ -170,14 +274,68 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
-  - lookoutingesters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - install.armadaproject.io
-  resources:
   - lookoutingesters/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookouts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - lookouts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - impersonate
+  - list
+  - patch
+  - update
+  - watch

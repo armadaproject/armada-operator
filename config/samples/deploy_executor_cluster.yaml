@@ -29,20 +29,8 @@ spec:
   - name: LOG_FORMAT
     value: json
 
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
-
   prometheus:
-    enabled: true
+    enabled: false
     labels:
       metrics: "true"
       prometheus: armada
@@ -65,9 +53,16 @@ metadata:
   namespace: armada
 spec:
   image:
-    repository: gresearchdev/armada-executor
-    tag: v0.3.44
+    repository: gresearch/armada-executor
+    tag: 92fcbb6fd58753d2fcb67a9657aaccff95c3b069
   applicationConfig:
     apiConnection:
       armadaUrl: armada.demo.armadaproject.io:443
       forceNoTls: false
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"

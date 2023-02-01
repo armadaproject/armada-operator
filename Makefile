@@ -121,7 +121,9 @@ test: manifests generate fmt vet gotestsum ## Run tests.
 .PHONY: test-integration
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/...
-
+.PHONY: kind-create
+kind-create: kind
+	kind create cluster --config hack/kind-config.yaml
 .PHONY: test-e2e
 test-e2e: kind docker-build install-cert-manager
 	kind load docker-image controller:latest
@@ -201,6 +203,14 @@ install-cert-manager:
 .PHONY: uninstall-cert-manager
 uninstall-cert-manager:
 	kubectl delete -f ${CERT_MANAGER_MANIFEST}
+
+INGRESS_MANIFEST ?= "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml"
+.PHONY: install-ingress-controller
+install-ingress-controller:
+	kubectl apply -f ${INGRESS_MANIFEST}
+.PHONY: uninstall-ingress-controller
+uninstall-ingress-controller:
+	kubectl delete -f ${INGRESS_MANIFEST}
 ##@ Build Dependencies
 
 ## Location to install dependencies to

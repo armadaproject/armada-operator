@@ -67,8 +67,10 @@ func (r *Executor) Default() {
 	}
 
 	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == nil {
-		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+	if r.Spec.Prometheus != nil {
+		if r.Spec.Prometheus.ScrapeInterval == nil {
+			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+		}
 	}
 }
 

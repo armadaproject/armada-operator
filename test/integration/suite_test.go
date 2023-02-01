@@ -22,16 +22,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	"github.com/armadaproject/armada-operator/controllers/install"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -44,12 +48,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client // You'll be using this client in your tests.
-	testEnv   *envtest.Environment
-	testUser  *envtest.AuthenticatedUser
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg           *rest.Config
+	k8sClient     client.Client // You'll be using this client in your tests.
+	testEnv       *envtest.Environment
+	testUser      *envtest.AuthenticatedUser
+	ctx           context.Context
+	cancel        context.CancelFunc
+	runtimeScheme *runtime.Scheme
 )
 
 func TestAPIs(t *testing.T) {
@@ -86,19 +91,21 @@ var _ = BeforeSuite(func() {
 	testUser, err = testEnv.AddUser(user, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	s := scheme.Scheme
+	runtimeScheme = scheme.Scheme
 
-	err = installv1alpha1.AddToScheme(s)
+	err = installv1alpha1.AddToScheme(runtimeScheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = corev1.AddToScheme(s)
+	err = corev1.AddToScheme(runtimeScheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = monitoringv1.AddToScheme(runtimeScheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
-	k8sClient, err = client.New(cfg, client.Options{Scheme: s})
+	k8sClient, err = client.New(cfg, client.Options{Scheme: runtimeScheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: s})
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: runtimeScheme})
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&install.BinocularsReconciler{
