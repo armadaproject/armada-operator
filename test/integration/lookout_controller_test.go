@@ -66,6 +66,7 @@ var _ = Describe("Armada Operator", func() {
 
 				jobKey = kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1-migration"}
 				err = k8sClient.Get(ctx, jobKey, &job)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(job.Status.Conditions[0].Type).To(Equal(batchv1.JobComplete))
 
 				time.Sleep(4 * time.Second)
