@@ -20,8 +20,9 @@ import (
 	"flag"
 	"os"
 
-	"github.com/armadaproject/armada-operator/controllers/install"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
+	"github.com/armadaproject/armada-operator/controllers/install"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
@@ -98,7 +99,7 @@ func main() {
 	}
 
 	if err := monitoringv1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "error registering monitoringv1 schema")
+		setupLog.Error(err, "error registering monitoring.coreos.com/v1 schema")
 		os.Exit(1)
 	}
 

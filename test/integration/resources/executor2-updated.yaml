@@ -8,7 +8,7 @@ metadata:
 spec:
   image:
     repository: test-executor
-    tag: latest
+    tag: 0.3.34
   applicationConfig:
     apiConnection:
       armadaUrl: example.com:443
