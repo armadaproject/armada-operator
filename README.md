@@ -15,10 +15,10 @@ Start a development cluster:
 DISABLE_WEBHOOKS=true make dev-run
 ```
 This will:
-    - boot a kind cluster
-    - start postgres, pulsar, and redis pods in the cluster
-    - install each CRD supported by the armada-operator on the cluster
-    - start the armada-operator main reconcilation loop for all its CRD kinds
+- boot a kind cluster
+- start postgres, pulsar, and redis pods in the cluster
+- install each CRD supported by the armada-operator on the cluster
+- start the armada-operator main reconcilation loop for all its CRD kinds
 
 Now in another shell:
 ```sh
