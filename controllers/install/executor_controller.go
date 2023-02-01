@@ -336,7 +336,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 			},
 		},
 	}
-	env = append(env, executor.Spec.Env...)
+	env = append(env, executor.Spec.Environment...)
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      volumeConfigKey,
