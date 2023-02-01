@@ -1,14 +1,8 @@
 apiVersion: install.armadaproject.io/v1alpha1
 kind: ArmadaServer
 metadata:
-  labels:
-    app.kubernetes.io/name: armadaserver
-    app.kubernetes.io/instance: armadaserver-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: armadaserver-sample
-  namespace: default
+  namespace: armada
 spec:
   ingress:
     ingressClass: "nginx"
@@ -91,18 +85,6 @@ spec:
   environment:
   - name: LOG_FORMAT
     value: json
-
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
 
   prometheus:
     enabled: false

@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/test/k8sclient"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
