@@ -12,7 +12,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -69,7 +68,7 @@ var _ = Describe("Armada Operator", func() {
 				err = k8sClient.Get(ctx, jobKey, &job)
 				Expect(job.Status.Conditions[0].Type).To(Equal(batchv1.JobComplete))
 
-				time.Sleep(2 * time.Second)
+				time.Sleep(4 * time.Second)
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
