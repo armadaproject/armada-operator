@@ -55,6 +55,17 @@ type ExecutorReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=executors/finalizers,verbs=update
 //+kubebuilder:rbac:groups="";apps;monitoring.coreos.com;rbac.authorization.k8s.io;scheduling.k8s.io,resources=services;serviceaccounts;clusterroles;clusterrolebindings;deployments;prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
+/// Executor ClusterRole RBAC
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;delete;deletecollection;patch
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;delete;deletecollection
+//+kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;delete;deletecollection
+//+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=users;groups,verbs=impersonate
+//+kubebuilder:rbac:groups="",resources=nodes/proxy,verbs=get
+//+kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
+//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -136,6 +147,21 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
+
+	if components.ClusterRole != nil {
+		logger.Info("Upserting Executor ClusterRole object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	for _, crb := range components.ClusterRoleBindings {
+		logger.Info("Upserting additional Executor ClusterRoleBinding object", "name", crb.Name)
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, crb, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	if components.Secret != nil {
 		logger.Info("Upserting Executor Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
@@ -153,20 +179,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if components.Service != nil {
 		logger.Info("Upserting Executor Service object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ClusterRole != nil {
-		logger.Info("Upserting Executor ClusterRole object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	for _, crb := range components.ClusterRoleBindings {
-		logger.Info("Upserting additional Executor ClusterRoleBinding object", "name", crb.Name)
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, crb, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -428,7 +440,7 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 	nodeProxyRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get"},
 		APIGroups: []string{""},
-		Resources: []string{"node/proxy"},
+		Resources: []string{"nodes/proxy"},
 	}
 	userRules := rbacv1.PolicyRule{
 		Verbs:     []string{"impersonate"},
