@@ -4,6 +4,34 @@
 ## Description
 // TODO(user): An in-depth paragraph about your project and overview of use
 
+## Quickstart
+
+Want to start hacking right away?
+
+This assumes you have [KIND](https://sigs.k8s.io/kind) installed already.
+
+Start a development cluster:
+```sh
+DISABLE_WEBHOOKS=true make dev-run
+```
+This will:
+    - boot a kind cluster
+    - start postgres, pulsar, and redis pods in the cluster
+    - install each CRD supported by the armada-operator on the cluster
+    - start the armada-operator main reconcilation loop for all its CRD kinds
+
+Now in another shell:
+```sh
+kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
+```
+
+Which will deploy samples of each CRD.
+
+To stop the development cluster, ctrl-c your `make run` shell and then:
+```sh
+make dev-teardown
+```
+
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
