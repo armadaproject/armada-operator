@@ -37,12 +37,12 @@ spec:
   applicationConfig:
     redis:
       addrs:
-        - redis:6379
+        - redis-master:6379
       password: ""
       db: 0
       poolSize: 1000
     pulsar:
-      URL: pulsar://pulsar:6650
+      URL: pulsar://pulsar-broker:6650
       jobsetEventsTopic: events
       receiveTimeout: 5s
       backoffTime: 1s
@@ -119,7 +119,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres
+        host: postgresql
         port: 5432
         user: postgres
         password: psw
@@ -129,7 +129,7 @@ spec:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar:6650"
+      URL: "pulsar://pulsar-broker:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s
