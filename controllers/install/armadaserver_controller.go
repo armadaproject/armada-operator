@@ -251,6 +251,10 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	}
 
 	jobs, err := createArmadaServerMigrationJobs(as)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, job := range jobs {
 		if err := controllerutil.SetOwnerReference(as, job, scheme); err != nil {
 			return nil, err
