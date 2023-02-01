@@ -378,3 +378,6 @@ helm-install-postgres: helm-bitnami
 .PHONY: helm-install-redis
 helm-install-redis: helm-bitnami
 	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
+
+.PHONY: dev-run
+dev-run: dev-setup install run
