@@ -347,7 +347,7 @@ KIND_DEV_CLUSTER_NAME=armada-operator-dev-env
 
 .PHONY: create-dev-cluster
 create-dev-cluster:
-	kind create cluster -n $(KIND_DEV_CLUSTER_NAME)
+	kind create cluster --name $(KIND_DEV_CLUSTER_NAME) --config hack/kind-config.yaml
 	kubectl create namespace armada
 
 # Setup dependencies for a local development environment
@@ -365,7 +365,7 @@ helm-install-pulsar: helm
 	git submodule update ./dev/helm-charts/pulsar-helm-chart/
 	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
 	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
-
+                                         
 .PHONY: helm-bitnami
 helm-bitnami: helm
 	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
