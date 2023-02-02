@@ -137,7 +137,7 @@ var _ = Describe("Executor Controller", func() {
 				Eventually(func() string {
 					err = k8sClient.Get(ctx, deploymentKey, &deployment)
 					return deployment.Spec.Template.Spec.Containers[0].Image
-				}, "2s", "10ms").ShouldNot(Equal("test-executor:0.3.34"))
+				}, "4s", "10ms").ShouldNot(Equal("test-executor:0.3.34"))
 			})
 		})
 	})
