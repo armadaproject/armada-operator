@@ -38,13 +38,13 @@ var _ = Describe("Armada Operator", func() {
 					lookout := installv1alpha1.Lookout{}
 					lookoutKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
 					return k8sClient.Get(ctx, lookoutKey, &lookout)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["lookout-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				// set migrate Job to complete -- there is no JobController in this environment,
@@ -53,7 +53,7 @@ var _ = Describe("Armada Operator", func() {
 				jobKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1-migration"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, jobKey, &job)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				job.Status = batchv1.JobStatus{
 					Conditions: []batchv1.JobCondition{{
@@ -80,7 +80,7 @@ var _ = Describe("Armada Operator", func() {
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -108,7 +108,7 @@ var _ = Describe("Armada Operator", func() {
 				lookoutKey := kclient.ObjectKey{Namespace: "default", Name: "lookout-e2e-2"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, lookoutKey, &lookout)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect("test").NotTo(BeKeyOf(lookout.Labels))
 
 				f2, err := os.Open("./resources/lookout2-updated.yaml")
@@ -129,7 +129,7 @@ var _ = Describe("Armada Operator", func() {
 				lookout = installv1alpha1.Lookout{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, lookoutKey, &lookout)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(lookout.Labels["test"]).To(BeEquivalentTo("updated"))
 			})
 		})

@@ -40,20 +40,20 @@ var _ = Describe("EventIngester Controller", func() {
 				eventIngesterKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["eventingester-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("eventingester-e2e-1"))
 
 				_, stderr, err = k.Run("delete", "-f", f.Name())
@@ -109,7 +109,7 @@ var _ = Describe("EventIngester Controller", func() {
 				eventIngester = installv1alpha1.EventIngester{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(eventIngester.Labels["test"]).To(BeEquivalentTo("updated"))
 
 				_, stderr, err = k.Run("delete", "-f", f2.Name())

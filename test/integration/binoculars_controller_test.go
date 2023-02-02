@@ -37,27 +37,27 @@ var _ = Describe("Binoculars Controller", func() {
 				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, binocularsKey, &binoculars)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["binoculars-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("binoculars-e2e-1"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -105,7 +105,7 @@ var _ = Describe("Binoculars Controller", func() {
 				binoculars = installv1alpha1.Binoculars{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, binocularsKey, &binoculars)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(binoculars.Labels["test"]).To(BeEquivalentTo("updated"))
 			})
 		})

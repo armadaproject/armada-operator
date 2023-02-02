@@ -39,27 +39,27 @@ var _ = Describe("Armada Operator", func() {
 				asKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, asKey, &as)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["armadaserver-e2e-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("armadaserver-e2e"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})

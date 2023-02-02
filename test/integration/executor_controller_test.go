@@ -44,38 +44,38 @@ var _ = Describe("Executor Controller", func() {
 				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, executorKey, &executor)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["executor-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("executor-e2e-1"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				clusterRole := rbacv1.ClusterRole{}
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -112,7 +112,7 @@ var _ = Describe("Executor Controller", func() {
 				Eventually(func() string {
 					err = k8sClient.Get(ctx, deploymentKey, &deployment)
 					return deployment.Spec.Template.Spec.Containers[0].Image
-				}, "2s", "10ms").Should(Equal("test-executor:0.3.33"))
+				}, defaultTimeout, defaultPollInterval).Should(Equal("test-executor:0.3.33"))
 
 				f2, err := os.Open("./resources/executor2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
@@ -132,13 +132,13 @@ var _ = Describe("Executor Controller", func() {
 				executor = installv1alpha1.Executor{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, executorKey, &executor)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(executor.Labels["test"]).To(BeEquivalentTo("updated"))
 
 				Eventually(func() string {
 					err = k8sClient.Get(ctx, deploymentKey, &deployment)
 					return deployment.Spec.Template.Spec.Containers[0].Image
-				}, "2s", "10ms").Should(Equal("test-executor:0.3.34"))
+				}, defaultTimeout, defaultPollInterval).Should(Equal("test-executor:0.3.34"))
 			})
 		})
 	})
@@ -166,7 +166,7 @@ var _ = Describe("Executor Controller", func() {
 				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, executorKey, &oldExecutor)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				stdin, stderr, err = k.Run("delete", "-f", f.Name())
 				if err != nil {
@@ -182,19 +182,19 @@ var _ = Describe("Executor Controller", func() {
 				deletedExecutor := installv1alpha1.Executor{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, executorKey, &deletedExecutor)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, executorKey, &deletedExecutor)
 					notFoundErr := err.(*k8serrors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				// secret
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &secret, runtimeScheme)).To(BeTrue())
 
 				// deployment
@@ -202,7 +202,7 @@ var _ = Describe("Executor Controller", func() {
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &deployment, runtimeScheme)).To(BeTrue())
 
 				// service account
@@ -210,7 +210,7 @@ var _ = Describe("Executor Controller", func() {
 				serviceAccountKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceAccountKey, &serviceAccount)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &serviceAccount, runtimeScheme)).To(BeTrue())
 
 				// service
@@ -218,7 +218,7 @@ var _ = Describe("Executor Controller", func() {
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &service, runtimeScheme)).To(BeTrue())
 
 				// clusterrole
@@ -226,24 +226,24 @@ var _ = Describe("Executor Controller", func() {
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
 					notFoundErr := err.(*k8serrors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				// clusterrolebinding
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
 					notFoundErr := err.(*k8serrors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 			})
 		})
 	})

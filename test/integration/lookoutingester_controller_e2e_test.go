@@ -47,20 +47,20 @@ var _ = Describe("LookoutIngester Controller", func() {
 				lookoutIngesterKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["lookoutingester-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("lookoutingester-e2e-1"))
 
 				_, stderr, err = k.Run("delete", "-f", f.Name())
@@ -116,7 +116,7 @@ var _ = Describe("LookoutIngester Controller", func() {
 				lookoutIngester = installv1alpha1.LookoutIngester{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				}, "2s", "10ms").ShouldNot(HaveOccurred())
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(lookoutIngester.Labels["test"]).To(BeEquivalentTo("updated"))
 
 				_, stderr, err = k.Run("delete", "-f", f2.Name())
@@ -162,34 +162,34 @@ var _ = Describe("LookoutIngester Controller", func() {
 				lookoutIngesterKey := kclient.ObjectKey{Namespace: "default", Name: "lookoutingester-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
 					notFoundErr := err.(*errors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "lookoutingester", Name: "lookoutingester-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, secretKey, &secret)
 					notFoundErr := err.(*errors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "lookoutingester", Name: "lookoutingester-e2e-3"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
-				}, "2s", "10ms").Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
 				Eventually(func() int32 {
 					err = k8sClient.Get(ctx, deploymentKey, &deployment)
 					notFoundErr := err.(*errors.StatusError)
 					return notFoundErr.ErrStatus.Code
-				}, "2s", "10ms").Should(BeEquivalentTo(http.StatusNotFound))
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 			})
 		})
 	})
