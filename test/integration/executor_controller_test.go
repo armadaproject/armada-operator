@@ -109,9 +109,10 @@ var _ = Describe("Executor Controller", func() {
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-2"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test-executor:0.3.33"))
+				Eventually(func() string {
+					err = k8sClient.Get(ctx, deploymentKey, &deployment)
+					return deployment.Spec.Template.Spec.Containers[0].Image
+				}, "2s", "10ms").Should(Equal("test-executor:0.3.33"))
 
 				f2, err := os.Open("./resources/executor2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
@@ -137,7 +138,7 @@ var _ = Describe("Executor Controller", func() {
 				Eventually(func() string {
 					err = k8sClient.Get(ctx, deploymentKey, &deployment)
 					return deployment.Spec.Template.Spec.Containers[0].Image
-				}, "4s", "10ms").ShouldNot(Equal("test-executor:0.3.34"))
+				}, "2s", "10ms").Should(Equal("test-executor:0.3.34"))
 			})
 		})
 	})
