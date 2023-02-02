@@ -20,16 +20,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// message Queue {
+//     message Permissions {
+//         message Subject {
+//             string kind = 1;
+//             string name = 2;
+//         }
+
+//         repeated Subject subjects = 1;
+//         repeated string verbs = 2;
+//     }
+
+//     string name = 1;
+//     double priority_factor = 2;
+//     repeated string user_owners = 3;
+//     repeated string group_owners = 4;
+//     map<string, double> resource_limits = 5;
+//     repeated Permissions permissions = 6;
+// }
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type Subject struct {
+	Name string `json:"name,omitempty"`
+	Kind string `json:"kind,omitempty"`
+}
+
+type Permission struct {
+	Subjects []Subject `json:"subjects,omitempty"`
+	Verbs    []string  `json:"verbs,omitempty"`
+}
 
 // QueueSpec defines the desired state of Queue
 type QueueSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Queue. Edit queue_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	//Priority for queue
+	PriorityFactor string `json:"priorityFactor"`
+	// Owners of queue
+	UserOwners []string `json:"userOwners,omitempty"`
+	// Group owners of queue
+	GroupOwners []string `json:"groupOwners,omitempty"`
+	// An array of permissions for this queue
+	Permission []Permission `json:"permissions,omitempty"`
+	// Resource requirements for queue
+	ResourceLimits map[string]string `json:"resourceLimits,omitempty"`
 }
 
 // QueueStatus defines the observed state of Queue

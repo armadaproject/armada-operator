@@ -35,10 +35,48 @@ spec:
           spec:
             description: QueueSpec defines the desired state of Queue
             properties:
-              foo:
-                description: Foo is an example field of Queue. Edit queue_types.go
-                  to remove/update
+              groupOwners:
+                description: Group owners of queue
+                items:
+                  type: string
+                type: array
+              permissions:
+                description: An array of permissions for this queue
+                items:
+                  properties:
+                    subjects:
+                      items:
+                        description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU
+                          TO OWN! NOTE: json tags are required.  Any new fields you
+                          add must have json tags for the fields to be serialized.'
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    verbs:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
+              priorityFactor:
+                description: Priority for queue
                 type: string
+              resourceLimits:
+                additionalProperties:
+                  type: string
+                description: Resource requirements for queue
+                type: object
+              userOwners:
+                description: Owners of queue
+                items:
+                  type: string
+                type: array
+            required:
+            - priorityFactor
             type: object
           status:
             description: QueueStatus defines the observed state of Queue
