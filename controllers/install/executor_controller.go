@@ -432,6 +432,16 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 		APIGroups: []string{""},
 		Resources: []string{"services"},
 	}
+	endpointSliceRules := rbacv1.PolicyRule{
+		Verbs:     []string{"get", "list", "watch", "create"},
+		APIGroups: []string{"discovery.k8s.io"},
+		Resources: []string{"endpointslices"},
+	}
+	ingressRules := rbacv1.PolicyRule{
+		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
+		APIGroups: []string{"networking.k8s.io"},
+		Resources: []string{"ingresses"},
+	}
 	nodeRules := rbacv1.PolicyRule{
 		Verbs:     []string{"get", "list", "watch"},
 		APIGroups: []string{""},
@@ -447,11 +457,6 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 		APIGroups: []string{""},
 		Resources: []string{"users", "groups"},
 	}
-	ingressRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create", "delete", "deletecollection"},
-		APIGroups: []string{"networking.k8s.io"},
-		Resources: []string{"ingresses"},
-	}
 	tokenRules := rbacv1.PolicyRule{
 		Verbs:     []string{"create"},
 		APIGroups: []string{""},
@@ -464,7 +469,7 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 	}
 	clusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Labels: AllLabels(executor.Name, executor.Labels)},
-		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
+		Rules:      []rbacv1.PolicyRule{podRules, eventRules, serviceRules, endpointSliceRules, nodeRules, nodeProxyRules, userRules, ingressRules, tokenRules, tokenReviewRules},
 	}
 	return &clusterRole
 }
