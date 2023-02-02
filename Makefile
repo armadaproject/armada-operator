@@ -362,6 +362,7 @@ dev-teardown:
 helm-install-pulsar: helm
 	$(HELM) repo add apache https://pulsar.apache.org/charts
 	$(HELM) repo update
+	git submodule init
 	git submodule update ./dev/helm-charts/pulsar-helm-chart/
 	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
 	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
