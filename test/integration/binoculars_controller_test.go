@@ -3,7 +3,6 @@ package integration
 import (
 	"io"
 	"os"
-	"time"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
@@ -34,29 +33,31 @@ var _ = Describe("Binoculars Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("binoculars.install.armadaproject.io/binoculars-e2e-1 created\n"))
 
-				time.Sleep(2 * time.Second)
-
 				binoculars := installv1alpha1.Binoculars{}
 				binocularsKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
-				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, binocularsKey, &binoculars)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["binoculars-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("binoculars-e2e-1"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "binoculars-e2e-1"}
-				err = k8sClient.Get(ctx, serviceKey, &service)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, serviceKey, &service)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -101,11 +102,10 @@ var _ = Describe("Binoculars Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("binoculars.install.armadaproject.io/binoculars-e2e-2 configured\n"))
 
-				time.Sleep(2 * time.Second)
-
 				binoculars = installv1alpha1.Binoculars{}
-				err = k8sClient.Get(ctx, binocularsKey, &binoculars)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, binocularsKey, &binoculars)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(binoculars.Labels["test"]).To(BeEquivalentTo("updated"))
 			})
 		})
