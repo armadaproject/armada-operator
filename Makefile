@@ -154,6 +154,11 @@ docker-build: test ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
+# Load image to kind
+.PHONY: load-image
+load-image:
+	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) ${IMG}
+
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
 # - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
@@ -190,6 +195,8 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
+.PHONY: deploy-to-kind
+deploy-to-kind: dev-setup docker-build load-image deploy
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
@@ -211,6 +218,29 @@ install-ingress-controller:
 .PHONY: uninstall-ingress-controller
 uninstall-ingress-controller:
 	kubectl delete -f ${INGRESS_MANIFEST}
+
+.PHONY: helm-install-pulsar
+helm-install-pulsar: helm
+	$(HELM) repo add apache https://pulsar.apache.org/charts
+	$(HELM) repo update
+	git submodule init
+	git submodule update ./dev/helm-charts/pulsar-helm-chart/
+	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
+	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
+                                         
+.PHONY: helm-bitnami
+helm-bitnami: helm
+	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
+	$(HELM) repo update
+
+.PHONY: helm-install-postgres
+helm-install-postgres: helm-bitnami
+	$(HELM) install postgresql -n armada -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
+
+.PHONY: helm-install-redis
+helm-install-redis: helm-bitnami
+	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
+
 ##@ Build Dependencies
 
 ## Location to install dependencies to
@@ -352,33 +382,11 @@ create-dev-cluster:
 
 # Setup dependencies for a local development environment
 .PHONY: dev-setup
-dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres helm-install-redis
+dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres helm-install-redis install-cert-manager install-ingress-controller
 
 .PHONY: dev-teardown
 dev-teardown:
-	kind delete cluster -n $(KIND_DEV_CLUSTER_NAME)
-
-.PHONY: helm-install-pulsar
-helm-install-pulsar: helm
-	$(HELM) repo add apache https://pulsar.apache.org/charts
-	$(HELM) repo update
-	git submodule init
-	git submodule update ./dev/helm-charts/pulsar-helm-chart/
-	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
-	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
-                                         
-.PHONY: helm-bitnami
-helm-bitnami: helm
-	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
-	$(HELM) repo update
-
-.PHONY: helm-install-postgres
-helm-install-postgres: helm-bitnami
-	$(HELM) install postgresql -n armada -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
-
-.PHONY: helm-install-redis
-helm-install-redis: helm-bitnami
-	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
+	kind delete cluster --name $(KIND_DEV_CLUSTER_NAME)
 
 .PHONY: dev-run
 dev-run: dev-setup install run
