@@ -10,7 +10,6 @@ metadata:
   name: lookout-sample
   namespace: armada
 spec:
-  migrateDatabase: false
   ingress:
     ingressClass: "nginx"
     labels:
@@ -21,8 +20,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearch/armada-lookout
-    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+    repository: gresearchdev/armada-lookout
+    tag: v0.3.47
   resources:
     limits:
       memory: 1Gi
@@ -30,6 +29,10 @@ spec:
     requests:
       memory: 500Mi
       cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
 
   prometheus:
     enabled: false
@@ -46,5 +49,9 @@ spec:
     metricsPort: 9000
     postgres:
       connection:
-        host: pghost
+        host: postgres.default.svc.cluster.local
         port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
