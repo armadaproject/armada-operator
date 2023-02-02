@@ -10,8 +10,6 @@ metadata:
   name: lookout-sample
   namespace: armada
 spec:
-  migrateDatabase: true
-  enableV2: false
   ingress:
     ingressClass: "nginx"
     labels:

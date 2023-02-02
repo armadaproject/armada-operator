@@ -1600,9 +1600,6 @@ spec:
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
                 type: string
-              enableV2:
-                description: Set enableV2 to true to enable the new version of Lookout
-                type: boolean
               environment:
                 description: Extra environment variables that get added to deployment
                 items:
@@ -1756,10 +1753,6 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              migrateDatabase:
-                description: MigrateDatabase must be true to enable database migration
-                  job
-                type: boolean
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -1951,7 +1944,6 @@ spec:
             - applicationConfig
             - clusterIssuer
             - image
-            - migrateDatabase
             type: object
           status:
             description: LookoutStatus defines the observed state of lookout

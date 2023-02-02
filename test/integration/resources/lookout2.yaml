@@ -9,8 +9,6 @@ metadata:
   name: lookout-e2e-2
   namespace: default
 spec:
-  migrateDatabase: false
-  enableV2: true
   replicas: 2
   ingress:
     ingressClass: nginx

@@ -48,10 +48,6 @@ type LookoutList struct {
 
 // LookoutSpec defines the desired state of Lookout
 type LookoutSpec struct {
-	// MigrateDatabase must be true to enable database migration job
-	MigrateDatabase bool `json:"migrateDatabase"`
-	// Set enableV2 to true to enable the new version of Lookout
-	EnableV2 bool `json:"enableV2,omitempty"`
 	// Replicas is the number of replicated instances for ArmadaServer
 	Replicas int32 `json:"replicas,omitempty"`
 	// Labels is the map of labels which wil be added to all objects
