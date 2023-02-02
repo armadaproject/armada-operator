@@ -185,15 +185,13 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
 	// 	return nil, err
 	// }
-	var job *batchv1.Job
-	if lookout.Spec.MigrateDatabase {
-		job, err = createLookoutMigrationJob(lookout)
-		if err != nil {
-			return nil, err
-		}
-		if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
-			return nil, err
-		}
+
+	job, err := createLookoutMigrationJob(lookout)
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
+		return nil, err
 	}
 
 	ingressWeb := createLookoutIngressWeb(lookout)
@@ -342,6 +340,9 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
+	env := lookout.Spec.Environment
+	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
 
 	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
 	if err != nil {
@@ -414,44 +415,13 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   lookout.Name,
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					NodeSelector: lookout.Spec.NodeSelector,
 					Tolerations:  lookout.Spec.Tolerations,
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: lookout.Name,
-							},
-						},
-					}},
+					Volumes:      volumes,
 				},
 			},
 		},
