@@ -17,6 +17,18 @@
 # under the License.
 #
 
+## disable monitoring stack
+kube-prometheus-stack:
+  enabled: false
+  prometheusOperator:
+    enabled: false
+  grafana:
+    enabled: false
+  alertmanager:
+    enabled: false
+  prometheus:
+    enabled: false
+
 ## deployed withh emptyDir
 volumes:
   persistence: false
@@ -28,16 +40,30 @@ affinity:
 # disable auto recovery
 components:
   autorecovery: false
-  pulsar_manager: true
+  pulsar_manager: false
+
+autorecovery:
+  # Disable pod monitor since we're disabling CRD installation
+  podMonitor:
+    enabled: false
 
 zookeeper:
   replicaCount: 1
+  # Disable pod monitor since we're disabling CRD installation
+  podMonitor:
+    enabled: false
 
 bookkeeper:
   replicaCount: 1
+  # Disable pod monitor since we're disabling CRD installation
+  podMonitor:
+    enabled: false
 
 broker:
   replicaCount: 1
+  # Disable pod monitor since we're disabling CRD installation
+  podMonitor:
+    enabled: false
   configData:
     ## Enable `autoSkipNonRecoverableData` since bookkeeper is running
     ## without persistence
@@ -49,3 +75,6 @@ broker:
 
 proxy:
   replicaCount: 1
+  # Disable pod monitor since we're disabling CRD installation
+  podMonitor:
+    enabled: false
