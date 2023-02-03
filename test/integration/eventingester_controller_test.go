@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -37,23 +36,24 @@ var _ = Describe("EventIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("eventingester.install.armadaproject.io/eventingester-e2e-1 created\n"))
 
-				time.Sleep(2 * time.Second)
-
 				eventIngester := installv1alpha1.EventIngester{}
 				eventIngesterKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
-				err = k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["eventingester-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-1"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("eventingester-e2e-1"))
 
 				_, stderr, err = k.Run("delete", "-f", f.Name())
@@ -106,11 +106,10 @@ var _ = Describe("EventIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("eventingester.install.armadaproject.io/eventingester-e2e-2 configured\n"))
 
-				time.Sleep(2 * time.Second)
-
 				eventIngester = installv1alpha1.EventIngester{}
-				err = k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, eventIngesterKey, &eventIngester)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(eventIngester.Labels["test"]).To(BeEquivalentTo("updated"))
 
 				_, stderr, err = k.Run("delete", "-f", f2.Name())
@@ -142,8 +141,6 @@ var _ = Describe("EventIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(BeEquivalentTo("eventingester.install.armadaproject.io/eventingester-e2e-3 created\n"))
 
-				time.Sleep(1 * time.Second)
-
 				stdin, stderr, err = k.Run("delete", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
@@ -153,8 +150,6 @@ var _ = Describe("EventIngester Controller", func() {
 				stdinBytes, err = io.ReadAll(stdin)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("eventingester.install.armadaproject.io \"eventingester-e2e-3\" deleted\n"))
-
-				time.Sleep(2 * time.Second)
 
 				eventIngester := installv1alpha1.EventIngester{}
 				eventIngesterKey := kclient.ObjectKey{Namespace: "default", Name: "eventingester-e2e-3"}

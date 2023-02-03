@@ -7,7 +7,7 @@ spec:
   ingress:
     ingressClass: "nginx"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
+  hostNames: [localhost-server]
   replicas: 1
   image:
     repository: gresearch/armada-server
@@ -75,7 +75,6 @@ metadata:
   name: lookout-sample
   namespace: armada
 spec:
-  migrateDatabase: false
   ingress:
     ingressClass: "nginx"
     labels:
@@ -83,7 +82,7 @@ spec:
     annotations:
       hello: "world2"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
+  hostNames: [localhost-lookout]
   replicas: 2
   image:
     repository: gresearch/armada-lookout
