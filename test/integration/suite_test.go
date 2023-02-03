@@ -58,8 +58,8 @@ var (
 )
 
 const (
-	defaultTimeout      = "2s"
-	defaultPollInterval = "10ms"
+	defaultTimeout      = "50s"
+	defaultPollInterval = "50ms"
 )
 
 func TestAPIs(t *testing.T) {

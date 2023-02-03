@@ -39,7 +39,8 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 	}
 
 	expectedNS := types.NamespacedName{Namespace: "default", Name: "armadaserver"}
-	migrationNS := types.NamespacedName{Namespace: "default", Name: "armadaserver-migration"}
+	waitPulsarNS := types.NamespacedName{Namespace: "default", Name: "wait-for-pulsar"}
+	initPulsarNS := types.NamespacedName{Namespace: "default", Name: "init-pulsar"}
 
 	expectedAS := installv1alpha1.ArmadaServer{
 		TypeMeta: metav1.TypeMeta{
@@ -84,7 +85,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), waitPulsarNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver-migration"))
 	mockK8sClient.
 		EXPECT().
@@ -93,7 +94,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		SetArg(1, *expectedComponents.Jobs[0])
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), waitPulsarNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
 		SetArg(2, *expectedComponents.Jobs[0])
 
@@ -104,7 +105,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), initPulsarNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver-migration"))
 	mockK8sClient.
 		EXPECT().
@@ -113,7 +114,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		SetArg(1, *expectedComponents.Jobs[1])
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), migrationNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Get(gomock.Any(), initPulsarNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
 		SetArg(2, *expectedComponents.Jobs[1])
 

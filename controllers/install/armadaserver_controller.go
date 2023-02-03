@@ -51,6 +51,7 @@ type ArmadaServerReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -85,14 +86,29 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	mutateFn := func() error { return nil }
 
-	for _, job := range components.Jobs {
-		if job != nil {
-			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, job, mutateFn); err != nil {
+	if components.ServiceAccount != nil {
+		logger.Info("Upserting ArmadaServer ServiceAccount object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Secret != nil {
+		logger.Info("Upserting ArmadaServer Secret object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	for idx := range components.Jobs {
+		if components.Jobs[idx] != nil {
+			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
 				return ctrl.Result{}, err
 			}
 			ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
 			defer cancel()
-			err := waitForJob(ctxTimeout, r.Client, job, migrationPollSleep)
+
+			err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -102,6 +118,13 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if components.Deployment != nil {
 		logger.Info("Upserting ArmadaServer Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Service != nil {
+		logger.Info("Upserting ArmadaServer Service object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -116,27 +139,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if components.IngressRest != nil {
 		logger.Info("Upserting ArmadaServer IngressRest object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Service != nil {
-		logger.Info("Upserting ArmadaServer Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting ArmadaServer ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Secret != nil {
-		logger.Info("Upserting ArmadaServer Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -299,7 +301,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	// First job is to poll/wait for Pulsar to be fully started
 	pulsarWaitJob := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        as.Name + "-migration",
+			Name:        "wait-for-pulsar",
 			Namespace:   as.Namespace,
 			Labels:      AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw)},
@@ -310,7 +312,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      as.Name + "-migration",
+					Name:      "wait-for-pulsar",
 					Namespace: as.Namespace,
 					Labels:    AllLabels(as.Name, as.Labels),
 				},
@@ -369,7 +371,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	// Second job is actually create namespaces/topics/partitions in Pulsar
 	initPulsarJob := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        as.Name + "-migration",
+			Name:        "init-pulsar",
 			Namespace:   as.Namespace,
 			Labels:      AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw)},
@@ -380,7 +382,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      as.Name + "-migration",
+					Name:      "init-pulsar",
 					Namespace: as.Namespace,
 					Labels:    AllLabels(as.Name, as.Labels),
 				},
@@ -392,7 +394,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 						RunAsGroup: &runAsGroup,
 					},
 					Containers: []corev1.Container{{
-						Name:            "wait-for-pulsar",
+						Name:            "init-pulsar",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           "alpine:3.16",
 						Args: []string{
