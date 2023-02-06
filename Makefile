@@ -227,7 +227,7 @@ helm-install-pulsar: helm
 	git submodule update ./dev/helm-charts/pulsar-helm-chart/
 	./dev/helm-charts/pulsar-helm-chart/scripts/pulsar/prepare_helm_release.sh -n armada -k pulsar-mini -c
 	$(HELM) install pulsar -n armada -f ./dev/helm-charts/pulsar_apache_values.yaml apache/pulsar
-                                         
+
 .PHONY: helm-bitnami
 helm-bitnami: helm
 	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
@@ -240,6 +240,10 @@ helm-install-postgres: helm-bitnami
 .PHONY: helm-install-redis
 helm-install-redis: helm-bitnami
 	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
+
+.PHONY: helm-install-prometheus
+helm-install-prometheus: helm-bitnami
+	$(HELM) install prometheus -n armada -f ./dev/helm-charts/prometheus_bitnami_values.yaml bitnami/kube-prometheus
 
 ##@ Build Dependencies
 
@@ -382,7 +386,8 @@ create-dev-cluster:
 
 # Setup dependencies for a local development environment
 .PHONY: dev-setup
-dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres helm-install-redis install-cert-manager install-ingress-controller
+dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres helm-install-redis helm-install-prometheus \
+    install-cert-manager install-ingress-controller
 
 .PHONY: dev-teardown
 dev-teardown:
