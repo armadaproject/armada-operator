@@ -47,7 +47,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= armada-operator:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.24.2
 
@@ -113,7 +113,7 @@ lint:
 .PHONY: lint-fix
 lint-fix:
 	golangci-lint run --fix
-	
+
 .PHONY: test
 test: manifests generate fmt vet gotestsum ## Run tests.
 	$(GOTESTSUM) -- ./controllers/... -coverprofile operator.out
@@ -190,6 +190,10 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
+.PHONT: helm
+helm: manifests kustomize helmify
+	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir deployment/armada-operator
+
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
@@ -225,6 +229,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOTESTSUM ?= $(LOCALBIN)/gotestsum
 MOCKGEN ?= $(LOCALBIN)/mockgen
 KIND    ?= $(LOCALBIN)/kind
+HELMIFY ?= $(LOCALBIN)/helmify
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
@@ -246,12 +251,12 @@ $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: gotestsum
-gotestsum: $(GOTESTSUM)## Download gotestsum locally if necessary.
+gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
 $(GOTESTSUM): $(LOCALBIN)
 	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@v1.8.2
 
 .PHONY: mockgen
-mockgen: $(MOCKGEN)## Download mockgen locally if necessary.
+mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/mockgen || GOBIN=$(LOCALBIN) go install github.com/golang/mock/mockgen@v1.6.0
 
@@ -259,6 +264,11 @@ $(MOCKGEN): $(LOCALBIN)
 kind: $(KIND)
 $(KIND): $(LOCALBIN)
 	test -s $(LOCALBIN)/kind || GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@v0.14.0
+
+.PHONY: helmify
+helmify: $(HELMIFY)
+$(HELMIFY): $(LOCALBIN)
+	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@v0.3.22
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
