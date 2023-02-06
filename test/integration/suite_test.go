@@ -57,6 +57,11 @@ var (
 	runtimeScheme *runtime.Scheme
 )
 
+const (
+	defaultTimeout      = "2s"
+	defaultPollInterval = "10ms"
+)
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
