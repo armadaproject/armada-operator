@@ -433,7 +433,7 @@ func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executo
 		Resources: []string{"services"},
 	}
 	endpointSliceRules := rbacv1.PolicyRule{
-		Verbs:     []string{"get", "list", "watch", "create"},
+		Verbs:     []string{"get", "list", "watch"},
 		APIGroups: []string{"discovery.k8s.io"},
 		Resources: []string{"endpointslices"},
 	}
