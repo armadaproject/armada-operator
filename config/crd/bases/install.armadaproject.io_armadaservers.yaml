@@ -1755,6 +1755,12 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector restricts the Executor pod to run on nodes
+                  matching the configured selectors
+                type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
                   monitoring

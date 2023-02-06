@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -45,8 +46,28 @@ var _ = Describe("Armada Operator", func() {
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
-				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
+				}, "15s", "50ms").ShouldNot(HaveOccurred())
 				Expect(secret.Data["armadaserver-e2e-config.yaml"]).NotTo(BeEmpty())
+
+				for _, jobName := range []string{"wait-for-pulsar", "init-pulsar"} {
+					// set migrate Job to complete -- there is no JobController in this environment,
+					// so we are mocking the Job's completion
+					job := batchv1.Job{}
+					jobKey := kclient.ObjectKey{Namespace: "default", Name: jobName}
+					Eventually(func() error {
+						return k8sClient.Get(ctx, jobKey, &job)
+					}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
+
+					job.Status = batchv1.JobStatus{
+						Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
+					}
+					err = k8sClient.Status().Update(ctx, &job)
+					Expect(err).NotTo(HaveOccurred())
+
+					err = k8sClient.Get(ctx, jobKey, &job)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(job.Status.Conditions[0].Type).To(Equal(batchv1.JobComplete))
+				}
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}

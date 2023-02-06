@@ -136,6 +136,13 @@ func (in *ArmadaServerSpec) DeepCopyInto(out *ArmadaServerSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Ingress != nil {
 		in, out := &in.Ingress, &out.Ingress
 		*out = new(IngressConfig)

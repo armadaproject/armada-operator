@@ -8,8 +8,13 @@ metadata:
 spec:
   replicas: 2
   ingress:
-    ingressClass: nginx
+    ingressClass: "nginx"
+    labels:
+      hello: "binoculars-e2e-2-updated"
+    annotations:
+      hello: "binoculars-e2e-2-updated"
   clusterIssuer: test
+  hostNames: [localhost]
   image:
     repository: test-binoculars
     tag: latest

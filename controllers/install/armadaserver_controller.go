@@ -18,6 +18,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -25,6 +26,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -37,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 // ArmadaServerReconciler reconciles a ArmadaServer object
@@ -48,6 +51,7 @@ type ArmadaServerReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -82,9 +86,45 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	mutateFn := func() error { return nil }
 
+	if components.ServiceAccount != nil {
+		logger.Info("Upserting ArmadaServer ServiceAccount object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Secret != nil {
+		logger.Info("Upserting ArmadaServer Secret object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	for idx := range components.Jobs {
+		if components.Jobs[idx] != nil {
+			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
+				return ctrl.Result{}, err
+			}
+			ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+			defer cancel()
+
+			err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	if components.Deployment != nil {
 		logger.Info("Upserting ArmadaServer Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.Service != nil {
+		logger.Info("Upserting ArmadaServer Service object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -99,27 +139,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if components.IngressRest != nil {
 		logger.Info("Upserting ArmadaServer IngressRest object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Service != nil {
-		logger.Info("Upserting ArmadaServer Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting ArmadaServer ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.Secret != nil {
-		logger.Info("Upserting ArmadaServer Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -160,6 +179,29 @@ type ArmadaServerComponents struct {
 	PodDisruptionBudget *policyv1.PodDisruptionBudget
 	PrometheusRule      *monitoringv1.PrometheusRule
 	ServiceMonitor      *monitoringv1.ServiceMonitor
+	Jobs                []*batchv1.Job
+}
+
+type Image struct {
+	Repository string
+	Tag        string
+}
+
+type ArmadaInit struct {
+	Enabled    bool
+	Image      Image
+	BrokerHost string
+	Protocol   string
+	AdminPort  int
+	Port       int
+}
+
+type PulsarConfig struct {
+	ArmadaInit ArmadaInit
+}
+
+type ASConfig struct {
+	Pulsar PulsarConfig
 }
 
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
@@ -211,6 +253,17 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
+	jobs, err := createArmadaServerMigrationJobs(as)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, job := range jobs {
+		if err := controllerutil.SetOwnerReference(as, job, scheme); err != nil {
+			return nil, err
+		}
+	}
+
 	return &ArmadaServerComponents{
 		Deployment:          deployment,
 		Ingress:             ingressGRPC,
@@ -221,8 +274,181 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		PodDisruptionBudget: pdb,
 		PrometheusRule:      pr,
 		ServiceMonitor:      sm,
+		Jobs:                jobs,
 	}, nil
 
+}
+
+func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batchv1.Job, error) {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := as.Spec.TerminationGracePeriodSeconds
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+
+	appConfig, err := builders.ConvertRawExtensionToYaml(as.Spec.ApplicationConfig)
+	if err != nil {
+		return []*batchv1.Job{}, err
+	}
+	var asConfig ASConfig
+	err = yaml.Unmarshal([]byte(appConfig), &asConfig)
+	if err != nil {
+		return []*batchv1.Job{}, err
+	}
+
+	// First job is to poll/wait for Pulsar to be fully started
+	pulsarWaitJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "wait-for-pulsar",
+			Namespace:   as.Namespace,
+			Labels:      AllLabels(as.Name, as.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			Completions:  &completions,
+			BackoffLimit: &backoffLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wait-for-pulsar",
+					Namespace: as.Namespace,
+					Labels:    AllLabels(as.Name, as.Labels),
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 "Never",
+					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "wait-for-pulsar",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           "alpine:3.16",
+						Args: []string{
+							"/bin/sh",
+							"-c",
+							`echo "Waiting for Pulsar... ($PULSARHOST:$PULSARPORT)"
+							while ! nc -z $PULSARHOST $PULSARPORT; do; sleep 1; done
+              echo "Pulsar started!"`,
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{Name: "PULSARHOST", Value: asConfig.Pulsar.ArmadaInit.BrokerHost},
+							{Name: "PULSARPORT", Value: fmt.Sprintf("%d", asConfig.Pulsar.ArmadaInit.Port)},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   as.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: as.Spec.NodeSelector,
+					Tolerations:  as.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: as.Name,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	// Second job is actually create namespaces/topics/partitions in Pulsar
+	initPulsarJob := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "init-pulsar",
+			Namespace:   as.Namespace,
+			Labels:      AllLabels(as.Name, as.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(as.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism:  &parallelism,
+			Completions:  &completions,
+			BackoffLimit: &backoffLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "init-pulsar",
+					Namespace: as.Namespace,
+					Labels:    AllLabels(as.Name, as.Labels),
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 "Never",
+					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  &runAsUser,
+						RunAsGroup: &runAsGroup,
+					},
+					Containers: []corev1.Container{{
+						Name:            "init-pulsar",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           "alpine:3.16",
+						Args: []string{
+							"/bin/sh",
+							"-c",
+							`echo -e "Initializing pulsar $PULSARADMINURL"
+              bin/pulsar-admin --admin-url $PULSARADMINURL tenants create armada
+              bin/pulsar-admin --admin-url $PULSARADMINURL namespaces create armada/armada
+              bin/pulsar-admin --admin-url $PULSARADMINURL topics delete-partitioned-topic persistent://armada/armada/events -f || true
+              bin/pulsar-admin --admin-url $PULSARADMINURL topics create-partitioned-topic persistent://armada/armada/events -p 2
+
+              # Disable topic auto-creation to ensure an error is thrown on using the wrong topic
+              # (Pulsar automatically created the public tenant and default namespace).
+              bin/pulsar-admin --admin-url $PULSARADMINURL namespaces set-auto-topic-creation public/default --disable
+              bin/pulsar-admin --admin-url $PULSARADMINURL namespaces set-auto-topic-creation armada/armada --disable`,
+						},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+						Env: []corev1.EnvVar{
+							{
+								Name: "PULSARADMINURL",
+								Value: fmt.Sprintf("%s://%s:%d", asConfig.Pulsar.ArmadaInit.Protocol,
+									asConfig.Pulsar.ArmadaInit.BrokerHost, asConfig.Pulsar.ArmadaInit.AdminPort),
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeConfigKey,
+								ReadOnly:  true,
+								MountPath: "/config/application_config.yaml",
+								SubPath:   as.Name,
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+					}},
+					NodeSelector: as.Spec.NodeSelector,
+					Tolerations:  as.Spec.Tolerations,
+					Volumes: []corev1.Volume{{
+						Name: volumeConfigKey,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: as.Name,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	return []*batchv1.Job{&pulsarWaitJob, &initPulsarJob}, nil
 }
 
 func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Deployment {
@@ -461,7 +687,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
-				monitoringv1.Endpoint{Port: "metrics", Interval: "15s"},
+				{Port: "metrics", Interval: "15s"},
 			},
 		},
 	}

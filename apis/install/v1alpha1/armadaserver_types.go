@@ -42,6 +42,8 @@ type ArmadaServerSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// Ingress defines labels and annotations for the Ingress controller of Armada Server
