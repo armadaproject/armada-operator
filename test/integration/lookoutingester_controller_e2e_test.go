@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -44,23 +43,24 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("lookoutingester.install.armadaproject.io/lookoutingester-e2e-1 created\n"))
 
-				time.Sleep(2 * time.Second)
-
 				lookoutIngester := installv1alpha1.LookoutIngester{}
 				lookoutIngesterKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
-				err = k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["lookoutingester-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: namespace, Name: "lookoutingester-e2e-1"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("lookoutingester-e2e-1"))
 
 				_, stderr, err = k.Run("delete", "-f", f.Name())
@@ -113,11 +113,10 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("lookoutingester.install.armadaproject.io/lookoutingester-e2e-2 configured\n"))
 
-				time.Sleep(2 * time.Second)
-
 				lookoutIngester = installv1alpha1.LookoutIngester{}
-				err = k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(lookoutIngester.Labels["test"]).To(BeEquivalentTo("updated"))
 
 				_, stderr, err = k.Run("delete", "-f", f2.Name())
@@ -149,8 +148,6 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(BeEquivalentTo("lookoutingester.install.armadaproject.io/lookoutingester-e2e-3 created\n"))
 
-				time.Sleep(1 * time.Second)
-
 				stdin, stderr, err = k.Run("delete", "-f", f.Name())
 				if err != nil {
 					stderrBytes, err := io.ReadAll(stderr)
@@ -161,28 +158,38 @@ var _ = Describe("LookoutIngester Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("lookoutingester.install.armadaproject.io \"lookoutingester-e2e-3\" deleted\n"))
 
-				time.Sleep(2 * time.Second)
-
 				lookoutIngester := installv1alpha1.LookoutIngester{}
 				lookoutIngesterKey := kclient.ObjectKey{Namespace: "default", Name: "lookoutingester-e2e-3"}
-				err = k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr := err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, lookoutIngesterKey, &lookoutIngester)
+					notFoundErr := err.(*errors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "lookoutingester", Name: "lookoutingester-e2e-3"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, secretKey, &secret)
+					notFoundErr := err.(*errors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "lookoutingester", Name: "lookoutingester-e2e-3"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).To(BeAssignableToTypeOf(&errors.StatusError{}))
-				notFoundErr = err.(*errors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&errors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, deploymentKey, &deployment)
+					notFoundErr := err.(*errors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 			})
 		})
 	})

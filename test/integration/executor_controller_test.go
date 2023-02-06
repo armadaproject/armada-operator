@@ -40,39 +40,42 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("executor.install.armadaproject.io/executor-e2e-1 created\n"))
 
-				time.Sleep(2 * time.Second)
-
 				executor := installv1alpha1.Executor{}
 				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, executorKey, &executor)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, executorKey, &executor)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["executor-e2e-1-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("executor-e2e-1"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, serviceKey, &service)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, serviceKey, &service)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				clusterRole := rbacv1.ClusterRole{}
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
-				Expect(err).NotTo(HaveOccurred())
-
+				Eventually(func() error {
+					return k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-1"}
-				err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})
@@ -106,9 +109,10 @@ var _ = Describe("Executor Controller", func() {
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-2"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test-executor:0.3.33"))
+				Eventually(func() string {
+					err = k8sClient.Get(ctx, deploymentKey, &deployment)
+					return deployment.Spec.Template.Spec.Containers[0].Image
+				}, defaultTimeout, defaultPollInterval).Should(Equal("test-executor:0.3.33"))
 
 				f2, err := os.Open("./resources/executor2-updated.yaml")
 				Expect(err).ToNot(HaveOccurred())
@@ -125,16 +129,16 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("executor.install.armadaproject.io/executor-e2e-2 configured\n"))
 
-				time.Sleep(2 * time.Second)
-
 				executor = installv1alpha1.Executor{}
-				err = k8sClient.Get(ctx, executorKey, &executor)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, executorKey, &executor)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(executor.Labels["test"]).To(BeEquivalentTo("updated"))
 
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("test-executor:0.3.34"))
+				Eventually(func() string {
+					err = k8sClient.Get(ctx, deploymentKey, &deployment)
+					return deployment.Spec.Template.Spec.Containers[0].Image
+				}, defaultTimeout, defaultPollInterval).Should(Equal("test-executor:0.3.34"))
 			})
 		})
 	})
@@ -158,12 +162,11 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(BeEquivalentTo("executor.install.armadaproject.io/executor-e2e-3 created\n"))
 
-				time.Sleep(1 * time.Second)
-
 				oldExecutor := installv1alpha1.Executor{}
 				executorKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, executorKey, &oldExecutor)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, executorKey, &oldExecutor)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				stdin, stderr, err = k.Run("delete", "-f", f.Name())
 				if err != nil {
@@ -175,58 +178,72 @@ var _ = Describe("Executor Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdinBytes)).To(Equal("executor.install.armadaproject.io \"executor-e2e-3\" deleted\n"))
 
-				time.Sleep(1 * time.Second)
-
 				// executor
 				deletedExecutor := installv1alpha1.Executor{}
-				err = k8sClient.Get(ctx, executorKey, &deletedExecutor)
-				Expect(err).To(BeAssignableToTypeOf(&k8serrors.StatusError{}))
-				notFoundErr := err.(*k8serrors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, executorKey, &deletedExecutor)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, executorKey, &deletedExecutor)
+					notFoundErr := err.(*k8serrors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				// secret
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &secret, runtimeScheme)).To(BeTrue())
 
 				// deployment
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &deployment, runtimeScheme)).To(BeTrue())
 
 				// service account
 				serviceAccount := corev1.ServiceAccount{}
 				serviceAccountKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, serviceAccountKey, &serviceAccount)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, serviceAccountKey, &serviceAccount)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &serviceAccount, runtimeScheme)).To(BeTrue())
 
 				// service
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, serviceKey, &service)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, serviceKey, &service)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(util.HasOwnerReference(&oldExecutor, &service, runtimeScheme)).To(BeTrue())
 
 				// clusterrole
 				clusterRole := rbacv1.ClusterRole{}
 				clusterRoleKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
-				Expect(err).To(BeAssignableToTypeOf(&k8serrors.StatusError{}))
-				notFoundErr = err.(*k8serrors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, clusterRoleKey, &clusterRole)
+					notFoundErr := err.(*k8serrors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 
 				// clusterrolebinding
 				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
 				clusterRoleBindingKey := kclient.ObjectKey{Namespace: "", Name: "executor-e2e-3"}
-				err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
-				Expect(err).To(BeAssignableToTypeOf(&k8serrors.StatusError{}))
-				notFoundErr = err.(*k8serrors.StatusError)
-				Expect(notFoundErr.ErrStatus.Code).To(BeEquivalentTo(http.StatusNotFound))
+				Eventually(func() error {
+					return k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
+				}, defaultTimeout, defaultPollInterval).Should(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+				Eventually(func() int32 {
+					err = k8sClient.Get(ctx, clusterRoleBindingKey, &clusterRoleBinding)
+					notFoundErr := err.(*k8serrors.StatusError)
+					return notFoundErr.ErrStatus.Code
+				}, defaultTimeout, defaultPollInterval).Should(BeEquivalentTo(http.StatusNotFound))
 			})
 		})
 	})

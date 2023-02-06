@@ -3,7 +3,6 @@ package integration
 import (
 	"io"
 	"os"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,29 +35,31 @@ var _ = Describe("Armada Operator", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(stdoutBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e created\n"))
 
-				time.Sleep(2 * time.Second)
-
 				as := installv1alpha1.ArmadaServer{}
 				asKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
-				err = k8sClient.Get(ctx, asKey, &as)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, asKey, &as)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
 				secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
-				err = k8sClient.Get(ctx, secretKey, &secret)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, secretKey, &secret)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(secret.Data["armadaserver-e2e-config.yaml"]).NotTo(BeEmpty())
 
 				deployment := appsv1.Deployment{}
 				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
-				err = k8sClient.Get(ctx, deploymentKey, &deployment)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, deploymentKey, &deployment)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("armadaserver-e2e"))
 
 				service := corev1.Service{}
 				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
-				err = k8sClient.Get(ctx, serviceKey, &service)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, serviceKey, &service)
+				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 			})
 		})
 	})

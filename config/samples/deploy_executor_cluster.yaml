@@ -12,7 +12,7 @@ spec:
     annotations:
       hello: "world2"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
+  hostNames: [localhost-binoculars]
   replicas: 2
   image:
     tag: 6141171b8bde8a03113090a819d728511c2dc39f
