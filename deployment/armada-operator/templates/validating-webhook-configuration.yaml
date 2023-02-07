@@ -1,0 +1,89 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "armada-operator.fullname" . }}-validating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "armada-operator.fullname" . }}-serving-cert
+  labels:
+  {{- include "armada-operator.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-armada-server
+  failurePolicy: Fail
+  name: varmada-server.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - armada-servers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-eventingester
+  failurePolicy: Fail
+  name: veventingester.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - eventingesters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-executor
+  failurePolicy: Fail
+  name: vexecutor.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - executors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-lookoutingester
+  failurePolicy: Fail
+  name: vlookoutingester.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - lookoutingesters
+  sideEffects: None
