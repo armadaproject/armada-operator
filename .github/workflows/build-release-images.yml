@@ -3,7 +3,7 @@ name: Build Release Images
 on:
   push:
     branches:
-      - master
+      - main
 jobs:
   build-images:
     if: github.repository_owner == 'armadaproject'
