@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -73,16 +74,19 @@ type ExecutorSpec struct {
 	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
 	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
 	// Extra environment variables that get added to deployment
-	Environment []Environment `json:"environment,omitempty"`
-	// Additional volumes that are mounted into deployments
-	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
-	// Additional volume mounts that are added as volumes
-	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"additionalVolumeMounts,omitempty"`
+	Environment []corev1.EnvVar `json:"env,omitempty"`
+	// Additional ClusterRoleBindings which will be created
+	AdditionalClusterRoleBindings []AdditionalClusterRoleBinding `json:"additionalClusterRoleBindings,omitempty"`
+	// Additional VolumeMounts which will be attached to the app container
+	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+	// Additional Volumes which will be added to the Deployment
+	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
+	// List of PriorityClasses which will be created
+	PriorityClasses []*schedulingv1.PriorityClass `json:"priorityClasses,omitempty"`
 }
 
 // ExecutorStatus defines the observed state of Executor
-type ExecutorStatus struct {
-}
+type ExecutorStatus struct{}
 
 func init() {
 	SchemeBuilder.Register(&Executor{}, &ExecutorList{})

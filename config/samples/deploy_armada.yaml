@@ -1,19 +1,13 @@
 apiVersion: install.armadaproject.io/v1alpha1
 kind: ArmadaServer
 metadata:
-  labels:
-    app.kubernetes.io/name: armadaserver
-    app.kubernetes.io/instance: armadaserver-sample
-    app.kubernetes.io/part-of: armada-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: armada-operator
   name: armadaserver-sample
-  namespace: default
+  namespace: armada
 spec:
   ingress:
     ingressClass: "nginx"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
+  hostNames: [localhost-server]
   replicas: 1
   image:
     repository: gresearch/armada-server
@@ -28,7 +22,21 @@ spec:
         operator: in
     auth:
       anonymousAuth: true
-
+    postgres:
+      connection:
+        host: postgresql
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable
+    pulsar:
+      URL: pulsar://pulsar-broker:6650
+    redis:
+      addrs:
+        - redis-master:6379
+      db: 0
+      poolSize: 1000
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: EventIngester
@@ -43,12 +51,12 @@ spec:
   applicationConfig:
     redis:
       addrs:
-        - redis:6379
+        - redis-master:6379
       password: ""
       db: 0
       poolSize: 1000
     pulsar:
-      URL: pulsar://pulsar:6650
+      URL: pulsar://pulsar-broker:6650
       jobsetEventsTopic: events
       receiveTimeout: 5s
       backoffTime: 1s
@@ -67,7 +75,6 @@ metadata:
   name: lookout-sample
   namespace: armada
 spec:
-  migrateDatabase: false
   ingress:
     ingressClass: "nginx"
     labels:
@@ -75,7 +82,7 @@ spec:
     annotations:
       hello: "world2"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost]
+  hostNames: [localhost-lookout]
   replicas: 2
   image:
     repository: gresearch/armada-lookout
@@ -92,18 +99,6 @@ spec:
   - name: LOG_FORMAT
     value: json
 
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
-
   prometheus:
     enabled: false
     labels:
@@ -119,7 +114,7 @@ spec:
     metricsPort: 9000
     postgres:
       connection:
-        host: pghost
+        host: postgresql
         port: 5432
 ---
 apiVersion: install.armadaproject.io/v1alpha1
@@ -137,7 +132,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres
+        host: postgresql
         port: 5432
         user: postgres
         password: psw
@@ -147,7 +142,7 @@ spec:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar:6650"
+      URL: "pulsar://pulsar-broker:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s

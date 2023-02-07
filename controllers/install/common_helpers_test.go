@@ -7,15 +7,18 @@ import (
 
 	"context"
 
-	install "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/stretchr/testify/assert"
+
+	install "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -195,6 +198,16 @@ func Test_waitForJob(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "it returns an error if get has an error",
+			setupMockFn: func(mockK8sClient *k8sclient.MockClient) {
+				mockK8sClient.
+					EXPECT().
+					Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+					Return(errors.NewNotFound(schema.GroupResource{}, "job"))
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -253,6 +266,132 @@ func Test_isJobFinished(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rslt := isJobFinished(tt.job)
 			assert.Equal(t, tt.wantResult, rslt)
+		})
+	}
+}
+
+func Test_createEnv(t *testing.T) {
+	defaultEnv := []corev1.EnvVar{
+		{
+			Name: "SERVICE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "spec.serviceAccountName",
+				},
+			},
+		},
+		{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name     string
+		input    []corev1.EnvVar
+		expected []corev1.EnvVar
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultEnv,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.EnvVar{
+				{
+					Name:  "ADDITIONAL",
+					Value: "value",
+				},
+			},
+			expected: append(defaultEnv, corev1.EnvVar{
+				Name:  "ADDITIONAL",
+				Value: "value",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createEnv(tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_createVolumes(t *testing.T) {
+	defaultVolumes := []corev1.Volume{{
+		Name: volumeConfigKey,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: "secret-name",
+			},
+		},
+	}}
+	tests := []struct {
+		name     string
+		input    []corev1.Volume
+		expected []corev1.Volume
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultVolumes,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.Volume{
+				{
+					Name: "ADDITIONAL",
+				},
+			},
+			expected: append(defaultVolumes, corev1.Volume{
+				Name: "ADDITIONAL",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createVolumes("secret-name", tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_createVolumeMount(t *testing.T) {
+	defaultVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      volumeConfigKey,
+			ReadOnly:  true,
+			MountPath: "/config/application_config.yaml",
+			SubPath:   "secret-name",
+		},
+	}
+	tests := []struct {
+		name     string
+		input    []corev1.VolumeMount
+		expected []corev1.VolumeMount
+	}{
+		{
+			name:     "with empty input expect the default",
+			expected: defaultVolumeMounts,
+		},
+		{
+			name: "with non-empty input, expect the default + the input",
+			input: []corev1.VolumeMount{
+				{
+					Name: "ADDITIONAL",
+				},
+			},
+			expected: append(defaultVolumeMounts, corev1.VolumeMount{
+				Name: "ADDITIONAL",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createVolumeMounts("secret-name", tt.input)
+			assert.Equal(t, tt.expected, actual)
 		})
 	}
 }

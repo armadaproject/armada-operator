@@ -42,6 +42,8 @@ type ArmadaServerSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
 	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
 	// Ingress defines labels and annotations for the Ingress controller of Armada Server
@@ -53,11 +55,11 @@ type ArmadaServerSpec struct {
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
 	// Extra environment variables that get added to deployment
-	Environment []Environment `json:"environment,omitempty"`
+	Environment []corev1.EnvVar `json:"environment,omitempty"`
 	// Additional volumes that are mounted into deployments
-	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
+	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
-	AdditionalVolumeMounts []AdditionalVolumeMounts `json:"additionalVolumeMounts,omitempty"`
+	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
 }
 
 // ArmadaServerStatus defines the observed state of ArmadaServer

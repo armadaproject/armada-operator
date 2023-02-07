@@ -25,6 +25,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -42,14 +43,11 @@ type EventIngesterReconciler struct {
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=eventingesters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=secrets;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the EventIngester object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
@@ -151,12 +149,22 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
+	env := createEnv(eventIngester.Spec.Environment)
+	volumes := createVolumes(eventIngester.Name, eventIngester.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(eventIngester.Name), eventIngester.Spec.AdditionalVolumeMounts)
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &eventIngester.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(eventIngester.Name),
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{IntVal: int32(1)},
+				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -171,6 +179,23 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 						RunAsUser:  &runAsUser,
 						RunAsGroup: &runAsGroup,
 					},
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									TopologyKey: "kubernetes.io/hostname",
+									LabelSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{{
+											Key:      "app",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{eventIngester.Name},
+										}},
+									},
+								},
+							}},
+						},
+					},
 					Containers: []corev1.Container{{
 						Name:            "eventingester",
 						ImagePullPolicy: "IfNotPresent",
@@ -181,44 +206,13 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 							ContainerPort: 9001,
 							Protocol:      "TCP",
 						}},
-						Env: []corev1.EnvVar{
-							{
-								Name: "SERVICE_ACCOUNT",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.serviceAccountName",
-									},
-								},
-							},
-							{
-								Name: "POD_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      volumeConfigKey,
-								ReadOnly:  true,
-								MountPath: "/config/application_config.yaml",
-								SubPath:   GetConfigFilename(eventIngester.Name),
-							},
-						},
+						Env:             env,
+						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
 					NodeSelector: eventIngester.Spec.NodeSelector,
 					Tolerations:  eventIngester.Spec.Tolerations,
-					Volumes: []corev1.Volume{{
-						Name: volumeConfigKey,
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: eventIngester.Name,
-							},
-						},
-					}},
+					Volumes:      volumes,
 				},
 			},
 		},
@@ -226,6 +220,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	if eventIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *eventIngester.Spec.Resources
 	}
+
 	return &deployment
 
 }

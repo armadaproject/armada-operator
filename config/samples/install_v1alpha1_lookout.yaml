@@ -23,7 +23,7 @@ spec:
   replicas: 2
   image:
     repository: gresearchdev/armada-lookout
-    tag: v0.3.44
+    tag: v0.3.47
   resources:
     limits:
       memory: 1Gi
@@ -36,20 +36,8 @@ spec:
   - name: LOG_FORMAT
     value: json
 
-  additionalVolumes:
-    - name: testsecret
-      secret:
-        secretName: testsecret
-
-  additionalVolumeMounts:
-    - name: testsecret
-      volume:
-        name: testsecret
-        mountPath: /etc/vimrc
-        readOnly: true
-
   prometheus:
-    enabled: true
+    enabled: false
     labels:
       metrics: "true"
       prometheus: armada
@@ -63,5 +51,9 @@ spec:
     metricsPort: 9000
     postgres:
       connection:
-        host: pghost
+        host: postgres.default.svc.cluster.local
         port: 5432
+        user: postgres
+        password: psw
+        dbname: postgres
+        sslmode: disable

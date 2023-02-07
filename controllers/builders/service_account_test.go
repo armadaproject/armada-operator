@@ -3,10 +3,11 @@ package builders
 import (
 	"testing"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
+
+	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
 func Test_ServiceAccount(t *testing.T) {

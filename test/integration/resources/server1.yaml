@@ -13,9 +13,9 @@ spec:
   ingress:
     ingressClass: "nginx"
     labels:
-      hello: "world"
+      hello: "armadaserver-e2e-1"
     annotations:
-      hello: "world2"
+      hello: "armadaserver-e2e-1"
   clusterIssuer: "k8s-cluster-issuer"
   hostNames: [localhost]
   image:

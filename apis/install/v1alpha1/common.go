@@ -43,23 +43,6 @@ type ServiceAccountConfig struct {
 	AutomountServiceAccountToken *bool                         `json:"automountServiceAccountToken,omitempty"`
 }
 
-type Environment struct {
-	// The name of the environment variable
-	Name string `json:"name,omitempty"`
-	// The value of the environment variable corresponding to the name
-	Value string `json:"value,omitempty"`
-}
-
-type AdditionalVolume struct {
-	Name   string                    `json:"name,omitempty"`
-	Secret corev1.SecretVolumeSource `json:"secret,omitempty"`
-}
-
-type AdditionalVolumeMounts struct {
-	Name   string             `json:"name,omitempty"`
-	Volume corev1.VolumeMount `json:"volume,omitempty"`
-}
-
 type IngressConfig struct {
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
@@ -69,4 +52,9 @@ type IngressConfig struct {
 	IngressClass string `json:"ingressClass,omitempty"`
 	// Overide name for ingress
 	NameOverride string `json:"nameOverride,omitempty"`
+}
+
+type AdditionalClusterRoleBinding struct {
+	NameSuffix      string `json:"nameSuffix"`
+	ClusterRoleName string `json:"clusterRoleName"`
 }

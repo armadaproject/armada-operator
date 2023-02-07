@@ -18,4 +18,7 @@ linters:
     - govet
     - gosimple
     - staticcheck
-    
+
+linters-settings:
+    goimports:
+        local-prefixes: github.com/armadaproject/armada-operator
