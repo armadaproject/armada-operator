@@ -9,6 +9,9 @@ bin
 testbin/*
 Dockerfile.cross
 
+# GoReleaser
+dist/
+
 # Test binary, build with `go test -c`
 *.test
 
