@@ -1,0 +1,6 @@
+apiVersion: v2
+name: armada-operator
+description: A Helm chart for Armada Operator which exposes Armada CRDs for more Kubernetes-native experience
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,40 @@
+project_name: armada-operator
+
+dist: "dist"
+
+builds:
+  - env: [CGO_ENABLED=0]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+sboms:
+  - artifacts: archive
+
+env:
+  - DOCKER_REPO={{ if index .Env "DOCKER_REPO"  }}{{ .Env.DOCKER_REPO }}/{{ else }}{{ end }}
+
+dockers:
+  - image_templates:
+      - "{{ .Env.DOCKER_REPO }}armada-operator:latest"
+      - "{{ .Env.DOCKER_REPO }}armada-operator:{{ .Version }}"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description=Exposes Armada resources as CRDs for a more Kubernetes-native experience
+      - --label=org.opencontainers.image.url=https://github.com/armadaproject/armada-operator
+      - --label=org.opencontainers.image.source=https://github.com/armadaproject/armada-operator
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=MIT
+
+snapshot:
+  name_template: "{{ .Tag }}"
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: "zip"
