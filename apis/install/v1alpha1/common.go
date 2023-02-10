@@ -65,6 +65,6 @@ type AdditionalClusterRoleBinding struct {
 
 // NOTE(clif): controller-gen does *not* handle embedded structs/promoted
 // fields like one would hope. Perhaps the complication of json tags make this
-// unreasonable, but it would've greatly simplified the defintion of most of
+// unreasonable, but it would've greatly simplified the definition of most of
 // our service specs. Instead we're forced to resort to a lot more copy paste
 // code across our service specs.
