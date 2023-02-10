@@ -1712,8 +1712,12 @@ spec:
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository

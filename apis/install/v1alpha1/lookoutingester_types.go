@@ -22,17 +22,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// TODO: Clif - should this just look like the other services or is there unique
-// functionality?
 // LookoutIngesterSpec defines the desired state of LookoutIngester
-// TODO: Should we be using OpenAPI validation markers on our Specs?
-// See: https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#openapi-validation
 type LookoutIngesterSpec struct {
 	// Labels is the map of labels which wil be added to all objects
 	Labels map[string]string `json:"labels,omitempty"`
 	// Image is the configuration block for the image repository and tag
 	Image Image `json:"image"`
 	// ApplicationConfig is the internal LookoutIngester configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
 	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
