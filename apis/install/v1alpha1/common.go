@@ -22,8 +22,12 @@ import (
 )
 
 type Image struct {
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern:="^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$"
 	Repository string `json:"repository"`
-	Tag        string `json:"tag"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern:="^[a-zA-Z0-9_.-]*$"
+	Tag string `json:"tag"`
 }
 
 type PrometheusConfig struct {
