@@ -184,20 +184,17 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
+	serviceMonitor := createLookoutServiceMonitor(lookout)
+	if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
+		return nil, err
+	}
+
 	job, err := createLookoutMigrationJob(lookout)
 	if err != nil {
 		return nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
 		return nil, err
-	}
-
-	var serviceMonitor *monitoringv1.ServiceMonitor
-	if lookout.Spec.Prometheus != nil {
-		serviceMonitor = createLookoutServiceMonitor(lookout)
-		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
-			return nil, err
-		}
 	}
 
 	var cronJob *batchv1.CronJob
