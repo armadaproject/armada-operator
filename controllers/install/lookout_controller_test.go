@@ -44,20 +44,22 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout"},
 		Spec: v1alpha1.LookoutSpec{
 			Replicas: 2,
-			Labels:   nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
-			HostNames:         []string{"localhost"},
+			ClusterIssuer: "test",
+			HostNames:     []string{"localhost"},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
-			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 
@@ -203,14 +205,16 @@ func TestLookoutReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.LookoutSpec{
-			Replicas: 2,
-			Labels:   nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
-			ClusterIssuer:     "test",
+			Replicas:      2,
+			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
@@ -261,14 +265,16 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.LookoutSpec{
-			Replicas: 2,
-			Labels:   nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
+			Replicas:      2,
+			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
@@ -374,5 +380,4 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 			}
 		})
 	}
-
 }

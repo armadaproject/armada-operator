@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type Image struct {
@@ -63,8 +64,33 @@ type AdditionalClusterRoleBinding struct {
 	ClusterRoleName string `json:"clusterRoleName"`
 }
 
-// NOTE(clif): controller-gen does *not* handle embedded structs/promoted
-// fields like one would hope. Perhaps the complication of json tags make this
-// unreasonable, but it would've greatly simplified the definition of most of
-// our service specs. Instead we're forced to resort to a lot more copy paste
-// code across our service specs.
+// NOTE(Clif): You must label this with `json:""` when using it as an embedded
+// struct in order for controller-gen to use the promoted fields as expected.
+type CommonSpecBase struct {
+	// Labels is the map of labels which wil be added to all objects
+	Labels map[string]string `json:"labels,omitempty"`
+	// Image is the configuration block for the image repository and tag
+	Image Image `json:"image"`
+	// ApplicationConfig is the internal configuration of the application which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
+	// PrometheusConfig is the configuration block for Prometheus monitoring
+	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
+	// Resources is the configuration block for setting resource requirements for this service
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// Tolerations is the configuration block for specifying which taints this pod can tolerate
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
+	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
+	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
+	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
+	// Extra environment variables that get added to deployment
+	Environment []corev1.EnvVar `json:"environment,omitempty"`
+	// Additional volumes that are mounted into deployments
+	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
+	// Additional volume mounts that are added as volumes
+	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+}

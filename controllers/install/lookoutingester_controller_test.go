@@ -37,13 +37,15 @@ func TestLookoutIngesterReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "LookoutIngester"},
 		Spec: v1alpha1.LookoutIngesterSpec{
-			Labels: nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			Resources:         &corev1.ResourceRequirements{},
 		},
 	}
 	owner := metav1.OwnerReference{
@@ -186,12 +188,14 @@ func TestLookoutIngesterReconciler_ReconcileDelete(t *testing.T) {
 			Finalizers:        []string{"batch.tutorial.kubebuilder.io/finalizer"},
 		},
 		Spec: v1alpha1.LookoutIngesterSpec{
-			Labels: nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
 	// Executor
@@ -241,12 +245,14 @@ func TestLookoutIngesterReconciler_ErrorOnApplicationConfig(t *testing.T) {
 			Finalizers:        []string{"batch.tutorial.kubebuilder.io/finalizer"},
 		},
 		Spec: v1alpha1.LookoutIngesterSpec{
-			Labels: nil,
-			Image: v1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 		},
 	}
 	// Executor

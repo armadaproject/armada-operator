@@ -103,11 +103,9 @@ in golang has an implicit validation line like so:
 // +kubebuilder:validation:Type:=string
 ```
 
-### Embedded Structs and Promoted Fields Won't Work
-`controller-gen` does not handle embedded structs like one would expect. They
-will be completely absent from the generated CRD manifests. This makes it 
-harder to reuse sections of service specification structs across different 
-services.
+### Embedded Structs and Promoted Fields 
+You must add `json:""` to the end of embedded structs in order for 
+`controller-gen` to use promoted fields as expected.
 
 ## Links
 
