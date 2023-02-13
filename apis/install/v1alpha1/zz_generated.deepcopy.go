@@ -943,7 +943,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 	}
 	out.Image = in.Image
 	in.ApplicationConfig.DeepCopyInto(&out.ApplicationConfig)
-	in.Prometheus.DeepCopyInto(&out.Prometheus)
+	if in.Prometheus != nil {
+		in, out := &in.Prometheus, &out.Prometheus
+		*out = new(PrometheusConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
@@ -998,6 +1002,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.DbPruningSchedule != nil {
+		in, out := &in.DbPruningSchedule, &out.DbPruningSchedule
+		*out = new(string)
+		**out = **in
 	}
 }
 

@@ -59,7 +59,7 @@ type LookoutSpec struct {
 	// +kubebuilder:validation:Schemaless
 	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
 	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus PrometheusConfig `json:"prometheus,omitempty"`
+	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
 	// Resources is the configuration block for setting Lookout resource requirements
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Tolerations is the configuration block for specifying which taints can the Lookout pod tolerate
@@ -83,6 +83,10 @@ type LookoutSpec struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+	// DbPruningEnabled when true a pruning CronJob is created
+	DbPruningEnabled bool `json:"dbPruningEnabled"`
+	// DbPruningSchedule schedule to use for db pruning CronJob
+	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
 }
 
 // LookoutStatus defines the observed state of lookout

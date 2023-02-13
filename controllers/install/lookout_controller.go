@@ -19,6 +19,7 @@ import (
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -145,10 +146,8 @@ type LookoutComponents struct {
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
-
-	// ToDo: add other components for Lookout V1
-	// ServiceMonitor *monitoringv1.ServiceMonitor
-	// CronJob        *batchv1beta1.CronJob
+	ServiceMonitor *monitoringv1.ServiceMonitor
+	CronJob        *batchv1.CronJob
 }
 
 type LookoutConfig struct {
@@ -165,10 +164,6 @@ type ConnectionConfig struct {
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
-	// serviceAccount := r.createServiceAccount(lookout)
-	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-	// 	return nil, err
-	// }
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -197,22 +192,24 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	// These features need added to the CRD
-	//
-	// var ServiceMonitor *monitoringv1.ServiceMonitor
-	// if lookout.Spec.Monitoring != nil && lookout.Spec.EnableV2 {
-	// 	ServiceMonitor = createLookoutServiceMonitor(lookout)
-	// 	if err := controllerutil.SetOwnerReference(lookout, ServiceMonitor, scheme); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	// var cronJob *batchv1beta1.CronJob
-	// if lookout.Spec.Monitoring.CronJob != nil && lookout.Spec.EnableV2 {
-	// 	cronJob = createLookoutCronJob(lookout)
-	// 	if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	var serviceMonitor *monitoringv1.ServiceMonitor
+	if lookout.Spec.Prometheus != nil {
+		serviceMonitor = createLookoutServiceMonitor(lookout)
+		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+	}
+
+	var cronJob *batchv1.CronJob
+	if lookout.Spec.DbPruningEnabled {
+		cronJob, err := createLookoutCronJob(lookout)
+		if err != nil {
+			return nil, err
+		}
+		if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
+			return nil, err
+		}
+	}
 
 	ingressWeb := createLookoutIngressWeb(lookout)
 	if err := controllerutil.SetOwnerReference(lookout, ingressWeb, scheme); err != nil {
@@ -226,10 +223,27 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Secret:         secret,
 		IngressWeb:     ingressWeb,
 		Job:            job,
-
-		// ServiceMonitor: nil,
-		// CronJob:        nil,
+		ServiceMonitor: serviceMonitor,
+		CronJob:        cronJob,
 	}, nil
+}
+
+// createLookoutServiceMonitor will return a ServiceMonitor for this
+func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1.ServiceMonitor {
+	return &monitoringv1.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      lookout.Name,
+			Namespace: lookout.Namespace,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				{Port: "metrics", Interval: "15s"},
+			},
+		},
+	}
 }
 
 // Function to build the deployment object for Lookout.
@@ -355,6 +369,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 	return ingressWeb
 }
 
+// createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
 func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
@@ -445,6 +460,119 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 					NodeSelector: lookout.Spec.NodeSelector,
 					Tolerations:  lookout.Spec.Tolerations,
 					Volumes:      volumes,
+				},
+			},
+		},
+	}
+
+	return &job, nil
+}
+
+// createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
+func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+	env := lookout.Spec.Environment
+	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
+	dbPruningSchedule := "hourly"
+	if lookout.Spec.DbPruningSchedule != nil {
+		dbPruningSchedule = *lookout.Spec.DbPruningSchedule
+	}
+
+	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+	var lookoutConfig LookoutConfig
+	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	job := batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        lookout.Name + "-migration",
+			Namespace:   lookout.Namespace,
+			Labels:      AllLabels(lookout.Name, lookout.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule: dbPruningSchedule,
+			JobTemplate: batchv1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lookout.Name + "-migration",
+					Namespace: lookout.Namespace,
+					Labels:    AllLabels(lookout.Name, lookout.Labels),
+				},
+				Spec: batchv1.JobSpec{
+					Parallelism:  &parallelism,
+					Completions:  &completions,
+					BackoffLimit: &backoffLimit,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      lookout.Name + "-migration",
+							Namespace: lookout.Namespace,
+							Labels:    AllLabels(lookout.Name, lookout.Labels),
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:                 "Never",
+							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:  &runAsUser,
+								RunAsGroup: &runAsGroup,
+							},
+							InitContainers: []corev1.Container{{
+								Name:  "lookout-migration-db-wait",
+								Image: "alpine:3.10",
+								Command: []string{
+									"/bin/sh",
+									"-c",
+									`echo "Waiting for Postres..."
+                                                         while ! nc -z $PGHOST $PGPORT; do
+                                                           sleep 1
+                                                         done
+                                                         echo "Postres started!"`,
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name:  "PGHOST",
+										Value: lookoutConfig.Postgres.Connection.Host,
+									},
+									{
+										Name:  "PGPORT",
+										Value: lookoutConfig.Postgres.Connection.Port,
+									},
+								},
+							}},
+							Containers: []corev1.Container{{
+								Name:            "lookout-db-pruner",
+								ImagePullPolicy: "IfNotPresent",
+								Image:           ImageString(lookout.Spec.Image),
+								Args: []string{
+									"--pruneDatabase",
+									"--config",
+									"/config/application_config.yaml",
+								},
+								Ports: []corev1.ContainerPort{{
+									Name:          "metrics",
+									ContainerPort: 9001,
+									Protocol:      "TCP",
+								}},
+								Env:             env,
+								VolumeMounts:    volumeMounts,
+								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+							}},
+							NodeSelector: lookout.Spec.NodeSelector,
+							Tolerations:  lookout.Spec.Tolerations,
+							Volumes:      volumes,
+						},
+					},
 				},
 			},
 		},

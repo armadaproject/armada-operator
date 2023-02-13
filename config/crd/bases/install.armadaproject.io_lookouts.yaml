@@ -1600,6 +1600,12 @@ spec:
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
                 type: string
+              dbPruningEnabled:
+                description: DbPruningEnabled when true a pruning CronJob is created
+                type: boolean
+              dbPruningSchedule:
+                description: DbPruningSchedule schedule to use for db pruning CronJob
+                type: string
               environment:
                 description: Extra environment variables that get added to deployment
                 items:
@@ -1943,6 +1949,7 @@ spec:
             required:
             - applicationConfig
             - clusterIssuer
+            - dbPruningEnabled
             - image
             type: object
           status:
