@@ -1949,7 +1949,6 @@ spec:
             required:
             - applicationConfig
             - clusterIssuer
-            - dbPruningEnabled
             - image
             type: object
           status:

@@ -201,7 +201,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}
 
 	var cronJob *batchv1.CronJob
-	if lookout.Spec.DbPruningEnabled {
+	if lookout.Spec.DbPruningEnabled != nil && *lookout.Spec.DbPruningEnabled {
 		cronJob, err := createLookoutCronJob(lookout)
 		if err != nil {
 			return nil, err

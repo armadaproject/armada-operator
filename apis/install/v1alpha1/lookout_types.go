@@ -84,7 +84,7 @@ type LookoutSpec struct {
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
 	// DbPruningEnabled when true a pruning CronJob is created
-	DbPruningEnabled bool `json:"dbPruningEnabled"`
+	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
 	// DbPruningSchedule schedule to use for db pruning CronJob
 	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
 }

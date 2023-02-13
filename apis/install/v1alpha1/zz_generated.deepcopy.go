@@ -1003,6 +1003,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.DbPruningEnabled != nil {
+		in, out := &in.DbPruningEnabled, &out.DbPruningEnabled
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DbPruningSchedule != nil {
 		in, out := &in.DbPruningSchedule, &out.DbPruningSchedule
 		*out = new(string)
