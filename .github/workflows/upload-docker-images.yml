@@ -1,0 +1,35 @@
+name: Release Armada
+
+on:
+  workflow_call: {}
+
+jobs:
+  upload-docker-images:
+    runs-on: ubuntu-latest
+    environment: armada-dockerhub
+    steps:
+      - name: Download saved docker-images artifact
+        uses: actions/download-artifact@v3.0.1
+        with:
+          name: docker-images
+      - name: Unzip docker-images artifacts
+        run: |
+          tar xf docker-images.tar.gz
+          rm docker-images.tar.gz
+      - name: Upload images to docker
+        run: |
+          TAG_SUFFIX=$(echo "${{ github.sha }}" | sed 's|/|-|g')
+
+          if [ "${{github.ref_name}}" = "main" ]; then
+            TAG="$TAG_SUFFIX"
+          else
+            TAG="${{ github.ref_name }}-$TAG_SUFFIX"
+          fi
+
+          echo ${{ secrets.DOCKERHUB_PASS }} | docker login -u ${{ secrets.DOCKERHUB_USER }} --password-stdin
+
+          remote="gresearch/armada-operator:${TAG}"
+          docker load -i docker-images/armada-operator.tar.gz
+          docker tag armada-operator:latest $remote
+          echo "Pushing armada-operatorto Docker Hub $remote"
+          docker push $remote

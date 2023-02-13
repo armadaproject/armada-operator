@@ -10,8 +10,8 @@ builds:
     goarch:
       - amd64
 
-sboms:
-  - artifacts: archive
+#sboms:
+#  - artifacts: archive
 
 env:
   - DOCKER_REPO={{ if index .Env "DOCKER_REPO"  }}{{ .Env.DOCKER_REPO }}/{{ else }}{{ end }}

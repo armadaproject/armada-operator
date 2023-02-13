@@ -1,0 +1,44 @@
+name: Build Release Images
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-images:
+    if: github.repository_owner == 'armadaproject'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0		# see https://github.com/marketplace/actions/goreleaser-action#usage
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+
+      - name: Run GoReleaser to build Docker image
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean
+
+      - name: Save docker images to artifact
+        run: |
+          mkdir -p docker-images
+          docker save armada-operator | gzip > docker-images/armada-operator.tar.gz
+
+          tar -czf docker-images.tar.gz docker-images/*
+
+      - name: Upload docker image tarball to artifacts
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: docker-images
+          path: docker-images.tar.gz
+          if-no-files-found: error
+  invoke-image-push:
+    name: Push Docker Image artifacts to Docker Hub
+    needs: build-images
+    uses: ./.github/workflows/upload-docker-images.yml
+    secrets: inherit
