@@ -1,4 +1,4 @@
-# Golang Operator OpenAPI Validation Notes
+# Golang Operator OpenAPI Validation Markers Notes
 
 ## Summary
 
@@ -6,7 +6,11 @@ Using validation [markers](https://book.kubebuilder.io/reference/markers.html)
 (aka annotations) in our go type definitions allows 
 the kubernetes CRD API generator to apply validation rules to our CRD manifests. 
 This helps kubernetes apply additional verification and validation of CRD 
-specifications during creation or update of our custom resources.
+specifications during creation or update of our custom resources. However, the 
+validation rules are rather simple and limited.
+
+If we need more robust or complex validation, then we should turn to 
+[validating admission webhooks](https://sdk.operatorframework.io/docs/building-operators/golang/webhook/#1-validating-admission-webhook).
 
 ## How-To
 
@@ -98,6 +102,12 @@ in golang has an implicit validation line like so:
 ```golang
 // +kubebuilder:validation:Type:=string
 ```
+
+### Embedded Structs and Promoted Fields Won't Work
+`controller-gen` does not handle embedded structs like one would expect. They
+will be completely absent from the generated CRD manifests. This makes it 
+harder to reuse sections of service specification structs across different 
+services.
 
 ## Links
 
