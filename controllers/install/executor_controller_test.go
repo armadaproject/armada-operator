@@ -38,14 +38,16 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
 		Spec: installv1alpha1.ExecutorSpec{
-			Labels: nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			Resources:         &corev1.ResourceRequirements{},
-			Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -187,12 +189,14 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.ExecutorSpec{
-			Labels: nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -236,6 +240,7 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 		t.Fatalf("reconcile should not return error")
 	}
 }
+
 func TestExecutorReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
 	t.Parallel()
 
@@ -255,12 +260,14 @@ func TestExecutorReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.ExecutorSpec{
-			Labels: nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -297,7 +304,9 @@ func TestExecutorReconciler_generateAdditionalClusterRoles(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-executor"},
 		Spec: installv1alpha1.ExecutorSpec{
-			CustomServiceAccount: "test-service-account",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				CustomServiceAccount: "test-service-account",
+			},
 			AdditionalClusterRoleBindings: []installv1alpha1.AdditionalClusterRoleBinding{
 				{
 					NameSuffix:      "test1",

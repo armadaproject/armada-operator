@@ -33,10 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: 'TODO: Clif - should this just look like the other services
-              or is there unique functionality? LookoutIngesterSpec defines the desired
-              state of LookoutIngester TODO: Should we be using OpenAPI validation
-              markers on our Specs? See: https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#openapi-validation'
+            description: LookoutIngesterSpec defines the desired state of LookoutIngester
             properties:
               additionalVolumeMounts:
                 description: Additional volume mounts that are added as volumes
@@ -1591,10 +1588,9 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal LookoutIngester configuration
-                  which will be created as a Kubernetes Secret and mounted in the
-                  Kubernetes Deployment object
-                type: object
+                description: ApplicationConfig is the internal configuration of the
+                  application which will be created as a Kubernetes Secret and mounted
+                  in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
@@ -1715,8 +1711,12 @@ spec:
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository
@@ -1749,8 +1749,8 @@ spec:
                     type: string
                 type: object
               resources:
-                description: Resources is the configuration block for setting LookoutIngester
-                  resource requirements
+                description: Resources is the configuration block for setting resource
+                  requirements for this service
                 properties:
                   limits:
                     additionalProperties:
@@ -1867,7 +1867,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the LookoutIngester pod tolerate
+                  which taints this pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching

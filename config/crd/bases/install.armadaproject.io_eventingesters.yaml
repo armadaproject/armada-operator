@@ -1588,10 +1588,9 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal EventIngester configuration
-                  which will be created as a Kubernetes Secret and mounted in the
-                  Kubernetes Deployment object
-                type: object
+                description: ApplicationConfig is the internal configuration of the
+                  application which will be created as a Kubernetes Secret and mounted
+                  in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
@@ -1712,8 +1711,12 @@ spec:
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository
@@ -1756,8 +1759,8 @@ spec:
                 format: int32
                 type: integer
               resources:
-                description: Resources is the configuration block for setting Executor
-                  resource requirements
+                description: Resources is the configuration block for setting resource
+                  requirements for this service
                 properties:
                   limits:
                     additionalProperties:
@@ -1874,7 +1877,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints the EventIngester pod can tolerate
+                  which taints this pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching

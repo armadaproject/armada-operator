@@ -49,20 +49,22 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armadaserver"},
 		Spec: installv1alpha1.ArmadaServerSpec{
-			Labels: map[string]string{"test": "hello"},
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: map[string]string{"test": "hello"},
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
-			HostNames:         []string{"localhost"},
+			ClusterIssuer: "test",
+			HostNames:     []string{"localhost"},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
-			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 
@@ -271,12 +273,14 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.ArmadaServerSpec{
-			Labels: nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
@@ -309,6 +313,7 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 		t.Fatalf("reconcile should not return error")
 	}
 }
+
 func TestArmadaServerReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
 	t.Parallel()
 
@@ -328,12 +333,14 @@ func TestArmadaServerReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) 
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.ArmadaServerSpec{
-			Labels: nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},

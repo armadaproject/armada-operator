@@ -17,46 +17,21 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EventIngesterSpec defines the desired state of EventIngester
 type EventIngesterSpec struct {
+	CommonSpecBase `json:""`
+
 	// Replicas is the number of replicated instances for ArmadaServer
 	Replicas int32 `json:"replicas,omitempty"`
-	// Labels is the map of labels which wil be added to all objects
-	Labels map[string]string `json:"labels,omitempty"`
-	// Image is the configuration block for the image repository and tag
-	Image Image `json:"image"`
-	// ApplicationConfig is the internal EventIngester configuration which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object
-	ApplicationConfig runtime.RawExtension `json:"applicationConfig"`
-	// PrometheusConfig is the configuration block for Prometheus monitoring
-	Prometheus *PrometheusConfig `json:"prometheus,omitempty"`
-	// Resources is the configuration block for setting Executor resource requirements
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Tolerations is the configuration block for specifying which taints the EventIngester pod can tolerate
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// TerminationGracePeriodSeconds specifies how many seconds should Kubernetes wait for the application to shut down gracefully before sending a KILL signal
-	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// if CustomServiceAccount is specified, then that service account is referenced in the Deployment (overrides service account defined in spec.serviceAccount field)
-	CustomServiceAccount string `json:"customServiceAccount,omitempty"`
-	// if ServiceAccount configuration is defined, it creates a new service account and references it in the deployment
-	ServiceAccount *ServiceAccountConfig `json:"serviceAccount,omitempty"`
-	// Extra environment variables that get added to deployment
-	Environment []corev1.EnvVar `json:"environment,omitempty"`
-	// Additional volumes that are mounted into deployments
-	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
-	// Additional volume mounts that are added as volumes
-	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
 }
 
 // EventIngesterStatus defines the observed state of EventIngester
-type EventIngesterStatus struct {
-}
+type EventIngesterStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status

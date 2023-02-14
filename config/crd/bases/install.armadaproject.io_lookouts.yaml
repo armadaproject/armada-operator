@@ -1588,9 +1588,9 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal Lookout configuration
-                  which will be created as a Kubernetes Secret and mounted in the
-                  Kubernetes Deployment object
+                description: ApplicationConfig is the internal configuration of the
+                  application which will be created as a Kubernetes Secret and mounted
+                  in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
               clusterIssuer:
                 description: Who is issuing certificates for CA
@@ -1719,14 +1719,20 @@ spec:
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository
                 - tag
                 type: object
               ingress:
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Lookout
                 properties:
                   annotations:
                     additionalProperties:
@@ -1780,12 +1786,12 @@ spec:
                     type: string
                 type: object
               replicas:
-                description: Replicas is the number of replicated instances for ArmadaServer
+                description: Replicas is the number of replicated instances for Lookout
                 format: int32
                 type: integer
               resources:
-                description: Resources is the configuration block for setting Lookout
-                  resource requirements
+                description: Resources is the configuration block for setting resource
+                  requirements for this service
                 properties:
                   limits:
                     additionalProperties:
@@ -1898,10 +1904,11 @@ spec:
                 description: TerminationGracePeriodSeconds specifies how many seconds
                   should Kubernetes wait for the application to shut down gracefully
                   before sending a KILL signal
+                format: int64
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the Lookout pod tolerate
+                  which taints this pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching

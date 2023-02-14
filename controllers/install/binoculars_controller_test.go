@@ -47,21 +47,23 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 				Spec: v1alpha1.BinocularsSpec{
-					Replicas:  2,
-					HostNames: []string{"localhost"},
-					Labels:    map[string]string{"test": "hello"},
-					Image: installv1alpha1.Image{
-						Repository: "testrepo",
-						Tag:        "1.0.0",
+					CommonSpecBase: installv1alpha1.CommonSpecBase{
+						Labels: map[string]string{"test": "hello"},
+						Image: installv1alpha1.Image{
+							Repository: "testrepo",
+							Tag:        "1.0.0",
+						},
+						ApplicationConfig: runtime.RawExtension{},
+						Resources:         &corev1.ResourceRequirements{},
 					},
-					ApplicationConfig: runtime.RawExtension{},
-					ClusterIssuer:     "test",
+					Replicas:      2,
+					HostNames:     []string{"localhost"},
+					ClusterIssuer: "test",
 					Ingress: &installv1alpha1.IngressConfig{
 						IngressClass: "nginx",
 						Labels:       map[string]string{"test": "hello"},
 						Annotations:  map[string]string{"test": "hello"},
 					},
-					Resources: &corev1.ResourceRequirements{},
 				},
 			},
 		},
@@ -74,21 +76,23 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 				Spec: v1alpha1.BinocularsSpec{
-					Replicas:  2,
-					HostNames: []string{"localhost"},
-					Labels:    map[string]string{"test": "hello"},
-					Image: installv1alpha1.Image{
-						Repository: "testrepo",
-						Tag:        "1.0.0",
+					CommonSpecBase: installv1alpha1.CommonSpecBase{
+						Labels: map[string]string{"test": "hello"},
+						Image: installv1alpha1.Image{
+							Repository: "testrepo",
+							Tag:        "1.0.0",
+						},
+						ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+						Resources:         &corev1.ResourceRequirements{},
 					},
-					ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
-					ClusterIssuer:     "test",
+					Replicas:      2,
+					HostNames:     []string{"localhost"},
+					ClusterIssuer: "test",
 					Ingress: &installv1alpha1.IngressConfig{
 						IngressClass: "nginx",
 						Labels:       map[string]string{"test": "hello"},
 						Annotations:  map[string]string{"test": "hello"},
 					},
-					Resources: &corev1.ResourceRequirements{},
 				},
 			},
 		},
@@ -102,10 +106,10 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-
 		})
 	}
 }
+
 func TestBinocularsReconciler_Reconcile(t *testing.T) {
 	t.Parallel()
 
@@ -126,21 +130,24 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
 		Spec: v1alpha1.BinocularsSpec{
-			Replicas:  2,
-			HostNames: []string{"localhost"},
-			Labels:    map[string]string{"test": "hello"},
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: map[string]string{"test": "hello"},
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
+
+			Replicas:      2,
+			HostNames:     []string{"localhost"},
+			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
-			Resources: &corev1.ResourceRequirements{},
 		},
 	}
 
@@ -286,6 +293,7 @@ func TestBinocularsReconciler_ReconcileNoBinoculars(t *testing.T) {
 		t.Fatalf("reconcile should not return error")
 	}
 }
+
 func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 	t.Parallel()
 
@@ -305,14 +313,16 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.BinocularsSpec{
-			Replicas: 2,
-			Labels:   nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
 			},
-			ApplicationConfig: runtime.RawExtension{},
-			ClusterIssuer:     "test",
+			Replicas:      2,
+			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
@@ -379,14 +389,16 @@ func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.BinocularsSpec{
-			Replicas: 2,
-			Labels:   nil,
-			Image: installv1alpha1.Image{
-				Repository: "testrepo",
-				Tag:        "1.0.0",
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
-			ClusterIssuer:     "test",
+			Replicas:      2,
+			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
