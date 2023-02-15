@@ -17,9 +17,10 @@ import (
 	"context"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -147,6 +148,7 @@ type LookoutComponents struct {
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
 	ServiceMonitor *monitoringv1.ServiceMonitor
+	PromethusRule  *monitoringv1.PrometheusRule
 	CronJob        *batchv1.CronJob
 }
 
@@ -184,9 +186,18 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	serviceMonitor := createLookoutServiceMonitor(lookout)
-	if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
-		return nil, err
+	var serviceMonitor *monitoringv1.ServiceMonitor
+	var prometheusRule *monitoringv1.PrometheusRule
+	if lookout.Spec.Prometheus != nil && lookout.Spec.Prometheus.Enabled {
+		serviceMonitor = createLookoutServiceMonitor(lookout)
+		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+		var scrapeInterval *metav1.Duration
+		if lookout.Spec.Prometheus.ScrapeInterval != nil {
+			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
+		}
+		prometheusRule = createPrometheusRule(lookout.Name, scrapeInterval)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)
@@ -221,6 +232,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		IngressWeb:     ingressWeb,
 		Job:            job,
 		ServiceMonitor: serviceMonitor,
+		PromethusRule:  prometheusRule,
 		CronJob:        cronJob,
 	}, nil
 }

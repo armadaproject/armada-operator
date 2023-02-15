@@ -8,11 +8,19 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+)
+
+const (
+	defaultPrometheusInterval = 1 * time.Second
 )
 
 // ImageString generates a docker image.
@@ -147,4 +155,35 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 	}
 	volumeMounts = append(volumeMounts, crdVolumeMounts...)
 	return volumeMounts
+}
+
+// createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
+func createPrometheusRule(name string, scrapeInterval *metav1.Duration) *monitoringv1.PrometheusRule {
+	if scrapeInterval == nil {
+		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
+	}
+	restRequestHistogram := `histogram_quantile(0.95, ` +
+		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + name + `"}[2m])) by (endpoint, verb, url, le))`
+	logRate := "sum(rate(log_messages[2m])) by (level)"
+	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	return &monitoringv1.PrometheusRule{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{{
+				Name:     "armada-" + name + "-metrics",
+				Interval: monitoringv1.Duration(durationString),
+				Rules: []monitoringv1.Rule{
+					{
+						Record: "armada:" + name + ":rest:request:histogram95",
+						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
+					},
+					{
+						Record: "armada:" + name + ":log:rate",
+						Expr:   intstr.IntOrString{StrVal: logRate},
+					},
+				},
+			}},
+		},
+	}
 }

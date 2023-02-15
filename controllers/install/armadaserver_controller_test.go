@@ -186,14 +186,14 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&policyv1.PodDisruptionBudget{})).
 		Return(nil)
 	// PrometheusRule
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNS, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(nil)
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Get(gomock.Any(), expectedNS, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+	// 	Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	// mockK8sClient.
+	// 	EXPECT().
+	// 	Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+	// 	Return(nil)
 	// ServiceMonitor
 	mockK8sClient.
 		EXPECT().

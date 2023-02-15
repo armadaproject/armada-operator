@@ -243,9 +243,9 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	pr := createPrometheusRule(as)
-	if err := controllerutil.SetOwnerReference(as, pr, scheme); err != nil {
-		return nil, err
+	var pr *monitoringv1.PrometheusRule
+	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
+		pr = createPrometheusRule(as.Name, as.Spec.Prometheus.ScrapeInterval)
 	}
 
 	sm := createServiceMonitor(as)
@@ -663,16 +663,6 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		Spec:       policyv1.PodDisruptionBudgetSpec{},
 		Status:     policyv1.PodDisruptionBudgetStatus{},
-	}
-}
-
-func createPrometheusRule(as *installv1alpha1.ArmadaServer) *monitoringv1.PrometheusRule {
-	return &monitoringv1.PrometheusRule{
-		TypeMeta:   metav1.TypeMeta{Kind: "prometheus"},
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Spec: monitoringv1.PrometheusRuleSpec{
-			Groups: []monitoringv1.RuleGroup{},
-		},
 	}
 }
 
