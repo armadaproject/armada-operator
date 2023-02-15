@@ -143,6 +143,10 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+# Go Release Build
+.PHONY: go-release-build
+go-release-build: goreleaser
+	goreleaser release --rm-dist --snapshot
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -265,6 +269,7 @@ GOTESTSUM ?= $(LOCALBIN)/gotestsum
 MOCKGEN ?= $(LOCALBIN)/mockgen
 KIND    ?= $(LOCALBIN)/kind
 HELMIFY ?= $(LOCALBIN)/helmify
+GORELEASER ?= $(LOCALBIN)/goreleaser
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
@@ -304,6 +309,12 @@ $(KIND): $(LOCALBIN)
 helmify: $(HELMIFY)
 $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@v0.3.22
+
+.PHONY: goreleaser
+goreleaser: $(GORELEASER)
+$(GORELEASER): $(LOCALBIN)
+	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.11.5
+
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
