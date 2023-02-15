@@ -22,3 +22,7 @@ linters:
 linters-settings:
     goimports:
         local-prefixes: github.com/armadaproject/armada-operator
+
+run:
+  skip-dirs:
+    - dev/helm-charts/pulsar-helm-chart

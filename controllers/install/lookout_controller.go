@@ -329,7 +329,8 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 
 func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingress {
 	ingressWeb := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
+		ObjectMeta: metav1.ObjectMeta{
+			Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                lookout.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          lookout.Spec.ClusterIssuer,
@@ -382,7 +383,10 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
-	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
+	var terminationGracePeriodSeconds int64
+	if lookout.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)

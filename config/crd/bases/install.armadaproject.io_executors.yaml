@@ -49,8 +49,7 @@ spec:
                   type: object
                 type: array
               additionalVolumeMounts:
-                description: Additional VolumeMounts which will be attached to the
-                  app container
+                description: Additional volume mounts that are added as volumes
                 items:
                   description: VolumeMount describes a mounting of a Volume within
                     a container.
@@ -89,7 +88,7 @@ spec:
                   type: object
                 type: array
               additionalVolumes:
-                description: Additional Volumes which will be added to the Deployment
+                description: Additional volumes that are mounted into deployments
                 items:
                   description: Volume represents a named volume in a pod that may
                     be accessed by any container in the pod.
@@ -1602,16 +1601,16 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal Executor configuration
-                  which will be created as a Kubernetes Secret and mounted in the
-                  Kubernetes Deployment object
+                description: ApplicationConfig is the internal configuration of the
+                  application which will be created as a Kubernetes Secret and mounted
+                  in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
               customServiceAccount:
-                description: if CustomServiceAccount is specified, then the custom
-                  service account is referenced in the Deployment and this will override
-                  service account defined in spec.serviceAccount field
+                description: if CustomServiceAccount is specified, then that service
+                  account is referenced in the Deployment (overrides service account
+                  defined in spec.serviceAccount field)
                 type: string
-              env:
+              environment:
                 description: Extra environment variables that get added to deployment
                 items:
                   description: EnvVar represents an environment variable present in
@@ -1725,8 +1724,12 @@ spec:
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository
@@ -1816,8 +1819,8 @@ spec:
                     type: string
                 type: object
               resources:
-                description: Resources is the configuration block for setting Executor
-                  resource requirements
+                description: Resources is the configuration block for setting resource
+                  requirements for this service
                 properties:
                   limits:
                     additionalProperties:
@@ -1934,7 +1937,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints can the Executor pod tolerate
+                  which taints this pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
