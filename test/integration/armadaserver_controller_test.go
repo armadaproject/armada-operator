@@ -18,7 +18,7 @@ var _ = Describe("Armada Operator", func() {
 	When("User applies a new ArmadaServer YAML using kubectl", func() {
 		It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
 			By("Calling the ArmadaServer Controller Reconcile function", func() {
-				f, err := os.Open("./resources/server1.yaml")
+				f, err := os.Open("./resources/server1-pulsar-jobs.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 				Expect(err).ToNot(HaveOccurred())
@@ -34,20 +34,20 @@ var _ = Describe("Armada Operator", func() {
 				}
 				stdoutBytes, err := io.ReadAll(stdout)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(stdoutBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e created\n"))
+				Expect(string(stdoutBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e-pulsar created\n"))
 
 				as := installv1alpha1.ArmadaServer{}
-				asKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
+				asKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-pulsar"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, asKey, &as)
 				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
 
 				secret := corev1.Secret{}
-				secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
+				secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-pulsar"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, secretKey, &secret)
 				}, "15s", "50ms").ShouldNot(HaveOccurred())
-				Expect(secret.Data["armadaserver-e2e-config.yaml"]).NotTo(BeEmpty())
+				Expect(secret.Data["armadaserver-e2e-pulsar-config.yaml"]).NotTo(BeEmpty())
 
 				for _, jobName := range []string{"wait-for-pulsar", "init-pulsar"} {
 					// set migrate Job to complete -- there is no JobController in this environment,
@@ -70,14 +70,14 @@ var _ = Describe("Armada Operator", func() {
 				}
 
 				deployment := appsv1.Deployment{}
-				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
+				deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-pulsar"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, deploymentKey, &deployment)
 				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
-				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("armadaserver-e2e"))
+				Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("armadaserver-e2e-pulsar"))
 
 				service := corev1.Service{}
-				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e"}
+				serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-pulsar"}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, serviceKey, &service)
 				}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
@@ -85,5 +85,51 @@ var _ = Describe("Armada Operator", func() {
 		})
 	})
 
-	// TODO Add second 'When' scenario - for updating
+	It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
+		By("Calling the ArmadaServer Controller Reconcile function", func() {
+			f, err := os.Open("./resources/server1-no-pulsar-jobs.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			defer f.Close()
+			Expect(err).ToNot(HaveOccurred())
+			defer f.Close()
+
+			k, err := testUser.Kubectl()
+			Expect(err).ToNot(HaveOccurred())
+			stdout, stderr, err := k.Run("create", "-f", f.Name())
+			if err != nil {
+				stderrBytes, err := io.ReadAll(stderr)
+				Expect(err).ToNot(HaveOccurred())
+				Fail(string(stderrBytes))
+			}
+			stdoutBytes, err := io.ReadAll(stdout)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(stdoutBytes)).To(Equal("armadaserver.install.armadaproject.io/armadaserver-e2e-no-pulsar created\n"))
+
+			as := installv1alpha1.ArmadaServer{}
+			asKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-no-pulsar"}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, asKey, &as)
+			}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
+
+			secret := corev1.Secret{}
+			secretKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-no-pulsar"}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, &secret)
+			}, "15s", "50ms").ShouldNot(HaveOccurred())
+			Expect(secret.Data["armadaserver-e2e-no-pulsar-config.yaml"]).NotTo(BeEmpty())
+
+			deployment := appsv1.Deployment{}
+			deploymentKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-no-pulsar"}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deploymentKey, &deployment)
+			}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
+			Expect(deployment.Spec.Selector.MatchLabels["app"]).To(Equal("armadaserver-e2e-no-pulsar"))
+
+			service := corev1.Service{}
+			serviceKey := kclient.ObjectKey{Namespace: "default", Name: "armadaserver-e2e-no-pulsar"}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, &service)
+			}, defaultTimeout, defaultPollInterval).ShouldNot(HaveOccurred())
+		})
+	})
 })

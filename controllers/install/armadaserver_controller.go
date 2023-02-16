@@ -100,17 +100,19 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for idx := range components.Jobs {
-		if components.Jobs[idx] != nil {
-			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
-				return ctrl.Result{}, err
-			}
-			ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
-			defer cancel()
+	if as.Spec.PulsarInit {
+		for idx := range components.Jobs {
+			if components.Jobs[idx] != nil {
+				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
+					return ctrl.Result{}, err
+				}
+				ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+				defer cancel()
 
-			err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
-			if err != nil {
-				return ctrl.Result{}, err
+				err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 		}
 	}
