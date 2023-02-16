@@ -254,6 +254,14 @@ helm-install-redis: helm-bitnami
 helm-install-prometheus: helm-bitnami
 	$(HELM) install prometheus -n armada -f ./dev/helm-charts/prometheus_bitnami_values.yaml bitnami/kube-prometheus
 
+PROMETHEUS_OPERATOR_VERSION=v0.62.0
+.PHONY: dev-install-prometheus-operator
+dev-install-prometheus-operator:
+	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed --expression='s/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
+	sleep 5
+	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=120s
+	kubectl apply -n armada -f ./config/samples/prometheus.yaml
+
 ##@ Build Dependencies
 
 ## Location to install dependencies to
@@ -408,7 +416,8 @@ create-dev-cluster:
 
 # Setup dependencies for a local development environment
 .PHONY: dev-setup
-dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres helm-install-redis helm-install-prometheus \
+dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres \
+    helm-install-redis dev-install-prometheus-operator \
     install-cert-manager install-ingress-controller
 
 .PHONY: dev-teardown
