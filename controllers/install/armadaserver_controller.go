@@ -331,7 +331,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 							"/bin/sh",
 							"-c",
 							`echo "Waiting for Pulsar... ($PULSARHOST:$PULSARPORT)"
-							while ! nc -z $PULSARHOST $PULSARPORT; do; sleep 1; done
+							while ! nc -z $PULSARHOST $PULSARPORT; do sleep 1; done
               echo "Pulsar started!"`,
 						},
 						Ports: []corev1.ContainerPort{{
@@ -396,7 +396,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 					Containers: []corev1.Container{{
 						Name:            "init-pulsar",
 						ImagePullPolicy: "IfNotPresent",
-						Image:           "alpine:3.16",
+						Image:           "apachepulsar/pulsar:2.11.0",
 						Args: []string{
 							"/bin/sh",
 							"-c",
