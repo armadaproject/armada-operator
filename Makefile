@@ -250,10 +250,6 @@ helm-install-postgres: helm-bitnami
 helm-install-redis: helm-bitnami
 	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
 
-.PHONY: helm-install-prometheus
-helm-install-prometheus: helm-bitnami
-	$(HELM) install prometheus -n armada -f ./dev/helm-charts/prometheus_bitnami_values.yaml bitnami/kube-prometheus
-
 PROMETHEUS_OPERATOR_VERSION=v0.62.0
 .PHONY: dev-install-prometheus-operator
 dev-install-prometheus-operator:
