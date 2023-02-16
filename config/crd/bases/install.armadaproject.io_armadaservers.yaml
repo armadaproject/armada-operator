@@ -1785,6 +1785,9 @@ spec:
                     format: duration
                     type: string
                 type: object
+              pulsarInit:
+                description: Run Pulsar Init Jobs On Startup
+                type: boolean
               replicas:
                 description: Replicas is the number of replicated instances for ArmadaServer
                 format: int32

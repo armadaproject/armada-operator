@@ -9,6 +9,7 @@ metadata:
   name: armadaserver-e2e
   namespace: default
 spec:
+  pulsarInit: true
   replicas: 1
   ingress:
     ingressClass: "nginx"
