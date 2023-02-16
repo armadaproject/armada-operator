@@ -11,6 +11,7 @@ metadata:
   name: armadaserver-sample
   namespace: armada
 spec:
+  pulsarInit: false
   ingress:
     ingressClass: "nginx"
     labels:
