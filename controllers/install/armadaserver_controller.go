@@ -228,7 +228,20 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	service := createArmadaServerService(as)
+	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), []corev1.ServicePort{
+		{
+			Name: "grpc",
+			Port: 50051,
+		},
+		{
+			Name: "rest",
+			Port: 8080,
+		},
+		{
+			Name: "metrics",
+			Port: 9000,
+		},
+	})
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
 		return nil, err
 	}
@@ -534,20 +547,6 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 	}
 
 	return &deployment
-}
-
-func createArmadaServerService(as *installv1alpha1.ArmadaServer) *corev1.Service {
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:     "metrics",
-				Protocol: corev1.ProtocolTCP,
-				Port:     9001,
-			}},
-		},
-	}
-	return &service
 }
 
 func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
