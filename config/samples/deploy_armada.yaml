@@ -14,8 +14,6 @@ spec:
     tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
     server: example.com:443
-    prometheusRule:
-      kind: "prometheus"
     forceNoTls: true
     toleratedTaints:
       - key: armada.io/batch
