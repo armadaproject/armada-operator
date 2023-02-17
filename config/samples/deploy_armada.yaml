@@ -4,6 +4,7 @@ metadata:
   name: armadaserver-sample
   namespace: armada
 spec:
+  pulsarInit: false
   ingress:
     ingressClass: "nginx"
   clusterIssuer: "k8s-cluster-issuer"
@@ -13,9 +14,7 @@ spec:
     repository: gresearch/armada-server
     tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
-    server: example.com:443
-    prometheusRule:
-      kind: "prometheus"
+    server: example.com:50051
     forceNoTls: true
     toleratedTaints:
       - key: armada.io/batch

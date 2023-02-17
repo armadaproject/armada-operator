@@ -100,17 +100,19 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for idx := range components.Jobs {
-		if components.Jobs[idx] != nil {
-			if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
-				return ctrl.Result{}, err
-			}
-			ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
-			defer cancel()
+	if as.Spec.PulsarInit {
+		for idx := range components.Jobs {
+			if components.Jobs[idx] != nil {
+				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
+					return ctrl.Result{}, err
+				}
+				ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+				defer cancel()
 
-			err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
-			if err != nil {
-				return ctrl.Result{}, err
+				err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 		}
 	}
@@ -228,7 +230,20 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	service := createArmadaServerService(as)
+	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), []corev1.ServicePort{
+		{
+			Name: "grpc",
+			Port: 50051,
+		},
+		{
+			Name: "rest",
+			Port: 8080,
+		},
+		{
+			Name: "metrics",
+			Port: 9000,
+		},
+	})
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
 		return nil, err
 	}
@@ -253,17 +268,19 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	jobs, err := createArmadaServerMigrationJobs(as)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, job := range jobs {
-		if err := controllerutil.SetOwnerReference(as, job, scheme); err != nil {
+	jobs := []*batchv1.Job{{}}
+	if as.Spec.PulsarInit {
+		jobs, err = createArmadaServerMigrationJobs(as)
+		if err != nil {
 			return nil, err
 		}
-	}
 
+		for _, job := range jobs {
+			if err := controllerutil.SetOwnerReference(as, job, scheme); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return &ArmadaServerComponents{
 		Deployment:          deployment,
 		Ingress:             ingressGRPC,
@@ -532,20 +549,6 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 	}
 
 	return &deployment
-}
-
-func createArmadaServerService(as *installv1alpha1.ArmadaServer) *corev1.Service {
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:     "metrics",
-				Protocol: corev1.ProtocolTCP,
-				Port:     9001,
-			}},
-		},
-	}
-	return &service
 }
 
 func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {

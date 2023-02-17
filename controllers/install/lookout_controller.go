@@ -178,7 +178,20 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels))
+	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), []corev1.ServicePort{
+		{
+			Name: "web",
+			Port: 8080,
+		},
+		{
+			Name: "grpc",
+			Port: 50059,
+		},
+		{
+			Name: "metrics",
+			Port: 9000,
+		},
+	})
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
