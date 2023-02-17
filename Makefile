@@ -414,7 +414,7 @@ create-dev-cluster:
 .PHONY: dev-setup
 dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres \
     helm-install-redis dev-install-prometheus-operator \
-    install-cert-manager install-ingress-controller
+    install-cert-manager install-ingress-controller dev-setup-webhook-tls
 
 .PHONY: dev-teardown
 dev-teardown:
