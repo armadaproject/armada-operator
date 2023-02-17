@@ -80,6 +80,12 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedAS)
 
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil)
+
 	// Pulsar-wait job
 	expectedComponents.Jobs[0].Status = batchv1.JobStatus{
 		Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
@@ -293,6 +299,12 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
 		Return(nil).
 		SetArg(2, expectedArmadaServer)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {

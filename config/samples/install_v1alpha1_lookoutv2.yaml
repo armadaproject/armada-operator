@@ -2,16 +2,14 @@ apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
   labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
+    app.kubernetes.io/name: lookoutv2
+    app.kubernetes.io/instance: lookoutv2-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: lookout-sample
+  name: lookoutv2-sample
   namespace: armada
 spec:
-  migrateDatabase: true
-  enableV2: true
   ingress:
     ingressClass: "nginx"
     labels:
@@ -22,8 +20,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearchdev/armada-lookout
-    tag: v0.3.44
+    repository: gresearchdev/armada-lookoutv2-dev
+    tag: LATEST
   resources:
     limits:
       memory: 1Gi

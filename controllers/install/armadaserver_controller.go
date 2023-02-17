@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
 
@@ -52,6 +55,7 @@ type ArmadaServerReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups="";apps;monitoring.coreos.com;rbac.authorization.k8s.io;scheduling.k8s.io,resources=services;serviceaccounts;clusterroles;clusterrolebindings;deployments;prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -78,8 +82,38 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	deletionTimestamp := as.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("ArmadaServer object is being deleted")
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
+			logger.Info("Attaching finalizer to As object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&as, operatorFinalizer)
+			if err := r.Update(ctx, &as); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("ArmadaServer object is being deleted", "finalizer", operatorFinalizer)
+		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&as, operatorFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for ArmadaServer cluster-scoped components", "finalizer", operatorFinalizer)
+			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from ArmadaServer object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&as, operatorFinalizer)
+			if err := r.Update(ctx, &as); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
@@ -681,6 +715,19 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 			},
 		},
 	}
+}
+
+// deleteExternalResources removes any external resources during deletion
+func (r *ArmadaServerReconciler) deleteExternalResources(ctx context.Context, components *ArmadaServerComponents, logger logr.Logger) error {
+
+	if components.PrometheusRule != nil {
+		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
+		}
+		logger.Info("Successfully deleted ArmadaServer PrometheusRule")
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

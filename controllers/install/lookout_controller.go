@@ -531,7 +531,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 	env := lookout.Spec.Environment
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
-	dbPruningSchedule := "hourly"
+	dbPruningSchedule := "@hourly"
 	if lookout.Spec.DbPruningSchedule != nil {
 		dbPruningSchedule = *lookout.Spec.DbPruningSchedule
 	}
@@ -632,13 +632,14 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 	return &job, nil
 }
 
+// deleteExternalResources removes any external resources during deletion
 func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
 		}
-		logger.Info("Successfully deleted Executor PrometheusRule")
+		logger.Info("Successfully deleted Lookout PrometheusRule")
 	}
 
 	return nil
