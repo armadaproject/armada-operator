@@ -57,7 +57,7 @@ spec:
     tag: 92fcbb6fd58753d2fcb67a9657aaccff95c3b069
   applicationConfig:
     apiConnection:
-      armadaUrl: armada.demo.armadaproject.io:443
+      armadaUrl: example.com:443
       forceNoTls: false
   resources:
     limits:
