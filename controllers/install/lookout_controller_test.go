@@ -75,10 +75,10 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedLookout)
 
-	// Executor finalizer
+	// Finalizer
 	mockK8sClient.
 		EXPECT().
-		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil)
 
 	// ServiceAccount
@@ -304,6 +304,12 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(nil)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
