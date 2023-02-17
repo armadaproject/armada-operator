@@ -75,6 +75,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedLookout)
 
+	// Executor finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
+		Return(nil)
+
 	// ServiceAccount
 	mockK8sClient.
 		EXPECT().

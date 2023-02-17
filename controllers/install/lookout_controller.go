@@ -17,10 +17,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
+	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -51,7 +53,8 @@ type LookoutReconciler struct {
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups="";apps;monitoring.coreos.com;rbac.authorization.k8s.io;scheduling.k8s.io,resources=services;serviceaccounts;clusterroles;clusterrolebindings;deployments;prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -79,10 +82,41 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// examine DeletionTimestamp to determine if object is under deletion
 	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("ArmadaServer object is being deleted")
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
+			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
+			if err := r.Update(ctx, &lookout); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
+		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for Lookout cluster-scoped components", "finalizer", operatorFinalizer)
+			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
+			if err := r.Update(ctx, &lookout); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
@@ -148,7 +182,7 @@ type LookoutComponents struct {
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
 	ServiceMonitor *monitoringv1.ServiceMonitor
-	PromethusRule  *monitoringv1.PrometheusRule
+	PrometheusRule  *monitoringv1.PrometheusRule
 	CronJob        *batchv1.CronJob
 }
 
@@ -232,7 +266,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		IngressWeb:     ingressWeb,
 		Job:            job,
 		ServiceMonitor: serviceMonitor,
-		PromethusRule:  prometheusRule,
+		PrometheusRule:  prometheusRule,
 		CronJob:        cronJob,
 	}, nil
 }
@@ -485,7 +519,10 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
-	terminationGracePeriodSeconds := int64(lookout.Spec.TerminationGracePeriodSeconds)
+	terminationGracePeriodSeconds := int64(0)
+	if lookout.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
@@ -510,7 +547,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name + "-migration",
+			Name:        lookout.Name + "-db-pruner",
 			Namespace:   lookout.Namespace,
 			Labels:      AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
@@ -519,7 +556,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 			Schedule: dbPruningSchedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      lookout.Name + "-migration",
+					Name:      lookout.Name + "-db-pruner",
 					Namespace: lookout.Namespace,
 					Labels:    AllLabels(lookout.Name, lookout.Labels),
 				},
@@ -529,7 +566,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 					BackoffLimit: &backoffLimit,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      lookout.Name + "-migration",
+							Name:      lookout.Name + "-db-pruner",
 							Namespace: lookout.Namespace,
 							Labels:    AllLabels(lookout.Name, lookout.Labels),
 						},
@@ -541,7 +578,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								RunAsGroup: &runAsGroup,
 							},
 							InitContainers: []corev1.Container{{
-								Name:  "lookout-migration-db-wait",
+								Name:  "lookout-db-pruner-db-wait",
 								Image: "alpine:3.10",
 								Command: []string{
 									"/bin/sh",
@@ -593,6 +630,19 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 
 	return &job, nil
 }
+
+func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents, logger logr.Logger) error {
+
+	if components.PrometheusRule != nil {
+		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
+		}
+		logger.Info("Successfully deleted Executor PrometheusRule")
+	}
+
+	return nil
+}
+
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
