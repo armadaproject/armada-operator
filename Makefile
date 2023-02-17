@@ -146,13 +146,13 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # Go Release Build
 .PHONY: go-release-build
 go-release-build: goreleaser
-	goreleaser release --rm-dist --snapshot
+	$(GORELEASER) release --rm-dist --snapshot
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -f Dockerfile.old -t ${IMG} .
+	docker build -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -417,7 +417,7 @@ dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres \
     install-cert-manager install-ingress-controller dev-setup-webhook-tls
 
 .PHONY: dev-install-controller
-dev-install-controller: docker-build load-image deploy
+dev-install-controller: go-release-build load-image deploy
 
 .PHONY: dev-teardown
 dev-teardown:
