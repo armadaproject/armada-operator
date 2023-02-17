@@ -55,7 +55,7 @@ type ArmadaServerReconciler struct {
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
-//+kubebuilder:rbac:groups="";apps;monitoring.coreos.com;rbac.authorization.k8s.io;scheduling.k8s.io,resources=services;serviceaccounts;clusterroles;clusterrolebindings;deployments;prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
+//+kubebuilder:rbac:groups="";resources=prometheusrules,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
