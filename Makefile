@@ -152,7 +152,7 @@ go-release-build: goreleaser
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -f Dockerfile.old -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -254,7 +254,7 @@ PROMETHEUS_OPERATOR_VERSION=v0.62.0
 .PHONY: dev-install-prometheus-operator
 dev-install-prometheus-operator:
 	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed --expression='s/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
-	sleep 5
+	sleep 10
 	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=120s
 	kubectl apply -n armada -f ./config/samples/prometheus.yaml
 
@@ -415,6 +415,9 @@ create-dev-cluster:
 dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres \
     helm-install-redis dev-install-prometheus-operator \
     install-cert-manager install-ingress-controller dev-setup-webhook-tls
+
+.PHONY: dev-install-controller
+dev-install-controller: docker-build load-image deploy
 
 .PHONY: dev-teardown
 dev-teardown:
