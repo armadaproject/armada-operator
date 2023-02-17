@@ -20,9 +20,10 @@ import (
 	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	"github.com/go-logr/logr"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
-	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -182,7 +183,7 @@ type LookoutComponents struct {
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
 	ServiceMonitor *monitoringv1.ServiceMonitor
-	PrometheusRule  *monitoringv1.PrometheusRule
+	PrometheusRule *monitoringv1.PrometheusRule
 	CronJob        *batchv1.CronJob
 }
 
@@ -266,7 +267,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		IngressWeb:     ingressWeb,
 		Job:            job,
 		ServiceMonitor: serviceMonitor,
-		PrometheusRule:  prometheusRule,
+		PrometheusRule: prometheusRule,
 		CronJob:        cronJob,
 	}, nil
 }
@@ -642,7 +643,6 @@ func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, compone
 
 	return nil
 }
-
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
