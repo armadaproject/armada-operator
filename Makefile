@@ -422,3 +422,12 @@ dev-teardown:
 
 .PHONY: dev-run
 dev-run: dev-setup install run
+
+WEBHOOK_TLS_OUT_DIR=/tmp/k8s-webhook-server/serving-certs
+.PHONY: dev-setup-webhook-tls
+dev-setup-webhook-tls:
+	mkdir -p $(WEBHOOK_TLS_OUT_DIR)
+	openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -config dev/tls/webhooks_csr.conf -out $(WEBHOOK_TLS_OUT_DIR)/tls.crt -keyout $(WEBHOOK_TLS_OUT_DIR)/tls.key
+
+dev-remove-webhook-tls:
+	rm $(WEBHOOK_TLS_OUT_DIR)/tls.{crt,key}
