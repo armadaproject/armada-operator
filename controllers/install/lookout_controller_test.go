@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -36,6 +37,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	}
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
@@ -52,6 +54,8 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{},
 				Resources:         &corev1.ResourceRequirements{},
+				Prometheus: &installv1alpha1.PrometheusConfig{ Enabled: true },
+
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
@@ -60,6 +64,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
+			DbPruningEnabled: &dbPruningEnabled,
 		},
 	}
 
@@ -270,6 +275,8 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
+
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
@@ -289,12 +296,14 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus: &installv1alpha1.PrometheusConfig{ Enabled: true },
 			},
 			Replicas:      2,
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
+			DbPruningEnabled: &dbPruningEnabled,
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -311,6 +320,12 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil)
 
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+	
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
