@@ -54,8 +54,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{},
 				Resources:         &corev1.ResourceRequirements{},
-				Prometheus: &installv1alpha1.PrometheusConfig{ Enabled: true },
-
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
@@ -296,7 +295,7 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
-				Prometheus: &installv1alpha1.PrometheusConfig{ Enabled: true },
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Replicas:      2,
 			ClusterIssuer: "test",
@@ -325,7 +324,7 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		EXPECT().
 		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
-	
+
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
