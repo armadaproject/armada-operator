@@ -159,6 +159,26 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.IngressWeb)
 
+	// PrometheusRule
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
+	// ServiceMonitor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
+
 	r := LookoutReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,

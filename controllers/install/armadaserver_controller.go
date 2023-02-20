@@ -279,7 +279,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	var pr *monitoringv1.PrometheusRule
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createPrometheusRule(as.Name, as.Spec.Prometheus.ScrapeInterval)
+		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval)
 	}
 
 	sm := createServiceMonitor(as)

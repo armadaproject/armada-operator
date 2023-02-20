@@ -170,6 +170,20 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	if components.PrometheusRule != nil {
+		logger.Info("Upserting Lookout PrometheusRule object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.ServiceMonitor != nil {
+		logger.Info("Upserting Lookout ServiceMonitor object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Lookout object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -232,7 +246,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		if lookout.Spec.Prometheus.ScrapeInterval != nil {
 			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
 		}
-		prometheusRule = createPrometheusRule(lookout.Name, scrapeInterval)
+		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)

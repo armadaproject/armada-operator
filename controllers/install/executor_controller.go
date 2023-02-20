@@ -189,6 +189,20 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	if components.PrometheusRule != nil {
+		logger.Info("Upserting Executor PrometheusRule object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.ServiceMonitor != nil {
+		logger.Info("Upserting Executor ServiceMonitor object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Executor object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -271,7 +285,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		}
 		components.ServiceMonitor = serviceMonitor
 
-		pr := createPrometheusRule(executor.Name, executor.Spec.Prometheus.ScrapeInterval)
+		pr := createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval)
 		components.PrometheusRule = pr
 	}
 

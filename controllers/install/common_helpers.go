@@ -158,7 +158,7 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 }
 
 // createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createPrometheusRule(name string, scrapeInterval *metav1.Duration) *monitoringv1.PrometheusRule {
+func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration) *monitoringv1.PrometheusRule {
 	if scrapeInterval == nil {
 		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
 	}
@@ -166,12 +166,16 @@ func createPrometheusRule(name string, scrapeInterval *metav1.Duration) *monitor
 		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + name + `"}[2m])) by (endpoint, verb, url, le))`
 	logRate := "sum(rate(log_messages[2m])) by (level)"
 	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	objectMetaName := "armada-" + name + "-metrics"
 	return &monitoringv1.PrometheusRule{
-		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{},
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
-				Name:     "armada-" + name + "-metrics",
+				Name:     objectMetaName,
 				Interval: monitoringv1.Duration(durationString),
 				Rules: []monitoringv1.Rule{
 					{
