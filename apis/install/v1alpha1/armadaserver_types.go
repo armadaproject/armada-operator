@@ -34,6 +34,8 @@ type ArmadaServerSpec struct {
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
+	// Run Pulsar Init Jobs On Startup
+	PulsarInit bool `json:"pulsarInit,omitempty"`
 }
 
 // ArmadaServerStatus defines the observed state of ArmadaServer

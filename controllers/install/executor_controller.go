@@ -254,7 +254,16 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels))
+	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), []corev1.ServicePort{
+		{
+			Name: "rest",
+			Port: 8080,
+		},
+		{
+			Name: "metrics",
+			Port: 9000,
+		},
+	})
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}

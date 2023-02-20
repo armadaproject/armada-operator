@@ -226,7 +226,20 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels))
+	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), []corev1.ServicePort{
+		{
+			Name: "web",
+			Port: 8080,
+		},
+		{
+			Name: "grpc",
+			Port: 50059,
+		},
+		{
+			Name: "metrics",
+			Port: 9000,
+		},
+	})
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
@@ -404,7 +417,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 		secretName := lookout.Name + "-service-tls"
 		ingressWeb.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + lookout.Name
+		serviceName := lookout.Name
 		for _, val := range lookout.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{

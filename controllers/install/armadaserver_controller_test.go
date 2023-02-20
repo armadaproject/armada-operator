@@ -49,6 +49,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armadaserver"},
 		Spec: installv1alpha1.ArmadaServerSpec{
+			PulsarInit: true,
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: map[string]string{"test": "hello"},
 				Image: installv1alpha1.Image{

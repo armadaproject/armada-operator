@@ -200,7 +200,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels))
+	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), []corev1.ServicePort{{Name: "metrics", Port: 9000}})
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 		secretName := binoculars.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + binoculars.Name
+		serviceName := binoculars.Name
 		for _, val := range binoculars.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{
