@@ -583,7 +583,7 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 		secretName := as.Name + "-service-tls"
 		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + as.Name
+		serviceName := as.Name
 		for _, val := range as.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{
@@ -637,7 +637,7 @@ func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 		secretName := as.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + as.Name
+		serviceName := as.Name
 		for _, val := range as.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{

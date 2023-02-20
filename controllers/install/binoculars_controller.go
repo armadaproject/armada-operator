@@ -434,7 +434,7 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 		secretName := binoculars.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + binoculars.Name
+		serviceName := binoculars.Name
 		for _, val := range binoculars.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{

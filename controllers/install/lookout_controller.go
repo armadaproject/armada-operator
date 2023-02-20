@@ -323,7 +323,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 		secretName := lookout.Name + "-service-tls"
 		ingressWeb.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + lookout.Name
+		serviceName := lookout.Name
 		for _, val := range lookout.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{

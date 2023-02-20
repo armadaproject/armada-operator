@@ -14,7 +14,7 @@ spec:
     repository: gresearch/armada-server
     tag: 6141171b8bde8a03113090a819d728511c2dc39f
   applicationConfig:
-    server: example.com:50051
+    server: localhost:50051
     forceNoTls: true
     toleratedTaints:
       - key: armada.io/batch
