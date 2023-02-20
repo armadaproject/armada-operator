@@ -253,9 +253,9 @@ helm-install-redis: helm-bitnami
 PROMETHEUS_OPERATOR_VERSION=v0.62.0
 .PHONY: dev-install-prometheus-operator
 dev-install-prometheus-operator:
-	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed --expression='s/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
+	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed -e 's/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
 	sleep 10
-	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=120s
+	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=180s
 	kubectl apply -n armada -f ./config/samples/prometheus.yaml
 
 ##@ Build Dependencies
