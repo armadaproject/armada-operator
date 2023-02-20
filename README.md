@@ -11,24 +11,30 @@ Want to start hacking right away?
 This assumes you have [KIND](https://sigs.k8s.io/kind) installed already.
 
 Start a development cluster:
-```sh
-DISABLE_WEBHOOKS=true make dev-run
+```bash
+make dev-setup
 ```
 This will:
 - boot a kind cluster
 - start postgres, pulsar, and redis pods in the cluster
-- install each CRD supported by the armada-operator on the cluster
-- start the armada-operator main reconcilation loop for all its CRD kinds
 
-Now in another shell:
-```sh
+Then:
+```bash
+make dev-install-controller
+```
+Which will:
+- install each CRD supported by the armada-operator on the cluster
+- create a pod inside the kind cluster running the armada-operator controllers
+
+Finally:
+```bash
 kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
 ```
 
 Which will deploy samples of each CRD.
 
-To stop the development cluster, ctrl-c your `make run` shell and then:
-```sh
+To stop the development cluster
+```bash
 make dev-teardown
 ```
 
