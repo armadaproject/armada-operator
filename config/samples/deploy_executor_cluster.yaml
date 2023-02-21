@@ -66,3 +66,15 @@ spec:
     requests:
       memory: 500Mi
       cpu: "0.3"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: armada-default
+value: 1000
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: armada-preemptible
+value: 900
