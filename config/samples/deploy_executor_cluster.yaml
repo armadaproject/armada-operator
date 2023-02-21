@@ -57,7 +57,7 @@ spec:
     tag: 92fcbb6fd58753d2fcb67a9657aaccff95c3b069
   applicationConfig:
     apiConnection:
-      armadaUrl: localhost:50051
+      armadaUrl: armadaserver-sample.armada.svc.cluster.local:50051
       forceNoTls: true
   resources:
     limits:
