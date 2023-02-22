@@ -146,7 +146,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # Go Release Build
 .PHONY: go-release-build
 go-release-build: goreleaser
-	goreleaser release --rm-dist --snapshot
+	$(GORELEASER) release --rm-dist --snapshot
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -253,9 +253,9 @@ helm-install-redis: helm-bitnami
 PROMETHEUS_OPERATOR_VERSION=v0.62.0
 .PHONY: dev-install-prometheus-operator
 dev-install-prometheus-operator:
-	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed --expression='s/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
-	sleep 5
-	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=120s
+	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed -e 's/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
+	sleep 10
+	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=180s
 	kubectl apply -n armada -f ./config/samples/prometheus.yaml
 
 ##@ Build Dependencies
@@ -414,7 +414,10 @@ create-dev-cluster:
 .PHONY: dev-setup
 dev-setup: create-dev-cluster helm-install-pulsar helm-install-postgres \
     helm-install-redis dev-install-prometheus-operator \
-    install-cert-manager install-ingress-controller
+    install-cert-manager install-ingress-controller dev-setup-webhook-tls
+
+.PHONY: dev-install-controller
+dev-install-controller: go-release-build load-image deploy
 
 .PHONY: dev-teardown
 dev-teardown:
@@ -422,3 +425,12 @@ dev-teardown:
 
 .PHONY: dev-run
 dev-run: dev-setup install run
+
+WEBHOOK_TLS_OUT_DIR=/tmp/k8s-webhook-server/serving-certs
+.PHONY: dev-setup-webhook-tls
+dev-setup-webhook-tls:
+	mkdir -p $(WEBHOOK_TLS_OUT_DIR)
+	openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -config dev/tls/webhooks_csr.conf -out $(WEBHOOK_TLS_OUT_DIR)/tls.crt -keyout $(WEBHOOK_TLS_OUT_DIR)/tls.key
+
+dev-remove-webhook-tls:
+	rm $(WEBHOOK_TLS_OUT_DIR)/tls.{crt,key}
