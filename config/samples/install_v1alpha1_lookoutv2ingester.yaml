@@ -7,19 +7,19 @@ metadata:
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: lookoutv2ingester-sample
+  name: lookoutingesterv2-sample
   namespace: armada
 spec:
   image:
-    repository: gresearchdev/armada-lookoutv2-ingester-dev
-    tag: LATEST
+    repository: gresearch/armada-lookout-ingester-v2
+    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
   applicationConfig:
     postgres:
       maxOpenConns: 100
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgresql
+        host: postgres.default.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
@@ -34,7 +34,7 @@ spec:
       receiveTimeout: 5s
       backoffTime: 1s
     paralellism: 1
-    subscriptionName: "lookout-ingester"
+    subscriptionName: "lookout-ingester-v2"
     batchSize: 10000
     batchDuration: 500ms
     minJobSpecCompressionSize: 1024

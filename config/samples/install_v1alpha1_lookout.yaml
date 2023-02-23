@@ -49,7 +49,31 @@ spec:
     grpcPort: 50059
     httpPort: 8080
     metricsPort: 9000
+    grpc:
+      keepaliveParams:
+        maxConnectionIdle: 5m
+        time: 2h
+        timeout: 20s
+      keepaliveEnforcementPolicy:
+        minTime: 5m
+        permitWithoutStream: false
+    uiConfig:
+      armadaApiBaseUrl: "http://localhost:8080"
+      userAnnotationPrefix: "armadaproject.io/"
+      binocularsEnabled: true
+      binocularsBaseUrlPattern: "http://localhost:8082"
+      overviewAutoRefreshMs: 15000
+      jobSetsAutoRefreshMs: 15000
+      jobsAutoRefreshMs: 30000
+      lookoutV2ApiBaseUrl: "http://localhost:10000"
+    corsAllowedOrigins:
+      - "http://localhost:3000"
+      - "http://localhost:8089"
+      - "http://localhost:10000"
     postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
       connection:
         host: postgres.default.svc.cluster.local
         port: 5432
@@ -57,3 +81,6 @@ spec:
         password: psw
         dbname: postgres
         sslmode: disable
+    prunerConfig:
+      daysToKeep: 42
+      batchSize: 1000
