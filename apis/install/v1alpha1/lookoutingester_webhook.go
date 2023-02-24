@@ -17,10 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/yaml"
 )
 
 // log is for logging in this package.
@@ -50,20 +53,27 @@ func (r *LookoutIngester) Default() {
 
 var _ webhook.Validator = &LookoutIngester{}
 
+func (r *LookoutIngester) runLookoutIngesterConfigValidators() error {
+	config, err := appConfigFromRawExtension(&r.Spec.ApplicationConfig)
+	if err != nil {
+		return err
+	}
+
+	return validatePostgresConfig(config)
+}
+
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *LookoutIngester) ValidateCreate() error {
 	lookoutingesterlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return r.runLookoutIngesterConfigValidators()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *LookoutIngester) ValidateUpdate(old runtime.Object) error {
 	lookoutingesterlog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return r.runLookoutIngesterConfigValidators()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -71,5 +81,33 @@ func (r *LookoutIngester) ValidateDelete() error {
 	lookoutingesterlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
+	return nil
+}
+
+type LookoutIngesterConfiguration struct {
+	SubscriptionName          string
+	MinJobSpecCompressionSize int
+	BatchSize                 int
+	BatrchDuration            time.Duration
+	UserAnnotationPrefix      string
+}
+
+func lookoutIngesterConfigFromRawExtension(appConfig *runtime.RawExtension) (*LookoutIngesterConfiguration, error) {
+	configStr, err := yaml.JSONToYAML(appConfig.Raw)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &LookoutIngesterConfiguration{}
+	err = yaml.Unmarshal([]byte(configStr), config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// TODO
+func validateLookoutIngesterSpecificConfig(config *LookoutIngesterConfiguration) error {
 	return nil
 }

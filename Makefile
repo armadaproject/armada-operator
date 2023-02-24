@@ -116,7 +116,7 @@ lint-fix:
 
 .PHONY: test
 test: manifests generate fmt vet gotestsum ## Run tests.
-	$(GOTESTSUM) -- ./controllers/... -coverprofile operator.out
+	$(GOTESTSUM) -- ./{apis,controllers}/... -coverprofile operator.out
 
 .PHONY: test-integration
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
