@@ -79,13 +79,12 @@ spec:
     corsAllowedOrigins:
       - "http://localhost:3000"
       - "http://localhost:8089"
-      - "http://localhost:10000"
     postgres:
       maxOpenConns: 100
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw

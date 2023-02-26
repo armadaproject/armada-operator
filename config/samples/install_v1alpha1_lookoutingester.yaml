@@ -29,7 +29,7 @@ spec:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar-broker:6650"
+      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s

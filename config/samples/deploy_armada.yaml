@@ -42,14 +42,14 @@ spec:
         execute_jobs: ["everyone"]      
     postgres:
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
         dbname: postgres
         sslmode: disable
     pulsar:
-      URL: pulsar://pulsar-broker:6650
+      URL: pulsar://pulsar-broker.armada.svc.cluster.local:6650
     redis:
       addrs:
         - redis-master:6379
@@ -119,7 +119,7 @@ spec:
       db: 0
       poolSize: 1000
     pulsar:
-      URL: pulsar://pulsar-broker:6650
+      URL: pulsar://pulsar-broker.armada.svc.cluster.local:6650
       jobsetEventsTopic: events
       receiveTimeout: 5s
       backoffTime: 1s
@@ -199,7 +199,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
@@ -221,7 +221,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
@@ -231,7 +231,7 @@ spec:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar-broker:6650"
+      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s
@@ -296,13 +296,12 @@ spec:
     corsAllowedOrigins:
       - "http://localhost:3000"
       - "http://localhost:8089"
-      - "http://localhost:10000"
     postgres:
       maxOpenConns: 100
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
@@ -327,7 +326,7 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgres.default.svc.cluster.local
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
@@ -337,7 +336,7 @@ spec:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar-broker:6650"
+      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s
