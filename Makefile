@@ -64,6 +64,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ARCH=$(shell go env GOARCH)
+KIND_DEV_CLUSTER_NAME=armada-operator-dev-env
 
 .PHONY: all
 all: build
@@ -230,10 +231,14 @@ install-ingress-controller:
 uninstall-ingress-controller:
 	kubectl delete -f ${INGRESS_MANIFEST}
 
+PULSAR_IMAGE="apache/pulsar"
+ifeq ($(ARCH), arm64)
+   PULSAR_IMAGE="kezhenxu94/pulsar"
+endif
 .PHONY: install-pulsar
 install-pulsar:
-	if [ $(ARCH) == "arm64" ]; then export PULSAR_IMAGE="kezhenxu94/pulsar"; else export PULSAR_IMAGE="apache/pulsar"; fi
-	cat dev/manifests/pulsar.yaml | envsubst | kubectl apply -n armada -f -
+	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) $(PULSAR_IMAGE)
+	PULSAR_IMAGE=$(PULSAR_IMAGE) cat dev/manifests/pulsar.yaml | envsubst | kubectl apply -n armada -f -
 
 .PHONY: helm-bitnami
 helm-bitnami: helm
@@ -399,8 +404,6 @@ else
 HELM = $(shell which helm)
 endif
 endif
-
-KIND_DEV_CLUSTER_NAME=armada-operator-dev-env
 
 .PHONY: create-dev-cluster
 create-dev-cluster:
