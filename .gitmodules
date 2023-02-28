@@ -1,3 +1,0 @@
-[submodule "dev/helm-charts/pulsar-helm-chart"]
-	path = dev/helm-charts/pulsar-helm-chart
-	url = https://github.com/apache/pulsar-helm-chart
