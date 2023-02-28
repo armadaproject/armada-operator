@@ -1,0 +1,35 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: pulsar-broker
+spec:
+  type: ClusterIP
+  selector:
+    app: pulsar
+  ports:
+    - port: 6650
+      targetPort: 6650
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulsar-deployment
+  labels:
+    app: pulsar
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: pulsar
+  template:
+    metadata:
+      labels:
+        app: pulsar
+    spec:
+      containers:
+      - name: pulsar
+        image: $PULSAR_IMAGE
+        imagePullPolicy: IfNotPresent
+        command: ['bin/pulsar', 'standalone']
