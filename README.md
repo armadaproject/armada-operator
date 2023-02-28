@@ -6,87 +6,115 @@ to a [Kubernetes](https://kubernetes.io/) cluster using the Kubernetes
 [operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Armada is a multi-Kubernetes batch job scheduler. This operator aims to make
+Armada easy to deploy and, well, operate in a Kubernetes cluster. 
 
 ## Quickstart
 
 Want to start hacking right away?
 
-You’ll need a Kubernetes cluster to run against. You can use 
-[KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run 
-against a remote cluster.  
+You’ll need a Kubernetes cluster to run the operator. You can use 
+[KIND](https://sigs.k8s.io/kind) to run a local cluster for testing, or you 
+can run against a remote cluster.  
 
 **Note:** Your controller will automatically use the current context in your 
 kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
-The following assumes you have [KIND](https://sigs.k8s.io/kind) installed already.
-
 ### Start a Development Cluster
 
+This section assumes you have [KIND](https://sigs.k8s.io/kind) installed.
+
 ```bash
-$ make dev-setup
+make dev-setup
 ```
 This will:
-- boot a kind cluster
+- boot a kind cluster specifically for armada-operator development work
 - start postgres, pulsar, and redis pods in the cluster
 
 Then:
 ```bash
-$ make dev-install-controller
+make dev-install-controller
 ```
 Which will:
 - install each CRD supported by the armada-operator on the cluster
 - create a pod inside the kind cluster running the armada-operator controllers
 
+**Note:** You may need to wait for some services (like Pulsar) to finish 
+coming up to proceed to the next step. Check the status of 
+the cluster with `$ kubectl get -n armada pods`.
+
 Finally:
 ```bash
-$ kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
+kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
 ```
 
-Which will deploy samples of each CRD.
+Which will deploy samples of each CRD. Once every Armada service is deployed,
+you should have a fully functional install of Aramda running.
 
-To stop the development cluster
+To stop the development cluster:
 ```bash
-$ make dev-teardown
+make dev-teardown
 ```
+
+This will totally destroy your development Kind cluster. 
 
 ## Getting Started
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+### Running on a Cluster
 
-```sh
-kubectl apply -f config/samples/
-```
-
-2. Build and push your image to the location specified by `IMG`:
+1. Build and push your image to the location specified by `IMG`:
 	
-```sh
+```bash
 make docker-build docker-push IMG=<some-registry>/armada-operator:tag
 ```
 	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+2. Deploy the controller to the cluster with the image specified by `IMG`:
 
-```sh
+```bash
 make deploy IMG=<some-registry>/armada-operator:tag
+```
+
+3. Install Instances of Custom Resources:
+
+```bash
+kubectl apply -f config/samples/
 ```
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
 
-```sh
+```bash
 make uninstall
 ```
 
 ### Undeploy controller
 UnDeploy the controller to the cluster:
 
-```sh
+```bash
 make undeploy
 ```
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+Please feel free to contribute bug-reports or ideas for enhancements via 
+GitHub's issue system. 
+
+Code contributions are also welcome. When submitting a pull-request please 
+ensure it references a relevant issue as well as making sure all CI checks 
+pass.
+
+### Test All Changes
+
+Please test contributions thoroughly before requesting reviews. At a minimum:
+```bash
+make test
+make test-integration
+make lint
+```
+should all succeed without error. 
+
+Add and change appropriate unit and integration tests to ensure your changes 
+are covered by automated tests and appear to be correct.
 
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
@@ -97,13 +125,13 @@ which provides a reconcile function responsible for synchronizing resources unti
 ### Test It Out
 1. Install the CRDs into the cluster:
 
-```sh
+```bash
 make install
 ```
 
 2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
 
-```sh
+```bash
 make run
 ```
 
@@ -112,7 +140,7 @@ make run
 ### Modifying the API definitions
 If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
 
-```sh
+```bash
 make manifests
 ```
 
