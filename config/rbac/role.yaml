@@ -161,12 +161,6 @@ rules:
 - apiGroups:
   - core.armadaproject.io
   resources:
-  - queues/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - core.armadaproject.io
-  resources:
   - queues/status
   verbs:
   - get
