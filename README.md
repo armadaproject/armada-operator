@@ -1,5 +1,9 @@
 # armada-operator
-// TODO(user): Add simple overview of use/purpose
+`armada-operator` is a small [go](https://go.dev/) project to automate the 
+installation (and eventually management) of a fully-functional 
+[Armada](https://github.com/armadaproject/armada) deployment
+to a [Kubernetes](https://kubernetes.io/) cluster using the Kubernetes 
+[operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
 
 ## Description
 // TODO(user): An in-depth paragraph about your project and overview of use
@@ -8,11 +12,19 @@
 
 Want to start hacking right away?
 
-This assumes you have [KIND](https://sigs.k8s.io/kind) installed already.
+You’ll need a Kubernetes cluster to run against. You can use 
+[KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run 
+against a remote cluster.  
 
-Start a development cluster:
+**Note:** Your controller will automatically use the current context in your 
+kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+
+The following assumes you have [KIND](https://sigs.k8s.io/kind) installed already.
+
+### Start a Development Cluster
+
 ```bash
-make dev-setup
+$ make dev-setup
 ```
 This will:
 - boot a kind cluster
@@ -20,7 +32,7 @@ This will:
 
 Then:
 ```bash
-make dev-install-controller
+$ make dev-install-controller
 ```
 Which will:
 - install each CRD supported by the armada-operator on the cluster
@@ -28,19 +40,17 @@ Which will:
 
 Finally:
 ```bash
-kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
+$ kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
 ```
 
 Which will deploy samples of each CRD.
 
 To stop the development cluster
 ```bash
-make dev-teardown
+$ make dev-teardown
 ```
 
 ## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
 ### Running on the cluster
 1. Install Instances of Custom Resources:
