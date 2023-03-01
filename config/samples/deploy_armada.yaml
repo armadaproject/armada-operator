@@ -331,7 +331,7 @@ spec:
       receiveTimeout: 5s
       backoffTime: 1s
     paralellism: 1
-    subscriptionName: "lookout-ingester"
+    subscriptionName: "lookout-ingester-v2"
     batchSize: 10000
     batchDuration: 500ms
     minJobSpecCompressionSize: 1024
