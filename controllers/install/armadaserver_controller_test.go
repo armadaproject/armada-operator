@@ -288,6 +288,7 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -306,6 +307,12 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil)
+
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
@@ -354,6 +361,7 @@ func TestArmadaServerReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) 
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
