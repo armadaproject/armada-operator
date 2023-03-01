@@ -542,7 +542,10 @@ func (r *ExecutorReconciler) createAdditionalClusterRoleBindings(executor *insta
 
 func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
 	selectorLabels := IdentityLabel(executor.Name)
-	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	interval := "15s"
+	if executor.Spec.Prometheus.ScrapeInterval != nil {
+		interval = duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	}
 	return &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      executor.Name,
@@ -557,7 +560,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 			},
 			Endpoints: []monitoringv1.Endpoint{{
 				Port:     "metrics",
-				Interval: monitoringv1.Duration(durationString),
+				Interval: monitoringv1.Duration(interval),
 			}},
 		},
 	}

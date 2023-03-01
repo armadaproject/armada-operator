@@ -216,6 +216,7 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 		},
 	}
@@ -234,6 +235,10 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(nil)
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
 	// Remove Executor Finalizer
 	mockK8sClient.
