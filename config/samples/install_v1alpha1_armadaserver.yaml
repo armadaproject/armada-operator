@@ -46,6 +46,6 @@ spec:
       URL: pulsar://pulsar-broker.armada.svc.cluster.local:6650
     redis:
       addrs:
-        - redis-master:6379
+        - redis-master.armada.svc.cluster.local:6379
       db: 0
       poolSize: 1000
