@@ -38,6 +38,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
 	dbPruningEnabled := true
+	terminationGracePeriod := int64(20)
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
@@ -52,9 +53,10 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 					Repository: "testrepo",
 					Tag:        "1.0.0",
 				},
-				ApplicationConfig: runtime.RawExtension{},
-				Resources:         &corev1.ResourceRequirements{},
-				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
+				ApplicationConfig:             runtime.RawExtension{},
+				Resources:                     &corev1.ResourceRequirements{},
+				Prometheus:                    &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+				TerminationGracePeriodSeconds: &terminationGracePeriod,
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
