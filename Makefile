@@ -247,6 +247,8 @@ helm-bitnami: helm
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-bitnami
+	docker pull postgres:15.2-alpine
+	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) postgres:15.2-alpine
 	$(HELM) install postgresql -n armada -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
 
 .PHONY: helm-install-redis

@@ -210,8 +210,11 @@ type PostgresConfig struct {
 }
 
 type ConnectionConfig struct {
-	Host string
-	Port string
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Dbname   string
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
@@ -493,7 +496,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 					},
 					InitContainers: []corev1.Container{{
 						Name:  "lookout-migration-db-wait",
-						Image: "alpine:3.10",
+						Image: "postgres:15.2-alpine",
 						Command: []string{
 							"/bin/sh",
 							"-c",
@@ -501,7 +504,11 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"`,
+                                                         echo "Postres started!"
+							 echo "Creating DB $PGDB if needed..."
+							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "CREATE DATABASE $PGDB"
+							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "GRANT ALL PRIVILEGES ON DATABASE $PGDB TO $PGUSER"
+							 echo "DB $PGDB created"`,
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -511,6 +518,18 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 							{
 								Name:  "PGPORT",
 								Value: lookoutConfig.Postgres.Connection.Port,
+							},
+							{
+								Name:  "PGUSER",
+								Value: lookoutConfig.Postgres.Connection.User,
+							},
+							{
+								Name:  "PGPASSWORD",
+								Value: lookoutConfig.Postgres.Connection.Password,
+							},
+							{
+								Name:  "PGDB",
+								Value: lookoutConfig.Postgres.Connection.Dbname,
 							},
 						},
 					}},

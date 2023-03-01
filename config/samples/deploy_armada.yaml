@@ -203,7 +203,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookout
         sslmode: disable
 ---
 apiVersion: install.armadaproject.io/v1alpha1
@@ -225,7 +225,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookout
         sslmode: disable
     metrics:
       port: 9000
@@ -255,7 +255,7 @@ spec:
     annotations:
       hello: "world2"
   clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost-lookout]
+  hostNames: [localhost-lookoutv2]
   replicas: 2
   image:
     repository: gresearch/armada-lookout-v2
@@ -295,7 +295,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookoutv2
         sslmode: disable
     prunerConfig:
       daysToKeep: 42
@@ -320,7 +320,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookoutv2
         sslmode: disable
     metrics:
       port: 9000
