@@ -238,7 +238,7 @@ endif
 .PHONY: install-pulsar
 install-pulsar:
 	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) $(PULSAR_IMAGE)
-	PULSAR_IMAGE=$(PULSAR_IMAGE) cat dev/manifests/pulsar.yaml | envsubst | kubectl apply -n armada -f -
+	cat dev/manifests/pulsar.yaml | PULSAR_IMAGE=$(PULSAR_IMAGE) envsubst | kubectl apply -n armada -f -
 
 .PHONY: helm-bitnami
 helm-bitnami: helm
