@@ -231,7 +231,7 @@ install-ingress-controller:
 uninstall-ingress-controller:
 	kubectl delete -f ${INGRESS_MANIFEST}
 
-PULSAR_IMAGE="apache/pulsar"
+PULSAR_IMAGE="apachepulsar/pulsar"
 ifeq ($(ARCH), arm64)
    PULSAR_IMAGE="kezhenxu94/pulsar"
 endif
