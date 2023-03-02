@@ -367,6 +367,78 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	}
 }
 
+func TestLookoutReconciler_ReconcileDeletingLookoutWithError(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
+
+	expectedLookout := v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "lookout",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.LookoutSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
+			},
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			DbPruningEnabled: &dbPruningEnabled,
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Lookout
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
+		Return(nil).
+		SetArg(2, expectedLookout)
+
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewBadRequest("something is amiss"))
+
+	scheme, err := v1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := LookoutReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "lookout"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("reconcile should return error")
+	}
+}
+
 func Test_createLookoutMigrationJob(t *testing.T) {
 	tests := []struct {
 		name        string
