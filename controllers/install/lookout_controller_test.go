@@ -38,6 +38,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
 	dbPruningEnabled := true
+	dbPruningSchedule := "1d"
 	terminationGracePeriod := int64(20)
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
@@ -65,7 +66,8 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
-			DbPruningEnabled: &dbPruningEnabled,
+			DbPruningEnabled:  &dbPruningEnabled,
+			DbPruningSchedule: &dbPruningSchedule,
 		},
 	}
 
