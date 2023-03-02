@@ -291,6 +291,41 @@ func TestLookoutReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	expectedLookout := v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "lookout",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.LookoutSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			},
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	_, err := createLookoutCronJob(&expectedLookout)
+	assert.Error(t, err)
+	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
+}
+
 func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	t.Parallel()
 
