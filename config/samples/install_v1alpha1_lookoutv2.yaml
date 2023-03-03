@@ -2,16 +2,14 @@ apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
   labels:
-    app.kubernetes.io/name: lookout
-    app.kubernetes.io/instance: lookout-sample
+    app.kubernetes.io/name: lookoutv2
+    app.kubernetes.io/instance: lookoutv2-sample
     app.kubernetes.io/part-of: armada-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: armada-operator
-  name: lookout-sample
+  name: lookoutv2-sample
   namespace: armada
 spec:
-  dbPruningEnabled: true
-  dbPruningSchedule: "@hourly"
   ingress:
     ingressClass: "nginx"
     labels:
@@ -22,8 +20,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearchdev/armada-lookout
-    tag: v0.3.47
+    repository: gresearch/armada-lookout-v2
+    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
   resources:
     limits:
       memory: 1Gi
@@ -36,41 +34,32 @@ spec:
   - name: LOG_FORMAT
     value: json
 
+  additionalVolumes:
+    - name: testsecret
+      secret:
+        secretName: testsecret
+
+  additionalVolumeMounts:
+    - name: testsecret
+      volume:
+        name: testsecret
+        mountPath: /etc/vimrc
+        readOnly: true
+
   prometheus:
-    enabled: false
+    enabled: true
     labels:
       metrics: "true"
       prometheus: armada
       role: prometheus-rulefiles
 
   applicationConfig:
-    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
+    # See https://github.com/armadaproject/armada/blob/master/config/lookoutv2/config.yaml
     # for the full list of configuration options.
-    grpcPort: 50059
-    httpPort: 8080
-    metricsPort: 9000
-    grpc:
-      keepaliveParams:
-        maxConnectionIdle: 5m
-        time: 2h
-        timeout: 20s
-      keepaliveEnforcementPolicy:
-        minTime: 5m
-        permitWithoutStream: false
-    uiConfig:
-      armadaApiBaseUrl: "http://localhost:8080"
-      userAnnotationPrefix: "armadaproject.io/"
-      binocularsEnabled: true
-      binocularsBaseUrlPattern: "http://localhost:8082"
-      overviewAutoRefreshMs: 15000
-      jobSetsAutoRefreshMs: 15000
-      jobsAutoRefreshMs: 30000
-      lookoutV2ApiBaseUrl: "http://localhost:10000"
+    apiPort: 8080
     corsAllowedOrigins:
       - "http://localhost:3000"
       - "http://localhost:8089"
-      - "http://localhost:8082"
-      - "http://localhost:10000"
     postgres:
       maxOpenConns: 100
       maxIdleConns: 25

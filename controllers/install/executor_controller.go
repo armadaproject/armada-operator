@@ -22,7 +22,6 @@ import (
 	"time"
 
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -190,6 +189,20 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	if components.PrometheusRule != nil {
+		logger.Info("Upserting Executor PrometheusRule object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.ServiceMonitor != nil {
+		logger.Info("Upserting Executor ServiceMonitor object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Executor object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -280,8 +293,9 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 			return nil, err
 		}
 		components.ServiceMonitor = serviceMonitor
-		prometheusRule := r.createPrometheusRule(executor)
-		components.PrometheusRule = prometheusRule
+
+		pr := createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval)
+		components.PrometheusRule = pr
 	}
 
 	return components, nil
@@ -526,36 +540,12 @@ func (r *ExecutorReconciler) createAdditionalClusterRoleBindings(executor *insta
 	return bindings
 }
 
-func (r *ExecutorReconciler) createPrometheusRule(executor *installv1alpha1.Executor) *monitoringv1.PrometheusRule {
-	restRequestHistogram := `histogram_quantile(0.95, ` +
-		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + executor.Name + `"}[2m])) by (endpoint, verb, url, le))`
-	logRate := "sum(rate(log_messages[2m])) by (level)"
-	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
-	return &monitoringv1.PrometheusRule{
-		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: monitoringv1.PrometheusRuleSpec{
-			Groups: []monitoringv1.RuleGroup{{
-				Name:     "armada-executor-metrics",
-				Interval: monitoringv1.Duration(durationString),
-				Rules: []monitoringv1.Rule{
-					{
-						Record: "armada:executor:rest:request:histogram95",
-						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
-					},
-					{
-						Record: "armada:executor:log:rate",
-						Expr:   intstr.IntOrString{StrVal: logRate},
-					},
-				},
-			}},
-		},
-	}
-}
-
 func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
 	selectorLabels := IdentityLabel(executor.Name)
-	durationString := duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	interval := "15s"
+	if executor.Spec.Prometheus.ScrapeInterval != nil {
+		interval = duration.ShortHumanDuration(executor.Spec.Prometheus.ScrapeInterval.Duration)
+	}
 	return &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      executor.Name,
@@ -570,7 +560,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 			},
 			Endpoints: []monitoringv1.Endpoint{{
 				Port:     "metrics",
-				Interval: monitoringv1.Duration(durationString),
+				Interval: monitoringv1.Duration(interval),
 			}},
 		},
 	}

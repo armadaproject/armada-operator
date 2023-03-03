@@ -42,17 +42,17 @@ spec:
         execute_jobs: ["everyone"]      
     postgres:
       connection:
-        host: postgresql
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
         dbname: postgres
         sslmode: disable
     pulsar:
-      URL: pulsar://pulsar-broker:6650
+      URL: pulsar://pulsar-broker.armada.svc.cluster.local:6650
     redis:
       addrs:
-        - redis-master:6379
+        - redis-master.armada.svc.cluster.local:6379
       db: 0
       poolSize: 1000
     scheduling:
@@ -114,12 +114,12 @@ spec:
   applicationConfig:
     redis:
       addrs:
-        - redis-master:6379
+        - redis-master.armada.svc.cluster.local:6379
       password: ""
       db: 0
       poolSize: 1000
     pulsar:
-      URL: pulsar://pulsar-broker:6650
+      URL: pulsar://pulsar-broker.armada.svc.cluster.local:6650
       jobsetEventsTopic: events
       receiveTimeout: 5s
       backoffTime: 1s
@@ -172,13 +172,39 @@ spec:
   applicationConfig:
     # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
     # for the full list of configuration options.
+    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
+    # for the full list of configuration options.
     grpcPort: 50059
     httpPort: 8080
     metricsPort: 9000
+    grpc:
+      keepaliveParams:
+        maxConnectionIdle: 5m
+        time: 2h
+        timeout: 20s
+      keepaliveEnforcementPolicy:
+        minTime: 5m
+        permitWithoutStream: false
+    uiConfig:
+      armadaApiBaseUrl: "http://localhost:8080"
+      userAnnotationPrefix: "armadaproject.io/"
+      binocularsEnabled: true
+      binocularsBaseUrlPattern: "http://localhost:8082"
+      overviewAutoRefreshMs: 15000
+      jobSetsAutoRefreshMs: 15000
+      jobsAutoRefreshMs: 30000
+      lookoutV2ApiBaseUrl: "http://localhost:10000"
     postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
       connection:
-        host: postgresql
+        host: postgresql.armada.svc.cluster.local
         port: 5432
+        user: postgres
+        password: psw
+        dbname: lookout
+        sslmode: disable
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: LookoutIngester
@@ -195,22 +221,117 @@ spec:
       maxIdleConns: 25
       connMaxLifetime: 30m
       connection:
-        host: postgresql
+        host: postgresql.armada.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookout
         sslmode: disable
     metrics:
       port: 9000
     pulsar:
       enabled: true
-      URL: "pulsar://pulsar-broker:6650"
+      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
       jobsetEventsTopic: "events"
       receiveTimeout: 5s
       backoffTime: 1s
     paralellism: 1
     subscriptionName: "lookout-ingester"
+    batchSize: 10000
+    batchDuration: 500ms
+    minJobSpecCompressionSize: 1024
+    userAnnotationPrefix: "armadaproject.io/"
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Lookout
+metadata:
+  name: lookoutv2-sample
+  namespace: armada
+spec:
+  ingress:
+    ingressClass: "nginx"
+    labels:
+      hello: "world"
+    annotations:
+      hello: "world2"
+  clusterIssuer: "k8s-cluster-issuer"
+  hostNames: [localhost-lookoutv2]
+  replicas: 2
+  image:
+    repository: gresearch/armada-lookout-v2
+    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
+
+  prometheus:
+    enabled: false
+    labels:
+      metrics: "true"
+      prometheus: armada
+      role: prometheus-rulefiles
+
+  applicationConfig:
+    # See https://github.com/armadaproject/armada/blob/master/config/lookoutv2/config.yaml
+    # for the full list of configuration options.
+    apiPort: 8080
+    corsAllowedOrigins:
+      - "http://localhost:3000"
+      - "http://localhost:8089"
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgresql.armada.svc.cluster.local
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: lookoutv2
+        sslmode: disable
+    prunerConfig:
+      daysToKeep: 42
+      batchSize: 1000
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: LookoutIngester
+metadata:
+  namespace: armada
+  name: lookoutingesterv2-sample
+spec:
+  image:
+    repository: gresearch/armada-lookout-ingester-v2
+    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
+  applicationConfig:
+    postgres:
+      maxOpenConns: 100
+      maxIdleConns: 25
+      connMaxLifetime: 30m
+      connection:
+        host: postgresql.armada.svc.cluster.local
+        port: 5432
+        user: postgres
+        password: psw
+        dbname: lookoutv2
+        sslmode: disable
+    metrics:
+      port: 9000
+    pulsar:
+      enabled: true
+      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
+      jobsetEventsTopic: "events"
+      receiveTimeout: 5s
+      backoffTime: 1s
+    paralellism: 1
+    subscriptionName: "lookout-ingester-v2"
     batchSize: 10000
     batchDuration: 500ms
     minJobSpecCompressionSize: 1024

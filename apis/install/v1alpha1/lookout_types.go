@@ -58,6 +58,10 @@ type LookoutSpec struct {
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
+	// DbPruningEnabled when true a pruning CronJob is created
+	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
+	// DbPruningSchedule schedule to use for db pruning CronJob
+	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
 }
 
 // LookoutStatus defines the observed state of lookout

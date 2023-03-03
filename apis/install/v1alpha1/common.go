@@ -36,7 +36,7 @@ type PrometheusConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Labels field enables adding additional labels to PrometheusRule and ServiceMonitor
 	Labels map[string]string `json:"labels,omitempty"`
-	// ScrapeInterval defines the interval at which Prometheus should scrape Executor metrics
+	// ScrapeInterval defines the interval at which Prometheus should scrape metrics
 	// +kubebuilder:validation:Type:=string
 	// +kubebuilder:validation:Format:=duration
 	ScrapeInterval *metav1.Duration `json:"scrapeInterval,omitempty"`

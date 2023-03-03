@@ -17,6 +17,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
+	"github.com/go-logr/logr"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
 
@@ -49,7 +54,8 @@ type LookoutReconciler struct {
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -77,10 +83,41 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// examine DeletionTimestamp to determine if object is under deletion
 	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("ArmadaServer object is being deleted")
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
+			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
+			if err := r.Update(ctx, &lookout); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
+		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			logger.Info("Running cleanup function for Lookout cluster-scoped components", "finalizer", operatorFinalizer)
+			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
+			if err := r.Update(ctx, &lookout); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
@@ -133,6 +170,20 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	if components.PrometheusRule != nil {
+		logger.Info("Upserting Lookout PrometheusRule object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.ServiceMonitor != nil {
+		logger.Info("Upserting Lookout ServiceMonitor object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Lookout object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -145,8 +196,9 @@ type LookoutComponents struct {
 	Service        *corev1.Service
 	ServiceAccount *corev1.ServiceAccount
 	Job            *batchv1.Job
-	// ToDo: add other components
-	// CronJob        *batchv1beta1.CronJob
+	ServiceMonitor *monitoringv1.ServiceMonitor
+	PrometheusRule *monitoringv1.PrometheusRule
+	CronJob        *batchv1.CronJob
 }
 
 type LookoutConfig struct {
@@ -158,15 +210,14 @@ type PostgresConfig struct {
 }
 
 type ConnectionConfig struct {
-	Host string
-	Port string
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Dbname   string
 }
 
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
-	// serviceAccount := r.createServiceAccount(lookout)
-	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-	// 	return nil, err
-	// }
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -195,10 +246,24 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
-	// serviceAccount := r.createServiceAccount(lookout)
-	// if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-	// 	return nil, err
-	// }
+	serviceAccount := builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+		return nil, err
+	}
+
+	var serviceMonitor *monitoringv1.ServiceMonitor
+	var prometheusRule *monitoringv1.PrometheusRule
+	if lookout.Spec.Prometheus != nil && lookout.Spec.Prometheus.Enabled {
+		serviceMonitor = createLookoutServiceMonitor(lookout)
+		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+		var scrapeInterval *metav1.Duration
+		if lookout.Spec.Prometheus.ScrapeInterval != nil {
+			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
+		}
+		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval)
+	}
 
 	job, err := createLookoutMigrationJob(lookout)
 	if err != nil {
@@ -206,6 +271,17 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}
 	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
 		return nil, err
+	}
+
+	var cronJob *batchv1.CronJob
+	if lookout.Spec.DbPruningEnabled != nil && *lookout.Spec.DbPruningEnabled {
+		cronJob, err := createLookoutCronJob(lookout)
+		if err != nil {
+			return nil, err
+		}
+		if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	ingressWeb := createLookoutIngressWeb(lookout)
@@ -216,11 +292,32 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	return &LookoutComponents{
 		Deployment:     deployment,
 		Service:        service,
-		ServiceAccount: nil,
+		ServiceAccount: serviceAccount,
 		Secret:         secret,
 		IngressWeb:     ingressWeb,
 		Job:            job,
+		ServiceMonitor: serviceMonitor,
+		PrometheusRule: prometheusRule,
+		CronJob:        cronJob,
 	}, nil
+}
+
+// createLookoutServiceMonitor will return a ServiceMonitor for this
+func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1.ServiceMonitor {
+	return &monitoringv1.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      lookout.Name,
+			Namespace: lookout.Namespace,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				{Port: "metrics", Interval: "15s"},
+			},
+		},
+	}
 }
 
 // Function to build the deployment object for Lookout.
@@ -347,6 +444,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 	return ingressWeb
 }
 
+// createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
 func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
@@ -398,7 +496,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 					},
 					InitContainers: []corev1.Container{{
 						Name:  "lookout-migration-db-wait",
-						Image: "alpine:3.10",
+						Image: "postgres:15.2-alpine",
 						Command: []string{
 							"/bin/sh",
 							"-c",
@@ -406,7 +504,11 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"`,
+                                                         echo "Postres started!"
+							 echo "Creating DB $PGDB if needed..."
+							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "CREATE DATABASE $PGDB"
+							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "GRANT ALL PRIVILEGES ON DATABASE $PGDB TO $PGUSER"
+							 echo "DB $PGDB created"`,
 						},
 						Env: []corev1.EnvVar{
 							{
@@ -416,6 +518,18 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 							{
 								Name:  "PGPORT",
 								Value: lookoutConfig.Postgres.Connection.Port,
+							},
+							{
+								Name:  "PGUSER",
+								Value: lookoutConfig.Postgres.Connection.User,
+							},
+							{
+								Name:  "PGPASSWORD",
+								Value: lookoutConfig.Postgres.Connection.Password,
+							},
+							{
+								Name:  "PGDB",
+								Value: lookoutConfig.Postgres.Connection.Dbname,
 							},
 						},
 					}},
@@ -446,6 +560,135 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 	}
 
 	return &job, nil
+}
+
+// createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
+func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
+	runAsUser := int64(1000)
+	runAsGroup := int64(2000)
+	terminationGracePeriodSeconds := int64(0)
+	if lookout.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+	}
+	allowPrivilegeEscalation := false
+	parallelism := int32(1)
+	completions := int32(1)
+	backoffLimit := int32(0)
+	env := lookout.Spec.Environment
+	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
+	dbPruningSchedule := "@hourly"
+	if lookout.Spec.DbPruningSchedule != nil {
+		dbPruningSchedule = *lookout.Spec.DbPruningSchedule
+	}
+
+	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+	var lookoutConfig LookoutConfig
+	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	job := batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        lookout.Name + "-db-pruner",
+			Namespace:   lookout.Namespace,
+			Labels:      AllLabels(lookout.Name, lookout.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule: dbPruningSchedule,
+			JobTemplate: batchv1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      lookout.Name + "-db-pruner",
+					Namespace: lookout.Namespace,
+					Labels:    AllLabels(lookout.Name, lookout.Labels),
+				},
+				Spec: batchv1.JobSpec{
+					Parallelism:  &parallelism,
+					Completions:  &completions,
+					BackoffLimit: &backoffLimit,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      lookout.Name + "-db-pruner",
+							Namespace: lookout.Namespace,
+							Labels:    AllLabels(lookout.Name, lookout.Labels),
+						},
+						Spec: corev1.PodSpec{
+							RestartPolicy:                 "Never",
+							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+							SecurityContext: &corev1.PodSecurityContext{
+								RunAsUser:  &runAsUser,
+								RunAsGroup: &runAsGroup,
+							},
+							InitContainers: []corev1.Container{{
+								Name:  "lookout-db-pruner-db-wait",
+								Image: "alpine:3.10",
+								Command: []string{
+									"/bin/sh",
+									"-c",
+									`echo "Waiting for Postres..."
+                                                         while ! nc -z $PGHOST $PGPORT; do
+                                                           sleep 1
+                                                         done
+                                                         echo "Postres started!"`,
+								},
+								Env: []corev1.EnvVar{
+									{
+										Name:  "PGHOST",
+										Value: lookoutConfig.Postgres.Connection.Host,
+									},
+									{
+										Name:  "PGPORT",
+										Value: lookoutConfig.Postgres.Connection.Port,
+									},
+								},
+							}},
+							Containers: []corev1.Container{{
+								Name:            "lookout-db-pruner",
+								ImagePullPolicy: "IfNotPresent",
+								Image:           ImageString(lookout.Spec.Image),
+								Args: []string{
+									"--pruneDatabase",
+									"--config",
+									"/config/application_config.yaml",
+								},
+								Ports: []corev1.ContainerPort{{
+									Name:          "metrics",
+									ContainerPort: 9001,
+									Protocol:      "TCP",
+								}},
+								Env:             env,
+								VolumeMounts:    volumeMounts,
+								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+							}},
+							NodeSelector: lookout.Spec.NodeSelector,
+							Tolerations:  lookout.Spec.Tolerations,
+							Volumes:      volumes,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return &job, nil
+}
+
+// deleteExternalResources removes any external resources during deletion
+func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents, logger logr.Logger) error {
+
+	if components.PrometheusRule != nil {
+		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
+		}
+		logger.Info("Successfully deleted Lookout PrometheusRule")
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

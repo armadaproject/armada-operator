@@ -46,7 +46,8 @@ spec:
   applicationConfig:
     impersonateUsers: true
     corsAllowedOrigins:
-      - "https://localhost"
+      - "http://localhost:3000"
+      - "http://localhost:8089"
     auth:
       anonymousAuth: true
 ---

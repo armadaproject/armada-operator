@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/stretchr/testify/assert"
@@ -116,6 +118,24 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil)
+	// PrometheusRule
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+	// ServiceMonitor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
@@ -196,6 +216,7 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 		},
 	}
@@ -214,6 +235,10 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Delete(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
+		Return(nil)
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
 	// Remove Executor Finalizer
 	mockK8sClient.

@@ -58,6 +58,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{},
 				Resources:         &corev1.ResourceRequirements{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
@@ -80,6 +81,12 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNS, gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
 		Return(nil).
 		SetArg(2, expectedAS)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil)
 
 	// Pulsar-wait job
 	expectedComponents.Jobs[0].Status = batchv1.JobStatus{
@@ -281,6 +288,7 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -294,6 +302,18 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
 		Return(nil).
 		SetArg(2, expectedArmadaServer)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.ArmadaServer{})).
+		Return(nil)
+
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
 
 	scheme, err := installv1alpha1.SchemeBuilder.Build()
 	if err != nil {
@@ -341,6 +361,7 @@ func TestArmadaServerReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) 
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",

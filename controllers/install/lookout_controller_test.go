@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -36,6 +37,9 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	}
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
+	dbPruningSchedule := "1d"
+	terminationGracePeriod := int64(20)
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
@@ -50,8 +54,10 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 					Repository: "testrepo",
 					Tag:        "1.0.0",
 				},
-				ApplicationConfig: runtime.RawExtension{},
-				Resources:         &corev1.ResourceRequirements{},
+				ApplicationConfig:             runtime.RawExtension{},
+				Resources:                     &corev1.ResourceRequirements{},
+				Prometheus:                    &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+				TerminationGracePeriodSeconds: &terminationGracePeriod,
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
@@ -60,6 +66,8 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
+			DbPruningEnabled:  &dbPruningEnabled,
+			DbPruningSchedule: &dbPruningSchedule,
 		},
 	}
 
@@ -74,6 +82,23 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(nil)
+
+	// ServiceAccount
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil).
+		SetArg(1, *lookout.ServiceAccount)
 
 	mockK8sClient.
 		EXPECT().
@@ -137,6 +162,26 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
 		SetArg(1, *lookout.IngressWeb)
+
+	// PrometheusRule
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
+	// ServiceMonitor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
 
 	r := LookoutReconciler{
 		Client: mockK8sClient,
@@ -246,6 +291,41 @@ func TestLookoutReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	expectedLookout := v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "lookout",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.LookoutSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			},
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+	_, err := createLookoutCronJob(&expectedLookout)
+	assert.Error(t, err)
+	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
+}
+
 func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	t.Parallel()
 
@@ -253,6 +333,8 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
+
 	expectedLookout := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
@@ -272,12 +354,14 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Replicas:      2,
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
+			DbPruningEnabled: &dbPruningEnabled,
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -287,6 +371,18 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
 		Return(nil).
 		SetArg(2, expectedLookout)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(nil)
+
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
@@ -305,6 +401,78 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 	_, err = r.Reconcile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
+	}
+}
+
+func TestLookoutReconciler_ReconcileDeletingLookoutWithError(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+	dbPruningEnabled := true
+
+	expectedLookout := v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "lookout",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.LookoutSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
+			},
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			DbPruningEnabled: &dbPruningEnabled,
+		},
+	}
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Lookout
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
+		Return(nil).
+		SetArg(2, expectedLookout)
+
+	// External cleanup
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewBadRequest("something is amiss"))
+
+	scheme, err := v1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	r := LookoutReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "lookout"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err == nil {
+		t.Fatalf("reconcile should return error")
 	}
 }
 

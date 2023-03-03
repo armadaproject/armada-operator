@@ -1814,7 +1814,7 @@ spec:
                     type: object
                   scrapeInterval:
                     description: ScrapeInterval defines the interval at which Prometheus
-                      should scrape Executor metrics
+                      should scrape metrics
                     format: duration
                     type: string
                 type: object
