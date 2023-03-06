@@ -17,9 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 type Image struct {
@@ -93,4 +97,81 @@ type CommonSpecBase struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+}
+
+type PostgresConfig struct {
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifeTime string
+	Connection      *PostgresConnection
+}
+
+type PostgresConnection struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
+type MetricsConfig struct {
+	Port            uint16
+	RefreshInterval time.Duration
+}
+
+type PulsarConfig struct {
+	Enabled           bool
+	URL               string
+	JobsetEventsTopic string
+	ReceiveTimeout    string
+	BackoffTIme       string
+}
+
+type CommonAppConfig struct {
+	Pulsar   PulsarConfig
+	Postgres PostgresConfig
+	Metrics  MetricsConfig
+}
+
+func appConfigFromRawExtension(appConfig *runtime.RawExtension) (*CommonAppConfig, error) {
+	configStr, err := yaml.JSONToYAML(appConfig.Raw)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &CommonAppConfig{}
+	err = yaml.Unmarshal([]byte(configStr), config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+func validatePostgresConfig(config *CommonAppConfig) error {
+	if config.Postgres.Connection == nil {
+		return fmt.Errorf("Postgres.Connection cannot be nil/absent.")
+	}
+	if len(config.Postgres.Connection.Host) == 0 {
+		return fmt.Errorf("No host specified for postgres connection.")
+	}
+	if len(config.Postgres.Connection.User) == 0 {
+		return fmt.Errorf("No user specified for postgres connection.")
+	}
+	if len(config.Postgres.Connection.Password) == 0 {
+		return fmt.Errorf("No password specified for postgres connection.")
+	}
+	if len(config.Postgres.Connection.DBName) == 0 {
+		return fmt.Errorf("No database name specified for postgres connection.")
+	}
+	if config.Postgres.Connection.Port == 0 {
+		return fmt.Errorf("Invalid port specified for postgres connection. Got %d", config.Postgres.Connection.Port)
+	}
+
+	return nil
+}
+
+func validatePulsarConfig(config *CommonAppConfig) error {
+	return nil
 }
