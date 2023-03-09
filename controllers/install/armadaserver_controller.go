@@ -74,7 +74,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	var components *ArmadaServerComponents
+	var components *CommonComponents
 	components, err := generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -210,10 +210,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-type ArmadaServerComponents struct {
-	CommonComponents
-}
-
 type Image struct {
 	Repository string
 	Tag        string
@@ -236,7 +232,7 @@ type ASConfig struct {
 	Pulsar PulsarConfig
 }
 
-func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
+func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
 		return nil, err
@@ -311,19 +307,17 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 			}
 		}
 	}
-	return &ArmadaServerComponents{
-		CommonComponents: CommonComponents{
-			Deployment:          deployment,
-			Ingress:             ingressGRPC,
-			IngressRest:         ingressRest,
-			Service:             service,
-			ServiceAccount:      svcAcct,
-			Secret:              secret,
-			PodDisruptionBudget: pdb,
-			PrometheusRule:      pr,
-			ServiceMonitor:      sm,
-			Jobs:                jobs,
-		},
+	return &CommonComponents{
+		Deployment:          deployment,
+		Ingress:             ingressGRPC,
+		IngressRest:         ingressRest,
+		Service:             service,
+		ServiceAccount:      svcAcct,
+		Secret:              secret,
+		PodDisruptionBudget: pdb,
+		PrometheusRule:      pr,
+		ServiceMonitor:      sm,
+		Jobs:                jobs,
 	}, nil
 
 }
@@ -719,7 +713,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 }
 
 // deleteExternalResources removes any external resources during deletion
-func (r *ArmadaServerReconciler) deleteExternalResources(ctx context.Context, components *ArmadaServerComponents, logger logr.Logger) error {
+func (r *ArmadaServerReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {

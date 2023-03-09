@@ -74,7 +74,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	var components *BinocularsComponents
+	var components *CommonComponents
 	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -132,9 +132,9 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	if components.ClusterRoleBinding != nil {
+	if components.ClusterRoleBindings != nil && len(components.ClusterRoleBindings) > 0 {
 		logger.Info("Upserting Binoculars ClusterRoleBinding object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBinding, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBindings[0], mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -188,7 +188,7 @@ type BinocularsComponents struct {
 	Secret             *corev1.Secret
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*BinocularsComponents, error) {
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
 		return nil, err
@@ -235,15 +235,15 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	clusterRole := createBinocularsClusterRole(binoculars)
 	clusterRoleBinding := generateBinocularsClusterRoleBinding(*binoculars)
 
-	return &BinocularsComponents{
-		Deployment:         deployment,
-		Service:            service,
-		ServiceAccount:     serAct,
-		Secret:             secret,
-		ClusterRole:        clusterRole,
-		ClusterRoleBinding: clusterRoleBinding,
-		Ingress:            ingressGrpc,
-		IngressRest:        ingress,
+	return &CommonComponents{
+		Deployment:          deployment,
+		Service:             service,
+		ServiceAccount:      serAct,
+		Secret:              secret,
+		ClusterRole:         clusterRole,
+		ClusterRoleBindings: []*rbacv1.ClusterRoleBinding{clusterRoleBinding},
+		Ingress:             ingressGrpc,
+		IngressRest:         ingress,
 	}, nil
 }
 
@@ -352,12 +352,12 @@ func generateBinocularsClusterRoleBinding(binoculars installv1alpha1.Binoculars)
 	}
 	return &clusterRoleBinding
 }
-func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, components *BinocularsComponents) error {
+func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents) error {
 	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
 	}
-	if err := r.Delete(ctx, components.ClusterRoleBinding); err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBinding.Name)
+	if err := r.Delete(ctx, components.ClusterRoleBindings[0]); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", components.ClusterRoleBindings[0].Name)
 	}
 	return nil
 }

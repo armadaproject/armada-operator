@@ -120,11 +120,7 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-type EventIngesterComponents struct {
-	CommonComponents
-}
-
-func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*EventIngesterComponents, error) {
+func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(eventIngester.Spec.ApplicationConfig, eventIngester.Name, eventIngester.Namespace, GetConfigFilename(eventIngester.Name))
 	if err != nil {
 		return nil, err
@@ -141,12 +137,10 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	if err := controllerutil.SetOwnerReference(eventIngester, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
-	return &EventIngesterComponents{
-		CommonComponents: CommonComponents{
-			Deployment:     deployment,
-			ServiceAccount: serviceAccount,
-			Secret:         secret,
-		},
+	return &CommonComponents{
+		Deployment:     deployment,
+		ServiceAccount: serviceAccount,
+		Secret:         secret,
 	}, nil
 }
 

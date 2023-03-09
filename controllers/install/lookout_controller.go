@@ -77,7 +77,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	var components *LookoutComponents
+	var components *CommonComponents
 	components, err := generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -189,10 +189,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-type LookoutComponents struct {
-	CommonComponents
-}
-
 type LookoutConfig struct {
 	Postgres PostgresConfig
 }
@@ -209,7 +205,7 @@ type ConnectionConfig struct {
 	Dbname   string
 }
 
-func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
+func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -281,18 +277,16 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	return &LookoutComponents{
-		CommonComponents: CommonComponents{
-			Deployment:     deployment,
-			Service:        service,
-			ServiceAccount: serviceAccount,
-			Secret:         secret,
-			Ingress:        ingressWeb,
-			Jobs:           []*batchv1.Job{job},
-			ServiceMonitor: serviceMonitor,
-			PrometheusRule: prometheusRule,
-			CronJob:        cronJob,
-		},
+	return &CommonComponents{
+		Deployment:     deployment,
+		Service:        service,
+		ServiceAccount: serviceAccount,
+		Secret:         secret,
+		Ingress:        ingressWeb,
+		Jobs:           []*batchv1.Job{job},
+		ServiceMonitor: serviceMonitor,
+		PrometheusRule: prometheusRule,
+		CronJob:        cronJob,
 	}, nil
 }
 
@@ -673,7 +667,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 }
 
 // deleteExternalResources removes any external resources during deletion
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents, logger logr.Logger) error {
+func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {

@@ -206,7 +206,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
+func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
 		return nil, err
@@ -245,16 +245,14 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	clusterRoleBindings = append(clusterRoleBindings, r.createClusterRoleBinding(executor, clusterRole, serviceAccountName))
 	clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 
-	components := &ExecutorComponents{
-		CommonComponents: CommonComponents{
-			Deployment:          deployment,
-			Service:             service,
-			ServiceAccount:      serviceAccount,
-			Secret:              secret,
-			ClusterRoleBindings: clusterRoleBindings,
-			PriorityClasses:     executor.Spec.PriorityClasses,
-			ClusterRole:         clusterRole,
-		},
+	components := &CommonComponents{
+		Deployment:          deployment,
+		Service:             service,
+		ServiceAccount:      serviceAccount,
+		Secret:              secret,
+		ClusterRoleBindings: clusterRoleBindings,
+		PriorityClasses:     executor.Spec.PriorityClasses,
+		ClusterRole:         clusterRole,
 	}
 
 	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
@@ -269,10 +267,6 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	}
 
 	return components, nil
-}
-
-type ExecutorComponents struct {
-	CommonComponents
 }
 
 func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
@@ -499,7 +493,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 	}
 }
 
-func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *ExecutorComponents, logger logr.Logger) error {
+func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
 	}
