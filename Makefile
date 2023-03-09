@@ -233,10 +233,11 @@ uninstall-ingress-controller:
 
 PULSAR_IMAGE="apache/pulsar"
 ifeq ($(ARCH), arm64)
-   PULSAR_IMAGE="kezhenxu94/pulsar"
+   PULSAR_IMAGE="richgross/pulsar:2.11.0"
 endif
 .PHONY: install-pulsar
 install-pulsar:
+	docker pull $(PULSAR_IMAGE)
 	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) $(PULSAR_IMAGE)
 	cat dev/manifests/pulsar.yaml | PULSAR_IMAGE=$(PULSAR_IMAGE) envsubst | kubectl apply -n armada -f -
 
