@@ -1,8 +1,3 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: armada
----
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Binoculars
 metadata:
@@ -19,7 +14,7 @@ spec:
   hostNames: [localhost-binoculars]
   replicas: 2
   image:
-    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+    tag: b292be39d6f960fcf20a8de26657ce79019abef5
     repository: gresearch/armada-binoculars
   resources:
     limits:
@@ -59,7 +54,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: 92fcbb6fd58753d2fcb67a9657aaccff95c3b069
+    tag: b292be39d6f960fcf20a8de26657ce79019abef5
   applicationConfig:
     apiConnection:
       armadaUrl: armadaserver-sample.armada.svc.cluster.local:50051
