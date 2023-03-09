@@ -118,7 +118,12 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	mutateFn := func() error { return nil }
+	componentsCopy := components.DeepCopy()
+
+	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
+		return nil
+	}
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting ArmadaServer ServiceAccount object")
@@ -206,16 +211,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 type ArmadaServerComponents struct {
-	Deployment          *appsv1.Deployment
-	Ingress             *networkingv1.Ingress
-	IngressRest         *networkingv1.Ingress
-	Service             *corev1.Service
-	ServiceAccount      *corev1.ServiceAccount
-	Secret              *corev1.Secret
-	PodDisruptionBudget *policyv1.PodDisruptionBudget
-	PrometheusRule      *monitoringv1.PrometheusRule
-	ServiceMonitor      *monitoringv1.ServiceMonitor
-	Jobs                []*batchv1.Job
+	CommonComponents
 }
 
 type Image struct {
@@ -316,16 +312,18 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		}
 	}
 	return &ArmadaServerComponents{
-		Deployment:          deployment,
-		Ingress:             ingressGRPC,
-		IngressRest:         ingressRest,
-		Service:             service,
-		ServiceAccount:      svcAcct,
-		Secret:              secret,
-		PodDisruptionBudget: pdb,
-		PrometheusRule:      pr,
-		ServiceMonitor:      sm,
-		Jobs:                jobs,
+		CommonComponents: CommonComponents{
+			Deployment:          deployment,
+			Ingress:             ingressGRPC,
+			IngressRest:         ingressRest,
+			Service:             service,
+			ServiceAccount:      svcAcct,
+			Secret:              secret,
+			PodDisruptionBudget: pdb,
+			PrometheusRule:      pr,
+			ServiceMonitor:      sm,
+			Jobs:                jobs,
+		},
 	}, nil
 
 }

@@ -9,8 +9,15 @@ import (
 
 	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -22,6 +29,136 @@ import (
 const (
 	defaultPrometheusInterval = 1 * time.Second
 )
+
+// CommonComponents are the base components for all of the Armada services
+type CommonComponents struct {
+	Deployment          *appsv1.Deployment
+	Ingress             *networkingv1.Ingress
+	IngressRest         *networkingv1.Ingress
+	Service             *corev1.Service
+	ServiceAccount      *corev1.ServiceAccount
+	Secret              *corev1.Secret
+	ClusterRole         *rbacv1.ClusterRole
+	ClusterRoleBindings []*rbacv1.ClusterRoleBinding
+	PriorityClasses     []*schedulingv1.PriorityClass
+	PrometheusRule      *monitoringv1.PrometheusRule
+	ServiceMonitor      *monitoringv1.ServiceMonitor
+	PodDisruptionBudget *policyv1.PodDisruptionBudget
+	Jobs                []*batchv1.Job
+	CronJob             *batchv1.CronJob
+}
+
+// DeepCopy will deep copy values from the receiver and return a new reference
+func (cc *CommonComponents) DeepCopy() *CommonComponents {
+	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
+	for _, crb := range cc.ClusterRoleBindings {
+		clusterRoleBindings = append(clusterRoleBindings, crb.DeepCopy())
+	}
+	var priorityClasses []*schedulingv1.PriorityClass
+	for _, pc := range cc.PriorityClasses {
+		priorityClasses = append(priorityClasses, pc.DeepCopy())
+	}
+	var jobs []*batchv1.Job
+	for _, job := range cc.Jobs {
+		jobs = append(jobs, job.DeepCopy())
+	}
+
+	cloned := &CommonComponents{
+		Deployment:          cc.Deployment.DeepCopy(),
+		Service:             cc.Service.DeepCopy(),
+		ServiceAccount:      cc.ServiceAccount.DeepCopy(),
+		Secret:              cc.Secret.DeepCopy(),
+		ClusterRole:         cc.ClusterRole.DeepCopy(),
+		ClusterRoleBindings: clusterRoleBindings,
+		PriorityClasses:     priorityClasses,
+		ServiceMonitor:      cc.ServiceMonitor.DeepCopy(),
+		PodDisruptionBudget: cc.PodDisruptionBudget.DeepCopy(),
+		Jobs:                jobs,
+		CronJob:             cc.CronJob.DeepCopy(),
+	}
+
+	if cc.PrometheusRule != nil {
+		cloned.PrometheusRule = cc.PrometheusRule.DeepCopy()
+	}
+	if cc.ServiceMonitor != nil {
+		cloned.Service = cc.Service.DeepCopy()
+	}
+	if cc.Ingress != nil {
+		cloned.Ingress = cc.Ingress.DeepCopy()
+	}
+	if cc.IngressRest != nil {
+		cloned.IngressRest = cc.IngressRest.DeepCopy()
+	}
+	if cc.PodDisruptionBudget != nil {
+		cloned.PodDisruptionBudget = cc.PodDisruptionBudget.DeepCopy()
+	}
+
+	return cloned
+}
+
+// ReconcileComponents will copy values from newComponents to the receiver
+func (oldComponents *CommonComponents) ReconcileComponents(newComponents *CommonComponents) {
+	oldComponents.Secret.Data = newComponents.Secret.Data
+	oldComponents.Secret.Labels = newComponents.Secret.Labels
+	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
+	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
+	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
+	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
+	if newComponents.Service != nil {
+		oldComponents.Service.Spec = newComponents.Service.Spec
+		oldComponents.Service.Labels = newComponents.Service.Labels
+		oldComponents.Service.Annotations = newComponents.Service.Annotations
+	} else {
+		oldComponents.Service = nil
+	}
+
+	if newComponents.ClusterRole != nil {
+		oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
+		oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
+		oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
+	} else {
+		oldComponents.ClusterRole = nil
+	}
+
+	if newComponents.Ingress != nil {
+		oldComponents.Ingress.Spec = newComponents.Ingress.Spec
+		oldComponents.Ingress.Labels = newComponents.Ingress.Labels
+		oldComponents.Ingress.Annotations = newComponents.Ingress.Annotations
+	} else {
+		oldComponents.Ingress = nil
+	}
+
+	if newComponents.IngressRest != nil {
+		oldComponents.IngressRest.Spec = newComponents.IngressRest.Spec
+		oldComponents.IngressRest.Labels = newComponents.IngressRest.Labels
+		oldComponents.IngressRest.Annotations = newComponents.IngressRest.Annotations
+	} else {
+		oldComponents.IngressRest = nil
+	}
+
+	if newComponents.PodDisruptionBudget != nil {
+		oldComponents.PodDisruptionBudget.Spec = newComponents.PodDisruptionBudget.Spec
+		oldComponents.PodDisruptionBudget.Labels = newComponents.PodDisruptionBudget.Labels
+		oldComponents.PodDisruptionBudget.Annotations = newComponents.PodDisruptionBudget.Annotations
+	} else {
+		oldComponents.PodDisruptionBudget = nil
+	}
+
+	for i := range oldComponents.ClusterRoleBindings {
+		oldComponents.ClusterRoleBindings[i].RoleRef = newComponents.ClusterRoleBindings[i].RoleRef
+		oldComponents.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
+		oldComponents.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
+		oldComponents.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
+	}
+	for i := range oldComponents.PriorityClasses {
+		oldComponents.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
+		oldComponents.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
+		oldComponents.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
+		oldComponents.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
+		oldComponents.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
+		oldComponents.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
+	}
+}
 
 // ImageString generates a docker image.
 func ImageString(image installv1alpha1.Image) string {

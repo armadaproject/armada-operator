@@ -137,13 +137,13 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.Job != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
+	if components.Jobs != nil && len(components.Jobs) > 0 {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[0], mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
 		defer cancel()
-		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
+		err := waitForJob(ctxTimeout, r.Client, components.Jobs[0], migrationPollSleep)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -163,9 +163,9 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.IngressWeb != nil {
+	if components.Ingress != nil {
 		logger.Info("Upserting Lookout Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressWeb, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -190,15 +190,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type LookoutComponents struct {
-	Deployment     *appsv1.Deployment
-	IngressWeb     *networking.Ingress
-	Secret         *corev1.Secret
-	Service        *corev1.Service
-	ServiceAccount *corev1.ServiceAccount
-	Job            *batchv1.Job
-	ServiceMonitor *monitoringv1.ServiceMonitor
-	PrometheusRule *monitoringv1.PrometheusRule
-	CronJob        *batchv1.CronJob
+	CommonComponents
 }
 
 type LookoutConfig struct {
@@ -290,15 +282,17 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}
 
 	return &LookoutComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
-		IngressWeb:     ingressWeb,
-		Job:            job,
-		ServiceMonitor: serviceMonitor,
-		PrometheusRule: prometheusRule,
-		CronJob:        cronJob,
+		CommonComponents: CommonComponents{
+			Deployment:     deployment,
+			Service:        service,
+			ServiceAccount: serviceAccount,
+			Secret:         secret,
+			Ingress:        ingressWeb,
+			Jobs:           []*batchv1.Job{job},
+			ServiceMonitor: serviceMonitor,
+			PrometheusRule: prometheusRule,
+			CronJob:        cronJob,
+		},
 	}, nil
 }
 

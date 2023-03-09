@@ -80,7 +80,12 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	mutateFn := func() error { return nil }
+	componentsCopy := components.DeepCopy()
+
+	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
+		return nil
+	}
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting EventIngester ServiceAccount object")
@@ -116,9 +121,7 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 type EventIngesterComponents struct {
-	Deployment     *appsv1.Deployment
-	ServiceAccount *corev1.ServiceAccount
-	Secret         *corev1.Secret
+	CommonComponents
 }
 
 func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*EventIngesterComponents, error) {
@@ -139,9 +142,11 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 		return nil, err
 	}
 	return &EventIngesterComponents{
-		Deployment:     deployment,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		CommonComponents: CommonComponents{
+			Deployment:     deployment,
+			ServiceAccount: serviceAccount,
+			Secret:         secret,
+		},
 	}, nil
 }
 

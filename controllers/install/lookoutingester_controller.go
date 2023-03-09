@@ -82,7 +82,10 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	}
 
+	componentsCopy := components.DeepCopy()
+
 	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
 		return nil
 	}
 
@@ -113,9 +116,7 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 type LookoutIngesterComponents struct {
-	Deployment     *appsv1.Deployment
-	ServiceAccount *corev1.ServiceAccount
-	Secret         *corev1.Secret
+	CommonComponents
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -143,9 +144,11 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	}
 
 	return &LookoutIngesterComponents{
-		Deployment:     deployment,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		CommonComponents: CommonComponents{
+			Deployment:     deployment,
+			ServiceAccount: serviceAccount,
+			Secret:         secret,
+		},
 	}, nil
 }
 
