@@ -72,25 +72,12 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 		ClusterRoleBindings: clusterRoleBindings,
 		PriorityClasses:     priorityClasses,
 		Jobs:                jobs,
-	}
-
-	if cc.PrometheusRule != nil {
-		cloned.PrometheusRule = cc.PrometheusRule.DeepCopy()
-	}
-	if cc.ServiceMonitor != nil {
-		cloned.Service = cc.Service.DeepCopy()
-	}
-	if cc.Ingress != nil {
-		cloned.Ingress = cc.Ingress.DeepCopy()
-	}
-	if cc.IngressRest != nil {
-		cloned.IngressRest = cc.IngressRest.DeepCopy()
-	}
-	if cc.PodDisruptionBudget != nil {
-		cloned.PodDisruptionBudget = cc.PodDisruptionBudget.DeepCopy()
-	}
-	if cc.CronJob != nil {
-		cloned.CronJob = cc.CronJob.DeepCopy()
+		CronJob:             cc.CronJob.DeepCopy(),
+		ServiceMonitor:      cc.ServiceMonitor.DeepCopy(),
+		PrometheusRule:      cc.PrometheusRule.DeepCopy(),
+		Ingress:             cc.Ingress.DeepCopy(),
+		IngressRest:         cc.IngressRest.DeepCopy(),
+		PodDisruptionBudget: cc.PodDisruptionBudget.DeepCopy(),
 	}
 
 	return cloned
