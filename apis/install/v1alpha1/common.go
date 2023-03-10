@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 type Image struct {
@@ -64,6 +65,12 @@ type AdditionalClusterRoleBinding struct {
 	ClusterRoleName string `json:"clusterRoleName"`
 }
 
+type PortConfig struct {
+	HttpPort    int32
+	GrpcPort    int32
+	MetricsPort int32
+}
+
 // NOTE(Clif): You must label this with `json:""` when using it as an embedded
 // struct in order for controller-gen to use the promoted fields as expected.
 type CommonSpecBase struct {
@@ -93,4 +100,32 @@ type CommonSpecBase struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+	// PortConfig holds the container ports used by this resource
+	PortConfig PortConfig
+}
+
+// BuildPortConfig extracts ports from the ApplicationConfig and applies inplace
+// as the PortConfig
+func (c *CommonSpecBase) BuildPortConfig() error {
+	appConfig, err := convertRawExtensionToYaml(c.ApplicationConfig)
+	if err != nil {
+		return err
+	}
+	var portConfig PortConfig
+	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
+	if err != nil {
+		return err
+	}
+	c.PortConfig = portConfig
+	return nil
+}
+
+// convertRawExtensionToYaml converts a RawExtension input to Yaml
+func convertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
+	yamlConfig, err := yaml.JSONToYAML(config.Raw)
+	if err != nil {
+		return "", err
+	}
+
+	return string(yamlConfig), nil
 }

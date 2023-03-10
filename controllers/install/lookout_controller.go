@@ -77,8 +77,12 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	err := lookout.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	var components *CommonComponents
-	components, err := generateLookoutInstallComponents(&lookout, r.Scheme)
+	components, err = generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -219,22 +223,26 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createLookoutDeployment(lookout)
+	deployment, err := createLookoutDeployment(lookout)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
 		return nil, err
 	}
+
 	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), []corev1.ServicePort{
 		{
 			Name: "web",
-			Port: 8080,
+			Port: lookout.Spec.PortConfig.HttpPort,
 		},
 		{
 			Name: "grpc",
-			Port: 50059,
+			Port: lookout.Spec.PortConfig.GrpcPort,
 		},
 		{
 			Name: "metrics",
-			Port: 9000,
+			Port: lookout.Spec.PortConfig.MetricsPort,
 		},
 	})
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
@@ -278,7 +286,10 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
-	ingressWeb := createLookoutIngressWeb(lookout)
+	ingressWeb, err := createLookoutIngressWeb(lookout)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(lookout, ingressWeb, scheme); err != nil {
 		return nil, err
 	}
@@ -316,14 +327,14 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 
 // Function to build the deployment object for Lookout.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deployment {
+func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
-
+	
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -366,11 +377,23 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookout.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: 9001,
-							Protocol:      "TCP",
-						}},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "metrics",
+								ContainerPort: lookout.Spec.PortConfig.MetricsPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "http",
+								ContainerPort: lookout.Spec.PortConfig.HttpPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "grpc",
+								ContainerPort: lookout.Spec.PortConfig.GrpcPort,
+								Protocol:      "TCP",
+							},
+						},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -383,10 +406,10 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) *appsv1.Deploymen
 	if lookout.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
 	}
-	return &deployment
+	return &deployment, nil
 }
 
-func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingress {
+func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
 	ingressWeb := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
@@ -425,7 +448,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: 8081,
+									Number: lookout.Spec.PortConfig.HttpPort,
 								},
 							},
 						},
@@ -435,7 +458,7 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) *networking.Ingre
 		}
 		ingressWeb.Spec.Rules = ingressRules
 	}
-	return ingressWeb
+	return ingressWeb, nil
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
@@ -538,7 +561,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: 9001,
+							ContainerPort: lookout.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env:             env,
@@ -652,7 +675,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								},
 								Ports: []corev1.ContainerPort{{
 									Name:          "metrics",
-									ContainerPort: 9001,
+									ContainerPort: lookout.Spec.PortConfig.MetricsPort,
 									Protocol:      "TCP",
 								}},
 								Env:             env,
