@@ -14,8 +14,10 @@ import (
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -437,4 +439,108 @@ func sampleJobs() map[string]*batchv1.Job {
 	}
 
 	return map[string]*batchv1.Job{"stuck": &stuckJob, "complete": &completeJob, "failed": &failedJob}
+}
+
+func TestDeepCopy(t *testing.T) {
+	tests := []struct {
+		name         string
+		cc           CommonComponents
+		expectations func(t *testing.T, old, new CommonComponents)
+	}{
+		{
+			name: "DeepCopy clones a CommonComponents struct",
+			cc:   makeCommonComponents(),
+			expectations: func(t *testing.T, old, new CommonComponents) {
+				assert.EqualValues(t, old.Deployment, new.Deployment)
+				assert.NotSame(t, old.Deployment, new.Deployment)
+				assert.Equal(t, len(old.PriorityClasses), len(new.PriorityClasses))
+				assert.NotSame(t, old.PriorityClasses, new.PriorityClasses)
+				assert.Equal(t, old, new)
+				assert.NotSame(t, old, new)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newCC := tt.cc.DeepCopy()
+			tt.expectations(t, tt.cc, *newCC)
+		})
+	}
+}
+
+func TestReconcileComponents(t *testing.T) {
+	initialState := makeCommonComponents()
+	mutatedState := makeCommonComponents()
+	newAnnotations := map[string]string{"new-annotation": "new-val"}
+	mutatedState.Deployment.Annotations = newAnnotations
+
+	tests := []struct {
+		name         string
+		old          CommonComponents
+		new          CommonComponents
+		expectations func(t *testing.T, mutated CommonComponents)
+	}{
+		{
+			name: "DeepCopy clones a CommonComponents struct",
+			old:  initialState,
+			new:  mutatedState,
+			expectations: func(t *testing.T, mutated CommonComponents) {
+				assert.Equal(t, newAnnotations, mutated.Deployment.Annotations)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.old.ReconcileComponents(&tt.new)
+			tt.expectations(t, tt.new)
+		})
+	}
+}
+
+func makeCommonComponents() CommonComponents {
+	intRef := int32(5)
+	deployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "some-name",
+			Namespace: "some-namespace",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &intRef,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-name",
+					Namespace: "some-namespace",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:            "armadaserver",
+						ImagePullPolicy: "IfNotPresent",
+						Image:           "gresearch/someimage",
+						Args:            []string{"--config", "/config/application_config.yaml"},
+						Ports: []corev1.ContainerPort{{
+							Name:          "metrics",
+							ContainerPort: 9001,
+							Protocol:      "TCP",
+						}},
+					}},
+				},
+			},
+		},
+	}
+
+	pc := schedulingv1.PriorityClass{
+		Value: 1000,
+	}
+
+	secret := corev1.Secret{
+		StringData: map[string]string{"secretkey": "secretval"},
+	}
+
+	return CommonComponents{
+		Deployment:      &deployment,
+		PriorityClasses: []*schedulingv1.PriorityClass{&pc},
+		Secret:          &secret,
+	}
 }

@@ -82,7 +82,10 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	}
 
+	componentsCopy := components.DeepCopy()
+
 	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
 		return nil
 	}
 
@@ -112,12 +115,6 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return ctrl.Result{}, nil
 }
 
-type LookoutIngesterComponents struct {
-	Deployment     *appsv1.Deployment
-	ServiceAccount *corev1.ServiceAccount
-	Secret         *corev1.Secret
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -125,7 +122,7 @@ func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester) (*LookoutIngesterComponents, error) {
+func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookoutIngester.Spec.ApplicationConfig, lookoutIngester.Name, lookoutIngester.Namespace, GetConfigFilename(lookoutIngester.Name))
 	if err != nil {
 		return nil, err
@@ -142,7 +139,7 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 		return nil, err
 	}
 
-	return &LookoutIngesterComponents{
+	return &CommonComponents{
 		Deployment:     deployment,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,

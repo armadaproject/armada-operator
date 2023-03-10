@@ -111,7 +111,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		SetArg(1, *lookout.Secret)
 
 	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
-	lookout.Job.Status = batchv1.JobStatus{
+	lookout.Jobs[0].Status = batchv1.JobStatus{
 		Conditions: []batchv1.JobCondition{{
 			Type:   batchv1.JobComplete,
 			Status: corev1.ConditionTrue,
@@ -125,12 +125,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
-		SetArg(1, *lookout.Job)
+		SetArg(1, *lookout.Jobs[0])
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
-		SetArg(2, *lookout.Job)
+		SetArg(2, *lookout.Jobs[0])
 
 	mockK8sClient.
 		EXPECT().
@@ -161,7 +161,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
-		SetArg(1, *lookout.IngressWeb)
+		SetArg(1, *lookout.Ingress)
 
 	// PrometheusRule
 	mockK8sClient.

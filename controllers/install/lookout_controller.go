@@ -77,7 +77,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	var components *LookoutComponents
+	var components *CommonComponents
 	components, err := generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -121,7 +121,13 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
-	mutateFn := func() error { return nil }
+
+	componentsCopy := components.DeepCopy()
+
+	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
+		return nil
+	}
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting Lookout ServiceAccount object")
@@ -137,13 +143,13 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.Job != nil {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Job, mutateFn); err != nil {
+	if components.Jobs != nil && len(components.Jobs) > 0 {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[0], mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
 		defer cancel()
-		err := waitForJob(ctxTimeout, r.Client, components.Job, migrationPollSleep)
+		err := waitForJob(ctxTimeout, r.Client, components.Jobs[0], migrationPollSleep)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -163,9 +169,9 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.IngressWeb != nil {
+	if components.Ingress != nil {
 		logger.Info("Upserting Lookout Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressWeb, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -189,18 +195,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-type LookoutComponents struct {
-	Deployment     *appsv1.Deployment
-	IngressWeb     *networking.Ingress
-	Secret         *corev1.Secret
-	Service        *corev1.Service
-	ServiceAccount *corev1.ServiceAccount
-	Job            *batchv1.Job
-	ServiceMonitor *monitoringv1.ServiceMonitor
-	PrometheusRule *monitoringv1.PrometheusRule
-	CronJob        *batchv1.CronJob
-}
-
 type LookoutConfig struct {
 	Postgres PostgresConfig
 }
@@ -217,7 +211,7 @@ type ConnectionConfig struct {
 	Dbname   string
 }
 
-func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*LookoutComponents, error) {
+func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -289,13 +283,13 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	return &LookoutComponents{
+	return &CommonComponents{
 		Deployment:     deployment,
 		Service:        service,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,
-		IngressWeb:     ingressWeb,
-		Job:            job,
+		Ingress:        ingressWeb,
+		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
 		PrometheusRule: prometheusRule,
 		CronJob:        cronJob,
@@ -679,7 +673,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 }
 
 // deleteExternalResources removes any external resources during deletion
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *LookoutComponents, logger logr.Logger) error {
+func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {

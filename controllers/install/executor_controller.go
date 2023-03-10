@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	schedulingv1 "k8s.io/api/scheduling/v1"
-
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/duration"
 
@@ -95,8 +93,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	componentsCopy := components.DeepCopy()
-
 	deletionTimestamp := executor.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
 	if deletionTimestamp.IsZero() {
@@ -135,8 +131,10 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	componentsCopy := components.DeepCopy()
+
 	mutateFn := func() error {
-		r.reconcileComponents(components, componentsCopy)
+		components.ReconcileComponents(componentsCopy)
 		return nil
 	}
 
@@ -208,37 +206,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ExecutorReconciler) reconcileComponents(oldComponents, newComponents *ExecutorComponents) {
-	oldComponents.Secret.Data = newComponents.Secret.Data
-	oldComponents.Secret.Labels = newComponents.Secret.Labels
-	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
-	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
-	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
-	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
-	oldComponents.Service.Spec = newComponents.Service.Spec
-	oldComponents.Service.Labels = newComponents.Service.Labels
-	oldComponents.Service.Annotations = newComponents.Service.Annotations
-	oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
-	oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
-	oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
-	for i := range oldComponents.ClusterRoleBindings {
-		oldComponents.ClusterRoleBindings[i].RoleRef = newComponents.ClusterRoleBindings[i].RoleRef
-		oldComponents.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
-		oldComponents.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
-		oldComponents.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
-	}
-	for i := range oldComponents.PriorityClasses {
-		oldComponents.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
-		oldComponents.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
-		oldComponents.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
-		oldComponents.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
-		oldComponents.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
-		oldComponents.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
-	}
-
-}
-
-func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*ExecutorComponents, error) {
+func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
 		return nil, err
@@ -277,7 +245,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	clusterRoleBindings = append(clusterRoleBindings, r.createClusterRoleBinding(executor, clusterRole, serviceAccountName))
 	clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 
-	components := &ExecutorComponents{
+	components := &CommonComponents{
 		Deployment:          deployment,
 		Service:             service,
 		ServiceAccount:      serviceAccount,
@@ -299,47 +267,6 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	}
 
 	return components, nil
-}
-
-type ExecutorComponents struct {
-	Deployment          *appsv1.Deployment
-	Service             *corev1.Service
-	ServiceAccount      *corev1.ServiceAccount
-	Secret              *corev1.Secret
-	ClusterRole         *rbacv1.ClusterRole
-	ClusterRoleBindings []*rbacv1.ClusterRoleBinding
-	PriorityClasses     []*schedulingv1.PriorityClass
-	PrometheusRule      *monitoringv1.PrometheusRule
-	ServiceMonitor      *monitoringv1.ServiceMonitor
-}
-
-func (ec *ExecutorComponents) DeepCopy() *ExecutorComponents {
-	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
-	for _, crb := range ec.ClusterRoleBindings {
-		clusterRoleBindings = append(clusterRoleBindings, crb.DeepCopy())
-	}
-	var priorityClasses []*schedulingv1.PriorityClass
-	for _, pc := range ec.PriorityClasses {
-		priorityClasses = append(priorityClasses, pc.DeepCopy())
-	}
-	cloned := &ExecutorComponents{
-		Deployment:          ec.Deployment.DeepCopy(),
-		Service:             ec.Service.DeepCopy(),
-		ServiceAccount:      ec.ServiceAccount.DeepCopy(),
-		Secret:              ec.Secret.DeepCopy(),
-		ClusterRole:         ec.ClusterRole.DeepCopy(),
-		ClusterRoleBindings: clusterRoleBindings,
-		PriorityClasses:     priorityClasses,
-		PrometheusRule:      ec.PrometheusRule.DeepCopy(),
-		ServiceMonitor:      ec.ServiceMonitor.DeepCopy(),
-	}
-	if ec.PrometheusRule != nil {
-		cloned.PrometheusRule = ec.PrometheusRule.DeepCopy()
-	}
-	if ec.ServiceMonitor != nil {
-		cloned.Service = ec.Service.DeepCopy()
-	}
-	return cloned
 }
 
 func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
@@ -566,7 +493,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 	}
 }
 
-func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *ExecutorComponents, logger logr.Logger) error {
+func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 	if err := r.Delete(ctx, components.ClusterRole); err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "error deleting ClusterRole %s", components.ClusterRole.Name)
 	}

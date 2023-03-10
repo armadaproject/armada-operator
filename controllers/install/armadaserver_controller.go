@@ -74,7 +74,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	var components *ArmadaServerComponents
+	var components *CommonComponents
 	components, err := generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -118,7 +118,12 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	mutateFn := func() error { return nil }
+	componentsCopy := components.DeepCopy()
+
+	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
+		return nil
+	}
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting ArmadaServer ServiceAccount object")
@@ -205,19 +210,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-type ArmadaServerComponents struct {
-	Deployment          *appsv1.Deployment
-	Ingress             *networkingv1.Ingress
-	IngressRest         *networkingv1.Ingress
-	Service             *corev1.Service
-	ServiceAccount      *corev1.ServiceAccount
-	Secret              *corev1.Secret
-	PodDisruptionBudget *policyv1.PodDisruptionBudget
-	PrometheusRule      *monitoringv1.PrometheusRule
-	ServiceMonitor      *monitoringv1.ServiceMonitor
-	Jobs                []*batchv1.Job
-}
-
 type Image struct {
 	Repository string
 	Tag        string
@@ -240,7 +232,7 @@ type ASConfig struct {
 	Pulsar PulsarConfig
 }
 
-func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*ArmadaServerComponents, error) {
+func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
 		return nil, err
@@ -315,7 +307,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 			}
 		}
 	}
-	return &ArmadaServerComponents{
+	return &CommonComponents{
 		Deployment:          deployment,
 		Ingress:             ingressGRPC,
 		IngressRest:         ingressRest,
@@ -721,7 +713,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 }
 
 // deleteExternalResources removes any external resources during deletion
-func (r *ArmadaServerReconciler) deleteExternalResources(ctx context.Context, components *ArmadaServerComponents, logger logr.Logger) error {
+func (r *ArmadaServerReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {

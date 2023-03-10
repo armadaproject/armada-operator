@@ -214,7 +214,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
 		Return(nil).
-		SetArg(1, *binoculars.ClusterRoleBinding)
+		SetArg(1, *binoculars.ClusterRoleBindings[0])
 	// Ingress
 	ingressNamespacedName := types.NamespacedName{Namespace: "default", Name: "binoculars-rest"}
 	mockK8sClient.
