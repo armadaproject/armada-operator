@@ -129,7 +129,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return nil
 	}
 
-
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting Lookout ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
