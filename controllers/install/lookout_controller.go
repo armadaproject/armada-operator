@@ -121,7 +121,14 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
-	mutateFn := func() error { return nil }
+
+	componentsCopy := components.DeepCopy()
+
+	mutateFn := func() error {
+		components.ReconcileComponents(componentsCopy)
+		return nil
+	}
+
 
 	if components.ServiceAccount != nil {
 		logger.Info("Upserting Lookout ServiceAccount object")
