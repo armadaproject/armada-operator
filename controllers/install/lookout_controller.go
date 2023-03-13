@@ -334,7 +334,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
-	
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
 		Spec: appsv1.DeploymentSpec{

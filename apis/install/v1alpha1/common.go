@@ -101,7 +101,7 @@ type CommonSpecBase struct {
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
 	// PortConfig holds the container ports used by this resource
-	PortConfig PortConfig
+	PortConfig PortConfig `json:"portConfig,omitempty"`
 }
 
 // BuildPortConfig extracts ports from the ApplicationConfig and applies inplace
@@ -111,7 +111,12 @@ func (c *CommonSpecBase) BuildPortConfig() error {
 	if err != nil {
 		return err
 	}
-	var portConfig PortConfig
+	// defaults
+	portConfig := PortConfig{
+		HttpPort:    8080,
+		GrpcPort:    50051,
+		MetricsPort: 9000,
+	}
 	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
 	if err != nil {
 		return err
