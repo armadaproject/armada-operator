@@ -25,10 +25,10 @@ func TestBuildPortConfig(t *testing.T) {
 			},
 		},
 		{
-			name:  "it errors with bad json (so does everything else in the app)",
-			input: runtime.RawExtension{Raw: []byte(`{"httpPort": 8081`)},
+			name:     "it errors with bad json (so does everything else in the app)",
+			input:    runtime.RawExtension{Raw: []byte(`{"httpPort": 8081`)},
 			expected: PortConfig{},
-			wantErr: true,
+			wantErr:  true,
 		},
 		{
 			name:  "it accepts partial overrides from the config",
