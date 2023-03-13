@@ -74,8 +74,12 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	err := binoculars.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	var components *CommonComponents
-	components, err := generateBinocularsInstallComponents(&binoculars, r.Scheme)
+	components, err = generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -183,17 +187,6 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-type BinocularsComponents struct {
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
-	Ingress            *networking.Ingress
-	IngressRest        *networking.Ingress
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
-	ServiceAccount     *corev1.ServiceAccount
-	Secret             *corev1.Secret
-}
-
 func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
@@ -202,22 +195,25 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := createBinocularsDeployment(binoculars)
+	deployment, err := createBinocularsDeployment(binoculars)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
 	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), []corev1.ServicePort{
 		{
 			Name: "web",
-			Port: 8080,
+			Port: binoculars.Spec.PortConfig.HttpPort,
 		},
 		{
 			Name: "grpc",
-			Port: 50051,
+			Port: binoculars.Spec.PortConfig.GrpcPort,
 		},
 		{
 			Name: "metrics",
-			Port: 9000,
+			Port: binoculars.Spec.PortConfig.MetricsPort,
 		},
 	})
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
@@ -228,7 +224,10 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		return nil, err
 	}
 
-	ingress := createBinocularsIngress(binoculars)
+	ingress, err := createBinocularsIngress(binoculars)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
 		return nil, err
 	}
@@ -255,14 +254,13 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 
 // Function to build the deployment object for Binoculars.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.Deployment {
+func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(binoculars.Spec.Environment)
 	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(binoculars.Name), binoculars.Spec.AdditionalVolumeMounts)
-
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -305,11 +303,23 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(binoculars.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: 9001,
-							Protocol:      "TCP",
-						}},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "metrics",
+								ContainerPort: binoculars.Spec.PortConfig.MetricsPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "http",
+								ContainerPort: binoculars.Spec.PortConfig.HttpPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "grpc",
+								ContainerPort: binoculars.Spec.PortConfig.GrpcPort,
+								Protocol:      "TCP",
+							},
+						},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -322,7 +332,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) *appsv1.
 	if binoculars.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *binoculars.Spec.Resources
 	}
-	return &deployment
+	return &deployment, nil
 }
 
 func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRole {
@@ -412,7 +422,7 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: 50051,
+									Number: binoculars.Spec.PortConfig.GrpcPort,
 								},
 							},
 						},
@@ -425,7 +435,7 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 	return grpcIngress
 }
 
-func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
 	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
@@ -464,7 +474,7 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: 8081,
+									Number: binoculars.Spec.PortConfig.HttpPort,
 								},
 							},
 						},
@@ -474,7 +484,7 @@ func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) *networking
 		}
 		restIngress.Spec.Rules = ingressRules
 	}
-	return restIngress
+	return restIngress, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

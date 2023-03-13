@@ -88,6 +88,10 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	err := executor.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -225,11 +229,11 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), []corev1.ServicePort{
 		{
 			Name: "rest",
-			Port: 8080,
+			Port: executor.Spec.PortConfig.HttpPort,
 		},
 		{
 			Name: "metrics",
-			Port: 9000,
+			Port: executor.Spec.PortConfig.MetricsPort,
 		},
 	})
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
@@ -277,7 +281,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 	allowPrivilegeEscalation := false
 	ports := []corev1.ContainerPort{{
 		Name:          "metrics",
-		ContainerPort: 9001,
+		ContainerPort: executor.Spec.PortConfig.MetricsPort,
 		Protocol:      "TCP",
 	}}
 	env := []corev1.EnvVar{

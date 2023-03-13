@@ -1747,6 +1747,24 @@ spec:
                 description: NodeSelector restricts the Executor pod to run on nodes
                   matching the configured selectors
                 type: object
+              portConfig:
+                description: PortConfig is automatically populated with defaults and
+                  overlaid by values in ApplicationConfig.
+                properties:
+                  grpcPort:
+                    format: int32
+                    type: integer
+                  httpPort:
+                    format: int32
+                    type: integer
+                  metricsPort:
+                    format: int32
+                    type: integer
+                required:
+                - grpcPort
+                - httpPort
+                - metricsPort
+                type: object
               priorityClasses:
                 description: List of PriorityClasses which will be created
                 items:
