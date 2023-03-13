@@ -324,8 +324,8 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 }
 
 func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batchv1.Job, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
+	runAsUser := int64(0)
+	runAsGroup := int64(0)
 	terminationGracePeriodSeconds := as.Spec.TerminationGracePeriodSeconds
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)

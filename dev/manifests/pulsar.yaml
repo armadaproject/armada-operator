@@ -7,8 +7,12 @@ spec:
   selector:
     app: pulsar
   ports:
-    - port: 6650
+    - name: pulsar
+      port: 6650
       targetPort: 6650
+    - name: pulsar-admin
+      port: 8080
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
