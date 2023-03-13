@@ -19,6 +19,7 @@ package install
 import (
 	"context"
 	"fmt"
+	grt "runtime"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -331,6 +332,13 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	completions := int32(1)
 	backoffLimit := int32(0)
 
+	var pulsarImage string
+	if grt.GOARCH == "arm64" {
+		pulsarImage = "richgross/pulsar:2.11.0"
+	} else {
+		pulsarImage = "apachepulsar/pulsar:2.11.0"
+	}
+
 	appConfig, err := builders.ConvertRawExtensionToYaml(as.Spec.ApplicationConfig)
 	if err != nil {
 		return []*batchv1.Job{}, err
@@ -439,7 +447,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 					Containers: []corev1.Container{{
 						Name:            "init-pulsar",
 						ImagePullPolicy: "IfNotPresent",
-						Image:           "apachepulsar/pulsar:2.11.0",
+						Image:           pulsarImage,
 						Args: []string{
 							"/bin/sh",
 							"-c",

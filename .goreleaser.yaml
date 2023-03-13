@@ -9,6 +9,7 @@ builds:
       - linux
     goarch:
       - amd64
+      - arm64
 
 #sboms:
 #  - artifacts: archive
