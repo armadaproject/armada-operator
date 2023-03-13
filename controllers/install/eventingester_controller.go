@@ -66,6 +66,10 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	err := eventIngester.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	components, err := r.generateEventIngesterComponents(&eventIngester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -202,7 +206,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 						Args:            []string{"--config", "/config/application_config.yaml"},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: 9001,
+							ContainerPort: eventIngester.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env:             env,
