@@ -66,9 +66,9 @@ type AdditionalClusterRoleBinding struct {
 }
 
 type PortConfig struct {
-	HttpPort    int32
-	GrpcPort    int32
-	MetricsPort int32
+	HttpPort    int32 `json:"httpPort"`
+	GrpcPort    int32 `json:"grpcPort"`
+	MetricsPort int32 `json:"metricsPort"`
 }
 
 // NOTE(Clif): You must label this with `json:""` when using it as an embedded
@@ -100,7 +100,7 @@ type CommonSpecBase struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
-	// PortConfig holds the container ports used by this resource
+	// PortConfig is automatically populated with defaults and overlaid by values in ApplicationConfig.
 	PortConfig PortConfig `json:"portConfig,omitempty"`
 }
 
