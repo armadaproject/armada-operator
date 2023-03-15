@@ -75,8 +75,12 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	err := as.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	var components *CommonComponents
-	components, err := generateArmadaServerInstallComponents(&as, r.Scheme)
+	components, err = generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -260,15 +264,15 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), []corev1.ServicePort{
 		{
 			Name: "grpc",
-			Port: 50051,
+			Port: as.Spec.PortConfig.GrpcPort,
 		},
 		{
 			Name: "rest",
-			Port: 8080,
+			Port: as.Spec.PortConfig.HttpPort,
 		},
 		{
 			Name: "metrics",
-			Port: 9000,
+			Port: as.Spec.PortConfig.MetricsPort,
 		},
 	})
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
@@ -387,7 +391,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: 9001,
+							ContainerPort: as.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env: []corev1.EnvVar{
@@ -464,7 +468,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: 9001,
+							ContainerPort: as.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env: []corev1.EnvVar{
@@ -559,11 +563,23 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(as.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: 9001,
-							Protocol:      "TCP",
-						}},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "metrics",
+								ContainerPort: as.Spec.PortConfig.MetricsPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "grpc",
+								ContainerPort: as.Spec.PortConfig.GrpcPort,
+								Protocol:      "TCP",
+							},
+							{
+								Name:          "http",
+								ContainerPort: as.Spec.PortConfig.HttpPort,
+								Protocol:      "TCP",
+							},
+						},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
@@ -628,7 +644,7 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: 50051,
+									Number: as.Spec.PortConfig.GrpcPort,
 								},
 							},
 						},
@@ -682,7 +698,7 @@ func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: 8080,
+									Number: as.Spec.PortConfig.HttpPort,
 								},
 							},
 						},

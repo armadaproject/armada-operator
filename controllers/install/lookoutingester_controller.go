@@ -64,6 +64,10 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	logger.Info(fmt.Sprintf("LookoutIngester Name %s", lookoutIngester.Name))
+	err := lookoutIngester.Spec.BuildPortConfig()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	components, err := r.generateInstallComponents(&lookoutIngester)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -185,7 +189,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 						// FIXME(Clif): Needs to change
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: 9001,
+							ContainerPort: lookoutIngester.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env:             env,
