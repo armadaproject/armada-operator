@@ -152,16 +152,31 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Service)
 
-	// IngressWeb
+	// IngressRest
+	expectedIngressName := expectedNamespacedName
+	expectedIngressName.Name = expectedIngressName.Name + "-rest"
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Get(gomock.Any(), expectedIngressName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
-		SetArg(1, *lookout.Ingress)
+		SetArg(1, *lookout.IngressRest)
+
+	// IngressGrpc
+	expectedIngressName = expectedNamespacedName
+	expectedIngressName.Name = expectedIngressName.Name + "-grpc"
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedIngressName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(nil).
+		SetArg(1, *lookout.IngressGrpc)
 
 	// PrometheusRule
 	mockK8sClient.

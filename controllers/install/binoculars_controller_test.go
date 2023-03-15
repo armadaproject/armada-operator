@@ -225,7 +225,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
-		SetArg(1, *binoculars.Ingress)
+		SetArg(1, *binoculars.IngressGrpc)
 	ingressGRPCNamespaceNamed := types.NamespacedName{Namespace: "default", Name: "binoculars-grpc"}
 	// IngressRest
 	mockK8sClient.
