@@ -301,21 +301,12 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	ingressGrpc, err := createLookoutIngressGrpc(lookout)
-	if err != nil {
-		return nil, err
-	}
-	if err := controllerutil.SetOwnerReference(lookout, ingressGrpc, scheme); err != nil {
-		return nil, err
-	}
-
 	return &CommonComponents{
 		Deployment:     deployment,
 		Service:        service,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,
 		IngressRest:    ingressRest,
-		IngressGrpc:    ingressGrpc,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
 		PrometheusRule: prometheusRule,
@@ -434,7 +425,6 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 				"kubernetes.io/ingress.class":                lookout.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          lookout.Spec.ClusterIssuer,
 				"cert-manager.io/cluster-issuer":             lookout.Spec.ClusterIssuer,
-				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
 				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 			},
 		},
@@ -459,8 +449,8 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{
 					Paths: []networking.HTTPIngressPath{{
-						Path:     "/api(/|$)(.*)",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Path:     "/",
+						PathType: (*networking.PathType)(pointer.String("Prefix")),
 						Backend: networking.IngressBackend{
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
@@ -476,60 +466,6 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 		ingressRest.Spec.Rules = ingressRules
 	}
 	return ingressRest, nil
-}
-
-func createLookoutIngressGrpc(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
-	grpcIngressName := lookout.Name + "-grpc"
-
-	ingressGrpc := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: grpcIngressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                  lookout.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
-				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-				"certmanager.k8s.io/cluster-issuer":            lookout.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":               lookout.Spec.ClusterIssuer,
-			},
-		},
-	}
-
-	if lookout.Spec.Ingress.Annotations != nil {
-		for key, value := range lookout.Spec.Ingress.Annotations {
-			ingressGrpc.ObjectMeta.Annotations[key] = value
-		}
-	}
-	if lookout.Spec.Ingress.Labels != nil {
-		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressGrpc.ObjectMeta.Labels[key] = value
-		}
-	}
-	if len(lookout.Spec.HostNames) > 0 {
-		secretName := lookout.Name + "-service-tls"
-		ingressGrpc.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := lookout.Name
-		for _, val := range lookout.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: lookout.Spec.PortConfig.GrpcPort,
-								},
-							},
-						},
-					}},
-				},
-			}})
-		}
-		ingressGrpc.Spec.Rules = ingressRules
-	}
-	return ingressGrpc, nil
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
