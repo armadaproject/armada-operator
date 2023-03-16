@@ -173,9 +173,16 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.Ingress != nil {
-		logger.Info("Upserting Lookout Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+	if components.IngressGrpc != nil {
+		logger.Info("Upserting Lookout Ingress Grpc object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if components.IngressRest != nil {
+		logger.Info("Upserting Lookout Ingress Rest object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -286,11 +293,19 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
-	ingressWeb, err := createLookoutIngressWeb(lookout)
+	ingressRest, err := createLookoutIngressRest(lookout)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, ingressWeb, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(lookout, ingressRest, scheme); err != nil {
+		return nil, err
+	}
+
+	ingressGrpc, err := createLookoutIngressGrpc(lookout)
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(lookout, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
 
@@ -299,7 +314,8 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Service:        service,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,
-		Ingress:        ingressWeb,
+		IngressRest:    ingressRest,
+		IngressGrpc:    ingressGrpc,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
 		PrometheusRule: prometheusRule,
@@ -409,10 +425,11 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 	return &deployment, nil
 }
 
-func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
-	ingressWeb := &networking.Ingress{
+func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+	ingressName := lookout.Name + "-rest"
+	ingressRest := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
+			Name: ingressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                lookout.Spec.Ingress.IngressClass,
 				"certmanager.k8s.io/cluster-issuer":          lookout.Spec.ClusterIssuer,
@@ -425,17 +442,17 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) (*networking.Ingr
 
 	if lookout.Spec.Ingress.Annotations != nil {
 		for key, value := range lookout.Spec.Ingress.Annotations {
-			ingressWeb.ObjectMeta.Annotations[key] = value
+			ingressRest.ObjectMeta.Annotations[key] = value
 		}
 	}
 	if lookout.Spec.Ingress.Labels != nil {
 		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressWeb.ObjectMeta.Labels[key] = value
+			ingressRest.ObjectMeta.Labels[key] = value
 		}
 	}
 	if len(lookout.Spec.HostNames) > 0 {
 		secretName := lookout.Name + "-service-tls"
-		ingressWeb.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+		ingressRest.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
 		serviceName := lookout.Name
 		for _, val := range lookout.Spec.HostNames {
@@ -456,9 +473,63 @@ func createLookoutIngressWeb(lookout *installv1alpha1.Lookout) (*networking.Ingr
 				},
 			}})
 		}
-		ingressWeb.Spec.Rules = ingressRules
+		ingressRest.Spec.Rules = ingressRules
 	}
-	return ingressWeb, nil
+	return ingressRest, nil
+}
+
+func createLookoutIngressGrpc(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+	grpcIngressName := lookout.Name + "-grpc"
+
+	ingressGrpc := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: grpcIngressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                  lookout.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            lookout.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               lookout.Spec.ClusterIssuer,
+			},
+		},
+	}
+
+	if lookout.Spec.Ingress.Annotations != nil {
+		for key, value := range lookout.Spec.Ingress.Annotations {
+			ingressGrpc.ObjectMeta.Annotations[key] = value
+		}
+	}
+	if lookout.Spec.Ingress.Labels != nil {
+		for key, value := range lookout.Spec.Ingress.Labels {
+			ingressGrpc.ObjectMeta.Labels[key] = value
+		}
+	}
+	if len(lookout.Spec.HostNames) > 0 {
+		secretName := lookout.Name + "-service-tls"
+		ingressGrpc.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+		ingressRules := []networking.IngressRule{}
+		serviceName := lookout.Name
+		for _, val := range lookout.Spec.HostNames {
+			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{{
+						Path:     "/",
+						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: serviceName,
+								Port: networking.ServiceBackendPort{
+									Number: lookout.Spec.PortConfig.GrpcPort,
+								},
+							},
+						},
+					}},
+				},
+			}})
+		}
+		ingressGrpc.Spec.Rules = ingressRules
+	}
+	return ingressGrpc, nil
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
