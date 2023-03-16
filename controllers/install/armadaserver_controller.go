@@ -175,9 +175,9 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if components.Ingress != nil {
+	if components.IngressGrpc != nil {
 		logger.Info("Upserting ArmadaServer GRPC Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -314,7 +314,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	}
 	return &CommonComponents{
 		Deployment:          deployment,
-		Ingress:             ingressGRPC,
+		IngressGrpc:         ingressGRPC,
 		IngressRest:         ingressRest,
 		Service:             service,
 		ServiceAccount:      svcAcct,

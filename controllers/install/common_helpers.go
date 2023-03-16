@@ -33,7 +33,7 @@ const (
 // CommonComponents are the base components for all of the Armada services
 type CommonComponents struct {
 	Deployment          *appsv1.Deployment
-	Ingress             *networkingv1.Ingress
+	IngressGrpc         *networkingv1.Ingress
 	IngressRest         *networkingv1.Ingress
 	Service             *corev1.Service
 	ServiceAccount      *corev1.ServiceAccount
@@ -75,7 +75,7 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 		CronJob:             cc.CronJob.DeepCopy(),
 		ServiceMonitor:      cc.ServiceMonitor.DeepCopy(),
 		PrometheusRule:      cc.PrometheusRule.DeepCopy(),
-		Ingress:             cc.Ingress.DeepCopy(),
+		IngressGrpc:         cc.IngressGrpc.DeepCopy(),
 		IngressRest:         cc.IngressRest.DeepCopy(),
 		PodDisruptionBudget: cc.PodDisruptionBudget.DeepCopy(),
 	}
@@ -107,12 +107,12 @@ func (oldComponents *CommonComponents) ReconcileComponents(newComponents *Common
 		oldComponents.ClusterRole = nil
 	}
 
-	if newComponents.Ingress != nil {
-		oldComponents.Ingress.Spec = newComponents.Ingress.Spec
-		oldComponents.Ingress.Labels = newComponents.Ingress.Labels
-		oldComponents.Ingress.Annotations = newComponents.Ingress.Annotations
+	if newComponents.IngressGrpc != nil {
+		oldComponents.IngressGrpc.Spec = newComponents.IngressGrpc.Spec
+		oldComponents.IngressGrpc.Labels = newComponents.IngressGrpc.Labels
+		oldComponents.IngressGrpc.Annotations = newComponents.IngressGrpc.Annotations
 	} else {
-		oldComponents.Ingress = nil
+		oldComponents.IngressGrpc = nil
 	}
 
 	if newComponents.IngressRest != nil {

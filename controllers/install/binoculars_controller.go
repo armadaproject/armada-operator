@@ -169,9 +169,9 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, err
 		}
 	}
-	if components.Ingress != nil {
+	if components.IngressGrpc != nil {
 		logger.Info("Upserting GRPC Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Ingress, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -224,7 +224,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		return nil, err
 	}
 
-	ingress, err := createBinocularsIngress(binoculars)
+	ingress, err := createBinocularsIngressRest(binoculars)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		return nil, err
 	}
 
-	ingressGrpc := createBinocularsGRPCIngress(binoculars)
+	ingressGrpc := createBinocularsIngressGrpc(binoculars)
 	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		Secret:              secret,
 		ClusterRole:         clusterRole,
 		ClusterRoleBindings: []*rbacv1.ClusterRoleBinding{clusterRoleBinding},
-		Ingress:             ingressGrpc,
+		IngressGrpc:         ingressGrpc,
 		IngressRest:         ingress,
 	}, nil
 }
@@ -378,7 +378,7 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 	return nil
 }
 
-func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
 	grpcIngressName := binoculars.Name + "-grpc"
 
 	grpcIngress := &networking.Ingress{
@@ -435,7 +435,7 @@ func createBinocularsGRPCIngress(binoculars *installv1alpha1.Binoculars) *networ
 	return grpcIngress
 }
 
-func createBinocularsIngress(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+func createBinocularsIngressRest(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
 	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
