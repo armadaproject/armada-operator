@@ -422,10 +422,10 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ingressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                lookout.Spec.Ingress.IngressClass,
-				"certmanager.k8s.io/cluster-issuer":          lookout.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":             lookout.Spec.ClusterIssuer,
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
+				"kubernetes.io/ingress.class":              lookout.Spec.Ingress.IngressClass,
+				"certmanager.k8s.io/cluster-issuer":        lookout.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":           lookout.Spec.ClusterIssuer,
+				"nginx.ingress.kubernetes.io/ssl-redirect": "true",
 			},
 		},
 	}
