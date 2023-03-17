@@ -458,7 +458,6 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 							`echo -e "Initializing pulsar $PULSARADMINURL"
               bin/pulsar-admin --admin-url $PULSARADMINURL tenants create armada
               bin/pulsar-admin --admin-url $PULSARADMINURL namespaces create armada/armada
-              bin/pulsar-admin --admin-url $PULSARADMINURL topics delete-partitioned-topic persistent://armada/armada/events -f || true
               bin/pulsar-admin --admin-url $PULSARADMINURL topics create-partitioned-topic persistent://armada/armada/events -p 2
 
               # Disable topic auto-creation to ensure an error is thrown on using the wrong topic
