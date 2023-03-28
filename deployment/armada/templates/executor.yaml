@@ -1,0 +1,82 @@
+{{ if eq .Values.clusterType "executor" }}
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Binoculars
+metadata:
+  name: binoculars-sample
+  namespace: armada
+spec:
+  ingress:
+    ingressClass: "nginx"
+    labels: 
+      hello: "world"
+    annotations:
+      hello: "world2"
+  clusterIssuer: "letsencrypt-prod"
+  hostNames: [gpu-cluster.armada.grlab.co.uk]
+  replicas: 2
+  image:
+    tag: 6141171b8bde8a03113090a819d728511c2dc39f
+    repository: gresearch/armada-binoculars
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+
+  environment:
+  - name: LOG_FORMAT
+    value: json
+
+  prometheus:
+    enabled: true
+    labels:
+      metrics: "true"
+      prometheus: armada
+      role: prometheus-rulefiles
+
+  labels:
+    armadaproject.io/app-id: "9670"
+
+  applicationConfig:
+    impersonateUsers: true
+    corsAllowedOrigins:
+      - "https://lookout.armada.grlab.co.uk"
+    auth:
+      anonymousAuth: true
+---
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  name: executor-sample
+  namespace: armada
+spec:
+  image:
+    repository: gresearch/armada-executor
+    tag: 92fcbb6fd58753d2fcb67a9657aaccff95c3b069
+  applicationConfig:
+    clusterId: "gpu-cluster"
+    apiConnection:
+      armadaUrl: armada.grlab.co.uk:443
+      forceNoTls: false
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: "0.5"
+    requests:
+      memory: 500Mi
+      cpu: "0.3"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: armada-default
+value: 1000
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: armada-preemptible
+value: 900
+{{ end }}      
