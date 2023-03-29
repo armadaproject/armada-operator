@@ -1,9 +1,11 @@
-{{ if eq .Values.clusterType "server" }}
+{{ if eq .Values.global.clusterType "server" }}
 apiVersion: install.armadaproject.io/v1alpha1
 kind: ArmadaServer
 metadata:
-  name: armadaserver-sample
-  namespace: armada
+  name: {{ include "armada.name" . }}
+  namespace: {{ .Release.Name }}
+  labels:
+  {{- include "armada.labels" . | nindent 4 }}
 spec:
   pulsarInit: false
   ingress:
@@ -96,35 +98,4 @@ spec:
           effect: "NoSchedule"
       minTerminationGracePeriod: 1s
       maxTerminationGracePeriod: 30s
----
-apiVersion: install.armadaproject.io/v1alpha1
-kind: EventIngester
-metadata:
-  name: eventingester-sample
-  namespace: armada
-spec:
-  replicas: 1
-  image:
-    repository: gresearch/armada-event-ingester
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
-  applicationConfig:
-    redis:
-      addrs:
-        - redis-master.armada-data.svc.cluster.local:6379
-      password: ""
-      db: 0
-      poolSize: 1000
-    pulsar:
-      URL: pulsar://pulsar-mini-broker.armada-data.svc.cluster.local:6650
-      jobsetEventsTopic: events
-      receiveTimeout: 5s
-      backoffTime: 1s
-    subscriptionName: "events-ingester"
-    minMessageCompressionSize: 1024
-    batchSize: 1048576  #1MB
-    batchDuration: 500ms
-    batchMessages: 10000
-    eventRetentionPolicy:
-      expiryEnabled: true
-      retentionDuration: 336h
 {{ end }}      

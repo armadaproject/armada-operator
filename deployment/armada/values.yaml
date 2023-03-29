@@ -1,2 +1,3 @@
 # clusterType will select which components to install. Options are 'server' and 'executor'
-clusterType: "server"
+global:
+  clusterType: "server"
