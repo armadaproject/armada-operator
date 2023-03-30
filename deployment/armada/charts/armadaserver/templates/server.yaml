@@ -7,95 +7,15 @@ metadata:
   labels:
   {{- include "armada.labels" . | nindent 4 }}
 spec:
-  pulsarInit: false
+  pulsarInit: {{ .Values.pulsarInit }}
   ingress:
-    ingressClass: "nginx"
-  clusterIssuer: "letsencrypt-prod"
-  hostNames: [armada.grlab.co.uk]
-  replicas: 1
+    ingressClass: {{ .Values.ingressClass }}
+  clusterIssuer: {{ .Values.custerIssuer }}
+  hostNames: {{ .Values.ingressHostNames }}
+  replicas: {{ .Values.replicas }}
   image:
-    repository: gresearch/armada-server
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag }}
   applicationConfig:
-    server: localhost:50051
-    forceNoTls: true
-    toleratedTaints:
-      - key: armada.io/batch
-        operator: in
-    auth:
-      anonymousAuth: true
-      basicAuth:
-        enableAuthentication: false
-      permissionGroupMapping:
-        submit_jobs: ["everyone"]
-        submit_any_jobs: ["everyone"]
-        create_queue: ["everyone"]
-        delete_queue: ["everyone"]
-        cancel_jobs: ["everyone"]
-        cancel_any_jobs: ["everyone"]
-        reprioritize_jobs: ["everyone"]
-        reprioritize_any_jobs: ["everyone"]
-        watch_events: ["everyone"]
-        watch_all_events: ["everyone"]
-        execute_jobs: ["everyone"]      
-    postgres:
-      connection:
-        host: postgresql.armada-data.svc.cluster.local
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: postgres
-        sslmode: disable
-    pulsar:
-      URL: pulsar://pulsar-mini-broker.armada-data.svc.cluster.local:6650
-    redis:
-      addrs:
-        - redis-master.armada-data.svc.cluster.local:6379
-      db: 0
-      poolSize: 1000
-    scheduling:
-      queueLeaseBatchSize: 1000
-      maximalResourceFractionToSchedulePerQueue:
-        memory: 0.99
-        cpu: 0.99
-      maximalResourceFractionPerQueue:
-        memory: 0.99
-        cpu: 0.99
-      maximalClusterFractionToSchedule:
-        memory: 0.99
-        cpu: 0.99
-      probabilityOfUsingNewScheduler: 1
-      preemption:
-        enabled: true
-        priorityClasses:
-          armada-default:
-            priority: 1000
-            maximalResourceFractionPerQueue:
-              memory: 0.99
-              cpu: 0.99
-          "": # Treat missing PC the same as armada-default.
-            priority: 1000
-            maximalResourceFractionPerQueue:
-              memory: 0.99
-              cpu: 0.99
-          armada-preemptible:
-            priority: 900
-            maximalResourceFractionPerQueue:
-              memory: 0.99
-              cpu: 0.99
-        # Default to empty PC to not require PCs be set up in worker clusters.
-        defaultPriorityClass: ""
-      maxQueueReportsToStore: 1000
-      MaxJobReportsToStore: 100000
-      defaultJobLimits:
-        cpu: 1
-        memory: 1Gi
-        ephemeral-storage: 8Gi
-      defaultJobTolerations:
-        - key: "example.com/default_toleration"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
-      minTerminationGracePeriod: 1s
-      maxTerminationGracePeriod: 30s
+{{ tpl (.Files.Get "applicationConfig.yaml") . | indent 4 }}
 {{ end }}      
