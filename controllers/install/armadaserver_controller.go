@@ -250,12 +250,12 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingressGRPC := createIngressGRPC(as)
-	if err := controllerutil.SetOwnerReference(as, ingressGRPC, scheme); err != nil {
+	ingressGrpc := createIngressGrpc(as)
+	if err := controllerutil.SetOwnerReference(as, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
 
-	ingressHttp := createIngressREST(as)
+	ingressHttp := createIngressHttp(as)
 	if err := controllerutil.SetOwnerReference(as, ingressHttp, scheme); err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	}
 	return &CommonComponents{
 		Deployment:          deployment,
-		IngressGrpc:         ingressGRPC,
+		IngressGrpc:         ingressGrpc,
 		IngressHttp:         ingressHttp,
 		Service:             service,
 		ServiceAccount:      svcAcct,
@@ -593,7 +593,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 	return &deployment
 }
 
-func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+func createIngressGrpc(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	ingressGRPCName := as.Name + "-grpc"
 	grpcIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: ingressGRPCName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
@@ -650,7 +650,7 @@ func createIngressGRPC(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	return grpcIngress
 }
 
-func createIngressREST(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+func createIngressHttp(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	restIngressName := as.Name + "-rest"
 	restIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
