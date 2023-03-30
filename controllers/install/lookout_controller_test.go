@@ -152,7 +152,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.Service)
 
-	// IngressRest
+	// IngressHttp
 	expectedIngressName := expectedNamespacedName
 	expectedIngressName.Name = expectedIngressName.Name + "-rest"
 	mockK8sClient.
@@ -163,7 +163,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil).
-		SetArg(1, *lookout.IngressRest)
+		SetArg(1, *lookout.IngressHttp)
 
 	// PrometheusRule
 	mockK8sClient.

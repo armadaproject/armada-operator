@@ -175,9 +175,9 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, err
 		}
 	}
-	if components.IngressRest != nil {
+	if components.IngressHttp != nil {
 		logger.Info("Upserting Rest Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -224,7 +224,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		return nil, err
 	}
 
-	ingress, err := createBinocularsIngressRest(binoculars)
+	ingress, err := createBinocularsIngressHttp(binoculars)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		ClusterRole:         clusterRole,
 		ClusterRoleBindings: []*rbacv1.ClusterRoleBinding{clusterRoleBinding},
 		IngressGrpc:         ingressGrpc,
-		IngressRest:         ingress,
+		IngressHttp:         ingress,
 	}, nil
 }
 
@@ -435,7 +435,7 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) *networ
 	return grpcIngress
 }
 
-func createBinocularsIngressRest(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
 	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),

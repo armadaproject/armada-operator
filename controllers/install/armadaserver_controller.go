@@ -181,9 +181,9 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if components.IngressRest != nil {
-		logger.Info("Upserting ArmadaServer IngressRest object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
+	if components.IngressHttp != nil {
+		logger.Info("Upserting ArmadaServer IngressHttp object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -255,8 +255,8 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingressRest := createIngressREST(as)
-	if err := controllerutil.SetOwnerReference(as, ingressRest, scheme); err != nil {
+	ingressHttp := createIngressREST(as)
+	if err := controllerutil.SetOwnerReference(as, ingressHttp, scheme); err != nil {
 		return nil, err
 	}
 
@@ -314,7 +314,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	return &CommonComponents{
 		Deployment:          deployment,
 		IngressGrpc:         ingressGRPC,
-		IngressRest:         ingressRest,
+		IngressHttp:         ingressHttp,
 		Service:             service,
 		ServiceAccount:      svcAcct,
 		Secret:              secret,

@@ -173,16 +173,9 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if components.IngressGrpc != nil {
-		logger.Info("Upserting Lookout Ingress Grpc object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.IngressRest != nil {
+	if components.IngressHttp != nil {
 		logger.Info("Upserting Lookout Ingress Rest object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressRest, mutateFn); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -293,11 +286,11 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
-	ingressRest, err := createLookoutIngressRest(lookout)
+	ingressHttp, err := createLookoutIngressHttp(lookout)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, ingressRest, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(lookout, ingressHttp, scheme); err != nil {
 		return nil, err
 	}
 
@@ -306,7 +299,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Service:        service,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,
-		IngressRest:    ingressRest,
+		IngressHttp:    ingressHttp,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
 		PrometheusRule: prometheusRule,
@@ -416,9 +409,9 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 	return &deployment, nil
 }
 
-func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
 	ingressName := lookout.Name + "-rest"
-	ingressRest := &networking.Ingress{
+	ingressHttp := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ingressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{
@@ -432,17 +425,17 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 
 	if lookout.Spec.Ingress.Annotations != nil {
 		for key, value := range lookout.Spec.Ingress.Annotations {
-			ingressRest.ObjectMeta.Annotations[key] = value
+			ingressHttp.ObjectMeta.Annotations[key] = value
 		}
 	}
 	if lookout.Spec.Ingress.Labels != nil {
 		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressRest.ObjectMeta.Labels[key] = value
+			ingressHttp.ObjectMeta.Labels[key] = value
 		}
 	}
 	if len(lookout.Spec.HostNames) > 0 {
 		secretName := lookout.Name + "-service-tls"
-		ingressRest.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
 		serviceName := lookout.Name
 		for _, val := range lookout.Spec.HostNames {
@@ -463,9 +456,9 @@ func createLookoutIngressRest(lookout *installv1alpha1.Lookout) (*networking.Ing
 				},
 			}})
 		}
-		ingressRest.Spec.Rules = ingressRules
+		ingressHttp.Spec.Rules = ingressRules
 	}
-	return ingressRest, nil
+	return ingressHttp, nil
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
