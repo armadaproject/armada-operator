@@ -128,8 +128,14 @@ test-integration: manifests generate fmt vet gotestsum envtest ## Run integratio
 kind-create: kind
 	kind create cluster --config hack/kind-config.yaml
 .PHONY: test-e2e
-test-e2e: kind docker-build install-cert-manager
-	kind load docker-image controller:latest
+test-e2e:
+	kind create cluster --name armada-operator-e2e-test --config hack/kind-config.yaml
+	kind load docker-image --name armada-operator-e2e-test ${IMG}
+	kubectl create namespace armada
+	kubectl apply -n armada -f ./config/crd/bases
+	kubectl delete -f ./config/crd/bases 
+	kind delete cluster --name armada-operator-e2e-test 
+
 
 # Integration test without Ginkgo colorized output and control chars, for logging purposes
 .PHONY: test-integration-debug
