@@ -34,7 +34,7 @@ const (
 type CommonComponents struct {
 	Deployment          *appsv1.Deployment
 	IngressGrpc         *networkingv1.Ingress
-	IngressRest         *networkingv1.Ingress
+	IngressHttp         *networkingv1.Ingress
 	Service             *corev1.Service
 	ServiceAccount      *corev1.ServiceAccount
 	Secret              *corev1.Secret
@@ -76,7 +76,7 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 		ServiceMonitor:      cc.ServiceMonitor.DeepCopy(),
 		PrometheusRule:      cc.PrometheusRule.DeepCopy(),
 		IngressGrpc:         cc.IngressGrpc.DeepCopy(),
-		IngressRest:         cc.IngressRest.DeepCopy(),
+		IngressHttp:         cc.IngressHttp.DeepCopy(),
 		PodDisruptionBudget: cc.PodDisruptionBudget.DeepCopy(),
 	}
 
@@ -115,12 +115,12 @@ func (oldComponents *CommonComponents) ReconcileComponents(newComponents *Common
 		oldComponents.IngressGrpc = nil
 	}
 
-	if newComponents.IngressRest != nil {
-		oldComponents.IngressRest.Spec = newComponents.IngressRest.Spec
-		oldComponents.IngressRest.Labels = newComponents.IngressRest.Labels
-		oldComponents.IngressRest.Annotations = newComponents.IngressRest.Annotations
+	if newComponents.IngressHttp != nil {
+		oldComponents.IngressHttp.Spec = newComponents.IngressHttp.Spec
+		oldComponents.IngressHttp.Labels = newComponents.IngressHttp.Labels
+		oldComponents.IngressHttp.Annotations = newComponents.IngressHttp.Annotations
 	} else {
-		oldComponents.IngressRest = nil
+		oldComponents.IngressHttp = nil
 	}
 
 	if newComponents.PodDisruptionBudget != nil {
