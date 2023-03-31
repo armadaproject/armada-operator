@@ -1,4 +1,4 @@
-# global scope is for values that which are common to multiple subcharts
+# global scope is for values that are common to all component subcharts
 global:
   # clusterType will select which components to install. Options are 'server' and 'executor'
   clusterType: "server"
@@ -19,13 +19,14 @@ global:
   redis:
     addrs: 
       - redis-master.armada.svc.cluster.local:6379
+    db: 0
+    poolSize: 1000
   # image tag to use for armada components
   image:
     tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
   replicas: 1
-
-    
+   
 armadaserver:
-  ingressHostNames: [armada.grlab.co.uk]
+  ingressHostNames: []
   pulsarInit: true
     

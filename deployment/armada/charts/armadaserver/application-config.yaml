@@ -33,8 +33,8 @@ pulsar:
   URL: {{ .Values.pulsar.url | default .Values.global.pulsar.url }}
 redis:
   addrs: {{ .Values.redis.addrs | default .Values.global.redis.addrs }}
-  db: 0
-  poolSize: 1000
+  db: {{ .Values.redis.db | default .Values.global.redis.db }}
+  poolSize: {{ .Values.redis.poolSize | default .Values.global.redis.poolSize }}
 scheduling:
   queueLeaseBatchSize: 1000
   maximalResourceFractionToSchedulePerQueue:

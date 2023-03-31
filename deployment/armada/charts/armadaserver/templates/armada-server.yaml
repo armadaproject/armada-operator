@@ -17,5 +17,5 @@ spec:
     repository: {{ .Values.image.repository }}
     tag: {{ .Values.image.tag | default .Values.global.image.tag}}
   applicationConfig:
-{{ tpl (.Files.Get "applicationConfig.yaml") . | indent 4 }}
+{{ tpl (.Files.Get "application-config.yaml") . | indent 4 }}
 {{ end }}      
