@@ -7,23 +7,23 @@ metadata:
   labels:
   {{- include "armada.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   image:
-    repository: gresearch/armada-event-ingester
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag }}
+    clusterType: {{ .Values.clusterType }}
   applicationConfig:
     redis:
-      addrs:
-        - redis-master.armada-data.svc.cluster.local:6379
-      password: ""
-      db: 0
+      addrs: {{ .Values.redis.addrs }}
+      password: {{ .Values.redis.password }}
+      db: {{ .Values.redis.db }}
       poolSize: 1000
     pulsar:
-      URL: pulsar://pulsar-mini-broker.armada-data.svc.cluster.local:6650
-      jobsetEventsTopic: events
+      URL: {{ .Values.pulsar.url }}
+      jobsetEventsTopic: {{ .Values.pulsar.eventsTopic }}
       receiveTimeout: 5s
       backoffTime: 1s
-    subscriptionName: "events-ingester"
+    subscriptionName: {{ .Values.pulsar.subscriptionName }}
     minMessageCompressionSize: 1024
     batchSize: 1048576  #1MB
     batchDuration: 500ms

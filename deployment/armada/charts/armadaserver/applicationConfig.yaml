@@ -23,16 +23,16 @@ auth:
     execute_jobs: ["everyone"]      
 postgres:
   connection:
-    host: {{ .Values.postgres.host }}
+    host: {{ .Values.postgres.host | default .Values.global.postgres.host}}
     port: 5432
-    user: {{ .Values.postgres.user }}
-    password: {{ .Values.postgres.password }}
+    user: {{ .Values.postgres.user | default .Values.global.postgres.user }}
+    password: {{ .Values.postgres.password | default .Values.global.postgres.password }}
     dbname: {{ .Values.postgres.dbname }}
-    sslmode: {{ .Values.postgres.sslmode }}
+    sslmode: {{ .Values.postgres.sslmode | default .Values.global.postgres.sslmode }}
 pulsar:
-  URL: {{ .Values.pulsar.url }}
+  URL: {{ .Values.pulsar.url | default .Values.global.pulsar.url }}
 redis:
-  addrs: {{ .Values.redis.addrs }}
+  addrs: {{ .Values.redis.addrs | default .Values.global.redis.addrs }}
   db: 0
   poolSize: 1000
 scheduling:

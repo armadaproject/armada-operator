@@ -1,36 +1,31 @@
 # global scope is for values that which are common to multiple subcharts
 global:
   # clusterType will select which components to install. Options are 'server' and 'executor'
-  clusterType: &clusterType "server"
+  clusterType: "server"
   # ingressClass will select the ingress provider
-  ingressClass: &ingressClass "nginx"
+  ingressClass: "nginx"
   # clusterIssuer specifies the cluster-issuer installed on the target cluster
-  clusterIssuer: &clusterIssuer "letsencrypt-prod"
+  clusterIssuer: "k8s-cluster-issuer"
   # postgres common
   postgres:
-    host: &pghost postgresql.armada-data.svc.cluster.local
+    host: postgresql.armada.svc.cluster.local
+    user: postgres
+    password: psw
+    sslmode: false
   # pulsar common
   pulsar:
-    url: &pulsarUrl pulsar://pulsar-mini-broker.armada-data.svc.cluster.local:6650
+    url: pulsar://pulsar-broker.armada.svc.cluster.local:6650
   # redis common
   redis:
-    addrs: &redisAddrs
-      - redis-master.armada-data.svc.cluster.local:6379
-      
-
-armadaserver:
-  clusterType: *clusterType
-  ingressClass: *ingressClass
-  clusterIssuer: *clusterIssuer
-  ingressHostNames: [armada.grlab.co.uk]
+    addrs: 
+      - redis-master.armada.svc.cluster.local:6379
+  # image tag to use for armada components
   image:
-    repository: gresearch/armada-server
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
   replicas: 1
+
+    
+armadaserver:
+  ingressHostNames: [armada.grlab.co.uk]
   pulsarInit: true
-  postgres:
-    host: *pghost
-  pulsar:
-    url: *pulsarUrl
-  redis:
-    addrs: *redisAddrs
+    

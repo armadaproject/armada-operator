@@ -1,23 +1,16 @@
 # Default values for armadaserver.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-clusterType: server
-ingressClass: nginx
-clusterIssuer: k8s-cluster-issuer
-ingressHostNames: [armada.grlab.co.uk]
+ingressHostNames: []
 image:
   repository: gresearch/armada-server
-  tag: latest
+  tag: 
 replicas: 1
-pulsarInit: true
+pulsarInit: false
 postgres:
-  host: postgresql.svc.cluster.local
-  user: postgres
-  password: psw
   dbname: postgres
   sslmode: false
 pulsar:
-  url: pulsar-broker.svc.cluster.local
+  url: 
 redis:
-  addrs: [ redis.svc.cluster.local ]
   db: 0  

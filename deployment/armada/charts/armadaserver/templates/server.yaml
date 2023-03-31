@@ -1,4 +1,4 @@
-{{ if eq .Values.global.clusterType "server" }}
+{{ if eq (.Values.clusterType | default .Values.global.clusterType) "server" }}
 apiVersion: install.armadaproject.io/v1alpha1
 kind: ArmadaServer
 metadata:
@@ -9,13 +9,13 @@ metadata:
 spec:
   pulsarInit: {{ .Values.pulsarInit }}
   ingress:
-    ingressClass: {{ .Values.ingressClass }}
-  clusterIssuer: {{ .Values.custerIssuer }}
+    ingressClass: {{ .Values.ingressClass | default .Values.global.ingressClass }}
+  clusterIssuer: {{ .Values.custerIssuer | default .Values.global.clusterIssuer }}
   hostNames: {{ .Values.ingressHostNames }}
-  replicas: {{ .Values.replicas }}
+  replicas: {{ .Values.replicas | default .Values.global.replicas }}
   image:
     repository: {{ .Values.image.repository }}
-    tag: {{ .Values.image.tag }}
+    tag: {{ .Values.image.tag | default .Values.global.image.tag}}
   applicationConfig:
 {{ tpl (.Files.Get "applicationConfig.yaml") . | indent 4 }}
 {{ end }}      
