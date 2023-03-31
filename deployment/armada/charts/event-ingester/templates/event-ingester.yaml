@@ -1,0 +1,16 @@
+{{ if eq .Values.global.clusterType "server" }}
+apiVersion: install.armadaproject.io/v1alpha1
+kind: EventIngester
+metadata:
+  name: {{ include "armada.name" . }}
+  namespace: {{ .Release.Name }}
+  labels:
+{{- include "armada.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas | default .Values.global.replicas}}
+  image:
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag | default .Values.global.image.tag}}
+  applicationConfig:
+{{ tpl (.Files.Get "application-config.yaml") . | indent 4 }}
+{{ end }}

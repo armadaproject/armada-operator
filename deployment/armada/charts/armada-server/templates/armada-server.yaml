@@ -1,11 +1,11 @@
-{{ if eq (.Values.clusterType | default .Values.global.clusterType) "server" }}
+{{ if eq .Values.global.clusterType "server" }}
 apiVersion: install.armadaproject.io/v1alpha1
 kind: ArmadaServer
 metadata:
   name: {{ include "armada.name" . }}
   namespace: {{ .Release.Name }}
   labels:
-  {{- include "armada.labels" . | nindent 4 }}
+{{- include "armada.labels" . | nindent 4 }}
 spec:
   pulsarInit: {{ .Values.pulsarInit }}
   ingress:
