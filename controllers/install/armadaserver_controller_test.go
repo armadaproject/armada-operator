@@ -149,11 +149,11 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(nil)
 
-	ingressRestNamespaceNamed := types.NamespacedName{Name: "armadaserver-rest", Namespace: "default"}
-	// IngressRest
+	ingressHttpNamespaceNamed := types.NamespacedName{Name: "armadaserver-rest", Namespace: "default"}
+	// IngressHttp
 	mockK8sClient.
 		EXPECT().
-		Get(gomock.Any(), ingressRestNamespaceNamed, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Get(gomock.Any(), ingressHttpNamespaceNamed, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
 	mockK8sClient.
 		EXPECT().
