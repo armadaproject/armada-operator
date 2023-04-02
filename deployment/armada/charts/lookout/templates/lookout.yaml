@@ -1,0 +1,50 @@
+{{ if eq .Values.global.clusterType "server" }}
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Lookout
+metadata:
+  name: {{ include "armada.name" . }}
+  namespace: {{ .Release.Name }}
+  labels:
+{{- include "armada.labels" . | nindent 4 }}
+spec:
+  hostNames: {{ .Values.hostNames }}
+  ingress:
+    ingressClass: {{ .Values.ingressClass | default .Values.global.ingressClass }}
+  clusterIssuer: {{ .Values.custerIssuer | default .Values.global.clusterIssuer }}
+  replicas: {{ .Values.replicas }}
+  resources:
+    limits:
+      memory: {{ .Values.resources.limits.memory }}
+      cpu: {{ .Values.resources.limits.cpu }}
+    requests:
+      memory: {{ .Values.resources.requests.memory }}
+      cpu: {{ .Values.resources.requests.cpu }}
+  environment:
+    - name: LOG_FORMAT
+      value: {{ .Values.environment.LOG_FORMAT }}
+  prometheus:
+    enabled: {{ .Values.prometheus.enabled }}
+    labels:
+      metrics: {{ .Values.prometheus.labels.metrics }}
+    prometheus: {{ .Values.prometheus.prometheus }}
+    role: {{ .Values.prometheus.role }}
+  postgres:
+    maxOpenConns: {{ .Values.postgres.maxOpenConns | default .Values.global.postgres.maxOpenConns }}
+    maxIdleConns: {{ .Values.postgres.maxIdleConns | default .Values.global.postgres.maxIdleConns }}
+    connMaxLifetime: {{ .Values.postgres.connMaxLifetime | default .Values.global.postgres.connMaxLifetime }}
+    connection:
+      host: {{ .Values.postgres.host | default .Values.global.postgres.host}}
+      port: {{ .Values.postgres.port | default .Values.global.postgres.port }}
+      user: {{ .Values.postgres.user | default .Values.global.postgres.user }}
+      password: {{ .Values.postgres.password | default .Values.global.postgres.password }}
+      dbname: {{ .Values.postgres.dbname }}
+      sslmode: {{ .Values.postgres.sslmode | default .Values.global.postgres.sslmode }}
+  prunerConfig:
+    daysToKeep: {{ .Values.prunerConfig.daysToKeep }}
+    batchSize: {{ .Values.prunerConfig.batchSize }}
+  image:
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag | default .Values.global.image.tag}}
+  applicationConfig:
+{{ tpl (.Files.Get "application-config.yaml") . | indent 4 }}
+{{ end }}

@@ -25,7 +25,10 @@ global:
   image:
     tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
   replicas: 1
-   
+  corsAllowedOrigins:
+    - "http://localhost:8082"
+    - "http://localhost:8089"
+  
 armadaserver:
   ingressHostNames: []
   pulsarInit: true

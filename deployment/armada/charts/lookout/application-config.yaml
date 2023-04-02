@@ -1,0 +1,2 @@
+apiPort: {{ .Values.apiPort }}
+corsAllowedOrigins: {{ .Values.corsAllowedOrigins | default .Values.global.corsAllowedOrigins }}
