@@ -1,4 +1,4 @@
-{{ if eq .Values.global.clusterType "server" }}
+{{ if eq .Values.global.clusterType "server" }}o
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:

@@ -1,5 +1,4 @@
 hostNames:
-  - lookoutv2.armada.grlab.co.uk
 replicas: 2
 image:
   repository: gresearch/armada-lookout-v2

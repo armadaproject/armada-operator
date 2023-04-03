@@ -1,8 +1,7 @@
 hostNames:
-  - lookoutv2.armada.grlab.co.uk
 replicas: 2
 image:
-  repository: gresearch/armada-lookout-v2
+  repository: gresearch/armada-lookout
   tag: 
 resources:
   limits:
@@ -20,7 +19,7 @@ prometheus:
   prometheus: armada
   role: prometheus-rulefiles
 postgres:
-  dbname: lookoutv2
+  dbname: lookout
 prunerConfig:
   daysToKeep: 42
   batchSize: 1000
