@@ -12,8 +12,8 @@ controllerManager:
         memory: 64Mi
   manager:
     image:
-      repository: armada-operator
-      tag: latest
+      repository: gresearch/armada-operator
+      tag: 91e15ba7dbe13668819407af2fc860d5d8f174cd
     resources:
       limits:
         cpu: 500m
