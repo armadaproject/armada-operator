@@ -127,7 +127,6 @@ test-integration: manifests generate fmt vet gotestsum envtest ## Run integratio
 .PHONY: kind-create
 kind-create: kind
 	kind create cluster --config hack/kind-config.yaml
-.PHONY: test-e2e-cli
 
 .PHONY: test-e2e
 test-e2e: envtest go-release-build
