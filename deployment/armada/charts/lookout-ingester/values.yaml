@@ -5,4 +5,4 @@ postgres:
 pulsar:
   url:
 image:
-  reposiroty: gresearch/armada-lookout-ingester
+  repository: gresearch/armada-lookout-ingester

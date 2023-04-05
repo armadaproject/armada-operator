@@ -1,5 +1,5 @@
 image:
-  repository: "gresearch/armada-events-ingester"
+  repository: "gresearch/armada-event-ingester"
 redis:
   db:
 pulsar:
