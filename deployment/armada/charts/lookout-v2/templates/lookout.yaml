@@ -24,10 +24,7 @@ spec:
       value: {{ .Values.environment.LOG_FORMAT }}
   prometheus:
     enabled: {{ .Values.prometheus.enabled }}
-    labels:
-      metrics: {{ .Values.prometheus.labels.metrics }}
-    prometheus: {{ .Values.prometheus.prometheus }}
-    role: {{ .Values.prometheus.role }}
+    scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
   postgres:
     maxOpenConns: {{ .Values.postgres.maxOpenConns | default .Values.global.postgres.maxOpenConns }}
     maxIdleConns: {{ .Values.postgres.maxIdleConns | default .Values.global.postgres.maxIdleConns }}

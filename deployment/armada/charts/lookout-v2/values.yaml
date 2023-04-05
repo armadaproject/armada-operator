@@ -6,18 +6,15 @@ image:
 resources:
   limits:
     memory: 1Gi
-    cpu: "0.5"
+    cpu: 500m
   requests:
     memory: 500Mi
-    cpu: "0.3"
+    cpu: 300m
 environment:
   LOG_FORMAT: json
 prometheus:
   enabled: true
-  labels:
-    metrics: "true"
-  prometheus: armada
-  role: prometheus-rulefiles
+  scrapeInterval: "5m"
 postgres:
   dbname: lookoutv2
 prunerConfig:
