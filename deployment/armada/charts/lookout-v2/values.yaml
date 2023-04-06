@@ -20,4 +20,3 @@ postgres:
 prunerConfig:
   daysToKeep: 42
   batchSize: 1000
-apiPort: 8080
