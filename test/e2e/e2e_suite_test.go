@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
@@ -21,7 +20,6 @@ import (
 var (
 	testEnv       *envtest.Environment
 	cfg           *rest.Config
-	k8sClient     client.Client
 	testUser      *envtest.AuthenticatedUser
 	ctx           context.Context
 	runtimeScheme *runtime.Scheme
@@ -80,9 +78,8 @@ var _ = Describe("E2e", func() {
 			Fail(string(stderrBytes))
 		}
 
-		stdoutBytes, err := io.ReadAll(stdout)
+		_, err = io.ReadAll(stdout)
 		Expect(err).ToNot(HaveOccurred())
-		fmt.Println(string(stdoutBytes)) // just for debuging
 	})
 
 	It("Deploy Armada Components", func() {
@@ -97,9 +94,8 @@ var _ = Describe("E2e", func() {
 			Fail(string(stderrBytes))
 		}
 
-		stdoutBytes, err := io.ReadAll(stdout)
+		_, err = io.ReadAll(stdout)
 		Expect(err).ToNot(HaveOccurred())
-		fmt.Println(string(stdoutBytes)) // just for debuging
 	})
 
 	It("Validate CRDs Exists", func() {
@@ -128,7 +124,6 @@ var _ = Describe("E2e", func() {
 			"queues.core.armadaproject.io",
 		}
 		for _, crd := range crds {
-			fmt.Println(crd) // just for debuging
 			Expect(string(stdoutBytes)).To(ContainSubstring(crd))
 		}
 	})
@@ -144,9 +139,8 @@ var _ = Describe("E2e", func() {
 			Fail(string(stderrBytes))
 		}
 
-		stdoutBytes, err := io.ReadAll(stdout)
+		_, err = io.ReadAll(stdout)
 		Expect(err).ToNot(HaveOccurred())
-		fmt.Println(string(stdoutBytes)) // just for debuging
 	})
 
 })
