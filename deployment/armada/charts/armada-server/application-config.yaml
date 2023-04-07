@@ -31,6 +31,14 @@ postgres:
     sslmode: {{ .Values.postgres.sslmode | default .Values.global.postgres.sslmode }}
 pulsar:
   URL: {{ .Values.pulsar.url | default .Values.global.pulsar.url }}
+  armadaInit:
+    image:
+      repository: {{ .Values.pulsar.armadaInit.image.repository }}
+      tag: {{ .Values.pulsar.armadaInit.image.tag }}
+    brokerHost: {{ .Values.pulsar.armadaInit.brokerHost }}
+    protocol: {{ .Values.pulsar.armadaInit.protocol }}
+    adminPort: {{ .Values.pulsar.armadaInit.adminPort }}
+    port: {{ .Values.pulsar.armadaInit.port }}
 redis:
   addrs: {{ .Values.redis.addrs | default .Values.global.redis.addrs }}
   db: {{ .Values.redis.db | default .Values.global.redis.db }}

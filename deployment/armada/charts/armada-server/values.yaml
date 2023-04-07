@@ -10,5 +10,18 @@ postgres:
   sslmode: false
 pulsar:
   url: 
+  armadaInit:
+    # -- Pulsar image
+    image:
+      repository: apachepulsar/pulsar
+      tag: 2.11.0
+    # -- Pulsar Broker host
+    brokerHost: pulsar-broker.armada.svc.cluster.local
+    # -- Protocol used for connecting to Pulsar Broker host (either `http` or `https`)
+    protocol: http
+    # -- Pulsar admin (REST) port
+    adminPort: 8080
+    # -- Pulsar application port
+    port: 6650
 redis:
   db: 0  
