@@ -41,3 +41,12 @@ armadaserver:
   ingressHostNames: []
   pulsarInit: true
     
+lookout:
+  ingressHostNames: []
+
+lookout-v2:
+  ingressHostNames: []
+
+binoculars:
+  ingressHostNames: []
+  

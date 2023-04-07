@@ -1,6 +1,6 @@
-{{ if eq .Values.global.clusterType "server" }}
+{{ if eq .Values.global.clusterType "executor" }}
 apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
+kind: Binoculars
 metadata:
   name: {{ include "armada.name" . }}
   namespace: {{ .Release.Namespace }}
@@ -25,9 +25,6 @@ spec:
   prometheus:
     enabled: {{ .Values.prometheus.enabled }}
     scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
-  prunerConfig:
-    daysToKeep: {{ .Values.prunerConfig.daysToKeep }}
-    batchSize: {{ .Values.prunerConfig.batchSize }}
   image:
     repository: {{ .Values.image.repository }}
     tag: {{ .Values.image.tag | default .Values.global.image.tag}}

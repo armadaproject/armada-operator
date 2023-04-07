@@ -3,7 +3,7 @@ apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
   name: {{ include "armada.name" . }}
-  namespace: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
   labels:
 {{- include "armada.labels" . | nindent 4 }}
 spec:
