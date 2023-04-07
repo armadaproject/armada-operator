@@ -1,0 +1,4 @@
+clusterId: "executor-cluster"
+apiConnection:
+  armadaUrl: localhost:50051
+  forceNoTls: true
