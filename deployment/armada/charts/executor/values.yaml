@@ -1,5 +1,5 @@
 clusterId: "exec-cluster"
-armadaUrl: "localhost:50051"
+armadaUrl: 
 forceNoTls: true
 image:
   repository: "gresearch/armada-executor"

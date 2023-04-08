@@ -35,7 +35,7 @@ global:
     - "http://localhost:8082"
     - "http://localhost:8089"
   # armada API server url  
-  armadaUrl: "http://localhost:50051"  
+  armadaUrl: armadaserver.armada.svc.cluster.local:50051
   
 armadaserver:
   ingressHostNames: []

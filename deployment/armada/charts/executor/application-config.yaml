@@ -1,4 +1,4 @@
-clusterId: "executor-cluster"
+clusterId: {{ .Values.clusterId | default .Values.global.clusterId }}
 apiConnection:
-  armadaUrl: localhost:50051
-  forceNoTls: true
+  armadaUrl: {{ .Values.armadaUrl | default .Values.global.armadaUrl }}
+  forceNoTls: {{ .Values.forceNoTls }}
