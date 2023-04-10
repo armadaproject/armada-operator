@@ -48,19 +48,27 @@ func TestImageString(t *testing.T) {
 func TestAllLabels(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    map[string]string
+		appName  string
+		input    []map[string]string
 		expected map[string]string
 	}{
 		{
-			name:     "binoculars",
-			input:    map[string]string{"hello": "world"},
+			name:     "test with a single labels map input",
+			appName:  "binoculars",
+			input:    []map[string]string{{"hello": "world"}},
 			expected: map[string]string{"hello": "world", "app": "binoculars", "release": "binoculars"},
+		},
+		{
+			name:     "test with multiple labels map inputs",
+			appName:  "binoculars",
+			input:    []map[string]string{{"hello": "world"}, {"hello1": "world1"}},
+			expected: map[string]string{"hello": "world", "hello1": "world1", "app": "binoculars", "release": "binoculars"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := AllLabels(tt.name, tt.input)
+			actual := AllLabels(tt.appName, tt.input...)
 			assert.Equal(t, tt.expected, actual)
 		})
 	}

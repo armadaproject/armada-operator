@@ -264,7 +264,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		if lookout.Spec.Prometheus.ScrapeInterval != nil {
 			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
 		}
-		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval)
+		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)
@@ -316,6 +316,7 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      lookout.Name,
 			Namespace: lookout.Namespace,
+			Labels:    AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{

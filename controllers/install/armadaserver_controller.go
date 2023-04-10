@@ -290,7 +290,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	var pr *monitoringv1.PrometheusRule
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval)
+		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
 	}
 
 	sm := createServiceMonitor(as)
@@ -719,6 +719,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      as.Name,
 			Namespace: as.Namespace,
+			Labels:    AllLabels(as.Name, as.Spec.Labels, as.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
