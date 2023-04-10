@@ -2,9 +2,10 @@ package install
 
 import (
 	"fmt"
-	"sigs.k8s.io/yaml"
 	"testing"
 	"time"
+
+	"sigs.k8s.io/yaml"
 
 	"context"
 
