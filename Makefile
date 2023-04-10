@@ -135,9 +135,6 @@ test-e2e: dev-setup
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/e2e
 	kind delete cluster --name $(KIND_DEV_CLUSTER_NAME)
 
-blabla:
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/e2e
-
 # Integration test without Ginkgo colorized output and control chars, for logging purposes
 .PHONY: test-integration-debug
 test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run integration tests.
