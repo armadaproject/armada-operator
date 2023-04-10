@@ -129,11 +129,14 @@ kind-create: kind
 	kind create cluster --config hack/kind-config.yaml
 
 .PHONY: test-e2e
-test-e2e: envtest go-release-build
-	kind create cluster --name armada-operator-e2e-test --config hack/kind-config.yaml
-	kind load docker-image --name armada-operator-e2e-test ${IMG}
+test-e2e: dev-setup
+	sleep 90
+	$(MAKE) dev-install-controller
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/e2e
-	kind delete cluster --name armada-operator-e2e-test 
+	kind delete cluster --name $(KIND_DEV_CLUSTER_NAME)
+
+blabla:
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/e2e
 
 # Integration test without Ginkgo colorized output and control chars, for logging purposes
 .PHONY: test-integration-debug

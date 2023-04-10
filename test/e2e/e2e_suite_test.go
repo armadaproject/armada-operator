@@ -27,9 +27,9 @@ var (
 	crdPath       = filepath.Join("..", "..", "config", "crd", "bases")
 )
 
-func TestE2e(t *testing.T) {
+func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "E2e Suite")
+	RunSpecs(t, "E2E Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -123,8 +123,9 @@ var _ = Describe("E2e", func() {
 			"lookouts.install.armadaproject.io",
 			"queues.core.armadaproject.io",
 		}
+		stdoutString := string(stdoutBytes)
 		for _, crd := range crds {
-			Expect(string(stdoutBytes)).To(ContainSubstring(crd))
+			Expect(stdoutString).To(ContainSubstring(crd))
 		}
 	})
 
@@ -138,14 +139,22 @@ var _ = Describe("E2e", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Fail(string(stderrBytes))
 		}
-
 		_, err = io.ReadAll(stdout)
 		Expect(err).ToNot(HaveOccurred())
+
+		stdout, stderr, err = k.Run("get", "customresourcedefinitions.apiextensions.k8s.io")
+		if err != nil {
+			stderrBytes, err := io.ReadAll(stderr)
+			Expect(err).ToNot(HaveOccurred())
+			Fail(string(stderrBytes))
+		}
+		stdoutBytes, err := io.ReadAll(stdout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(stdoutBytes)).To(BeEmpty())
 	})
 
 })
 var _ = AfterSuite(func() {
-	// TODO: Add teardown code here.
 	By("tearing down test environment")
 
 	cancel()
