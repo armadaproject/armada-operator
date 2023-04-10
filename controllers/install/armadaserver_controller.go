@@ -436,7 +436,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 				Spec: corev1.PodSpec{
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{},
+					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{{
 						Name:            "init-pulsar",
 						ImagePullPolicy: "IfNotPresent",
