@@ -96,19 +96,24 @@ make undeploy
 
 ## Using Helm Charts
 
-This repo includes two Helm charts for Armada installation, in the `deployment` 
-directory. The first, `armada-operator`, will install the Operator (CRDs and 
-controller-manager, mainly). The second, `armada`, will install the Armada application
-itself in your cluster(s), using the CRDs of the operator.
+This repo includes Helm charts for Armada Operator and Armada
+Application installation, in the `deployment` directory. The first
+chart, `armada-operator`, will install the Operator (CRDs and
+controller-manager, mainly). The other two, `armada-server` and
+`armada-executor`, will install the Armada application itself in your
+cluster(s).
 
-Note when installing Armada, we support two "cluster types": server and executor. The
-server install includes the API server and scheduler. The executor install includes
-the worker process (executor) which manages Armada jobs. The chart is installed
-accordingly by specifying the cluster type in the command line:
+Why two charts for the application? Armada supports two cluster
+types: server and executor. The server install includes the API
+server and scheduler. The executor install includes the worker process
+(executor) which manages Armada jobs for a particular cluster. They
+can be installed in the same cluster, but typically we'd expect to see
+one server install and several executor installations.
 
 ```bash
 cd deployment
-helm install armada-example ./armada --set global.clusterType=server
+helm install armada-server ./armada-server -n armada
+helm install armada-executor ./armada-executor -n armada
 ```
 
 ## Contributing
