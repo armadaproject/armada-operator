@@ -701,6 +701,10 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 }
 
 func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
+	var prometheusLabels map[string]string
+	if as.Spec.Prometheus != nil {
+		prometheusLabels = as.Spec.Prometheus.Labels
+	}
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceMonitor",
@@ -708,7 +712,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      as.Name,
 			Namespace: as.Namespace,
-			Labels:    AllLabels(as.Name, as.Spec.Labels, as.Spec.Prometheus.Labels),
+			Labels:    AllLabels(as.Name, as.Spec.Labels, prometheusLabels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
