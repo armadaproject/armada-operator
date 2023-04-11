@@ -103,6 +103,9 @@ controller-manager, mainly). The other two, `armada-server` and
 `armada-executor`, will install the Armada application itself in your
 cluster(s).
 
+The armada-operator chart should be installed first on all clusters
+to be used. Then, one or both of the application charts.
+
 Why two charts for the application? Armada supports two cluster
 types: server and executor. The server install includes the API
 server and scheduler. The executor install includes the worker process
