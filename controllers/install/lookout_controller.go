@@ -429,11 +429,8 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 			ingressHttp.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if lookout.Spec.Ingress.Labels != nil {
-		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressHttp.ObjectMeta.Labels[key] = value
-		}
-	}
+	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
+
 	if len(lookout.Spec.HostNames) > 0 {
 		secretName := lookout.Name + "-service-tls"
 		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}

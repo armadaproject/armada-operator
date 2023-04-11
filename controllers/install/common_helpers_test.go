@@ -53,15 +53,21 @@ func TestAllLabels(t *testing.T) {
 		expected map[string]string
 	}{
 		{
-			name:     "test with a single labels map input",
+			name:     "it merges a single labels map with boilerplate",
 			appName:  "binoculars",
 			input:    []map[string]string{{"hello": "world"}},
 			expected: map[string]string{"hello": "world", "app": "binoculars", "release": "binoculars"},
 		},
 		{
-			name:     "test with multiple labels map inputs",
+			name:     "it merges multiple labels maps",
 			appName:  "binoculars",
 			input:    []map[string]string{{"hello": "world"}, {"hello1": "world1"}},
+			expected: map[string]string{"hello": "world", "hello1": "world1", "app": "binoculars", "release": "binoculars"},
+		},
+		{
+			name:     "it ignores nil map input",
+			appName:  "binoculars",
+			input:    []map[string]string{{"hello": "world"}, {"hello1": "world1"}, nil},
 			expected: map[string]string{"hello": "world", "hello1": "world1", "app": "binoculars", "release": "binoculars"},
 		},
 	}

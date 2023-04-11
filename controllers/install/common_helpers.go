@@ -189,10 +189,13 @@ func AdditionalLabels(label map[string]string) map[string]string {
 	return m
 }
 
-func AllLabels(name string, labels ...map[string]string) map[string]string {
+func AllLabels(name string, labelMaps ...map[string]string) map[string]string {
 	baseLabels := map[string]string{"release": name}
-	for _, labelSet := range labels {
-		additionalLabels := AdditionalLabels(labelSet)
+	for _, labels := range labelMaps {
+		if labels == nil {
+			continue
+		}
+		additionalLabels := AdditionalLabels(labels)
 		baseLabels = MergeMaps(baseLabels, additionalLabels)
 	}
 	identityLabels := IdentityLabel(name)

@@ -611,16 +611,8 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 			grpcIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if as.Spec.Ingress.Labels != nil {
-		for key, value := range as.Spec.Ingress.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
-	if as.Spec.Labels != nil {
-		for key, value := range as.Spec.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	grpcIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+
 	if len(as.Spec.HostNames) > 0 {
 		secretName := as.Name + "-service-tls"
 		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
@@ -670,11 +662,8 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 			restIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if as.Spec.Ingress.Labels != nil {
-		for key, value := range as.Spec.Ingress.Labels {
-			restIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	restIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+
 	if len(as.Spec.HostNames) > 0 {
 		secretName := as.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
