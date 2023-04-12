@@ -65,7 +65,7 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 })
 
-var _ = Describe("E2e", func() {
+var _ = Describe("E2E", func() {
 
 	It("Install Bases CRDs", func() {
 		k, err := testUser.Kubectl()

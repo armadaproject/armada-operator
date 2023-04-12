@@ -129,7 +129,7 @@ kind-create: kind
 	kind create cluster --config hack/kind-config.yaml
 
 .PHONY: test-e2e
-test-e2e: dev-setup
+test-e2e: kind dev-setup
 	sleep 90
 	$(MAKE) dev-install-controller
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/e2e

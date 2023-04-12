@@ -1,0 +1,15 @@
+name: Operator E2E Test
+
+on: [push, pull_request]
+
+jobs:
+  operator-e2e-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          cache: true
+      - name: make test-e2e
+        run: make test-e2e
