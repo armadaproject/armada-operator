@@ -397,16 +397,8 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) *networ
 			grpcIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if binoculars.Spec.Ingress.Labels != nil {
-		for key, value := range binoculars.Spec.Ingress.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
-	if binoculars.Spec.Labels != nil {
-		for key, value := range binoculars.Spec.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	grpcIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+
 	if len(binoculars.Spec.HostNames) > 0 {
 		secretName := binoculars.Name + "-service-tls"
 		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
@@ -454,11 +446,8 @@ func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*netwo
 			restIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if binoculars.Spec.Ingress.Labels != nil {
-		for key, value := range binoculars.Spec.Ingress.Labels {
-			restIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	restIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+
 	if len(binoculars.Spec.HostNames) > 0 {
 		secretName := binoculars.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}

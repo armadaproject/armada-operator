@@ -290,7 +290,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	var pr *monitoringv1.PrometheusRule
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval)
+		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
 	}
 
 	sm := createServiceMonitor(as)
@@ -611,16 +611,8 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 			grpcIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if as.Spec.Ingress.Labels != nil {
-		for key, value := range as.Spec.Ingress.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
-	if as.Spec.Labels != nil {
-		for key, value := range as.Spec.Labels {
-			grpcIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	grpcIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+
 	if len(as.Spec.HostNames) > 0 {
 		secretName := as.Name + "-service-tls"
 		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
@@ -670,11 +662,8 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 			restIngress.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if as.Spec.Ingress.Labels != nil {
-		for key, value := range as.Spec.Ingress.Labels {
-			restIngress.ObjectMeta.Labels[key] = value
-		}
-	}
+	restIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+
 	if len(as.Spec.HostNames) > 0 {
 		secretName := as.Name + "-service-tls"
 		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
@@ -712,6 +701,10 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 }
 
 func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
+	var prometheusLabels map[string]string
+	if as.Spec.Prometheus != nil {
+		prometheusLabels = as.Spec.Prometheus.Labels
+	}
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceMonitor",
@@ -719,6 +712,7 @@ func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      as.Name,
 			Namespace: as.Namespace,
+			Labels:    AllLabels(as.Name, as.Spec.Labels, prometheusLabels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
