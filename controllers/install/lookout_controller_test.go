@@ -165,16 +165,6 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *lookout.IngressHttp)
 
-	// PrometheusRule
-	mockK8sClient.
-		EXPECT().
-		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
-	mockK8sClient.
-		EXPECT().
-		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(nil)
-
 	// ServiceMonitor
 	mockK8sClient.
 		EXPECT().
@@ -380,12 +370,6 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
 		Return(nil)
 
-	// External cleanup
-	mockK8sClient.
-		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(nil)
-
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
@@ -452,11 +436,11 @@ func TestLookoutReconciler_ReconcileDeletingLookoutWithError(t *testing.T) {
 		Return(nil).
 		SetArg(2, expectedLookout)
 
-	// External cleanup
+	// Finalizer update will error
 	mockK8sClient.
 		EXPECT().
-		Delete(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
-		Return(errors.NewBadRequest("something is amiss"))
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Lookout{})).
+		Return(errors.NewGone("this finalizer does not exist"))
 
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {

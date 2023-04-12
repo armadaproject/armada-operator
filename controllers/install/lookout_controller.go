@@ -17,10 +17,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
-	"github.com/go-logr/logr"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/controllers/builders"
@@ -106,14 +103,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Lookout cluster-scoped components", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
-
 			// remove our finalizer from the list and update it.
 			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
 			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
@@ -254,17 +243,11 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
-	var prometheusRule *monitoringv1.PrometheusRule
 	if lookout.Spec.Prometheus != nil && lookout.Spec.Prometheus.Enabled {
 		serviceMonitor = createLookoutServiceMonitor(lookout)
 		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
-		var scrapeInterval *metav1.Duration
-		if lookout.Spec.Prometheus.ScrapeInterval != nil {
-			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
-		}
-		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)
@@ -302,7 +285,6 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		IngressHttp:    ingressHttp,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
-		PrometheusRule: prometheusRule,
 		CronJob:        cronJob,
 	}, nil
 }
@@ -693,19 +675,6 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 	}
 
 	return &job, nil
-}
-
-// deleteExternalResources removes any external resources during deletion
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
-
-	if components.PrometheusRule != nil {
-		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
-		}
-		logger.Info("Successfully deleted Lookout PrometheusRule")
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
