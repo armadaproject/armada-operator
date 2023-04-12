@@ -266,7 +266,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		}
 		components.ServiceMonitor = serviceMonitor
 
-		pr := createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval)
+		pr := createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
 		components.PrometheusRule = pr
 	}
 
@@ -481,6 +481,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      executor.Name,
 			Namespace: executor.Namespace,
+			Labels:    AllLabels(executor.Name, executor.Spec.Labels, executor.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Selector: metav1.LabelSelector{

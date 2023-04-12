@@ -189,10 +189,15 @@ func AdditionalLabels(label map[string]string) map[string]string {
 	return m
 }
 
-func AllLabels(name string, labels map[string]string) map[string]string {
+func AllLabels(name string, labelMaps ...map[string]string) map[string]string {
 	baseLabels := map[string]string{"release": name}
-	additionalLabels := AdditionalLabels(labels)
-	baseLabels = MergeMaps(baseLabels, additionalLabels)
+	for _, labels := range labelMaps {
+		if labels == nil {
+			continue
+		}
+		additionalLabels := AdditionalLabels(labels)
+		baseLabels = MergeMaps(baseLabels, additionalLabels)
+	}
 	identityLabels := IdentityLabel(name)
 	baseLabels = MergeMaps(baseLabels, identityLabels)
 	return baseLabels
@@ -282,7 +287,7 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 }
 
 // createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration) *monitoringv1.PrometheusRule {
+func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
 	if scrapeInterval == nil {
 		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
 	}
@@ -296,6 +301,7 @@ func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duratio
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    AllLabels(name, labels...),
 		},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
