@@ -805,10 +805,6 @@ func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.D
 						Expr:   intstr.IntOrString{StrVal: queueResourceAllocated},
 					},
 					{
-						Record: "armada:queue:resource:queued",
-						Expr:   intstr.IntOrString{StrVal: queueResourceQueued},
-					},
-					{
 						Record: "armada:queue:resource:used",
 						Expr:   intstr.IntOrString{StrVal: queueResourceUsed},
 					},
