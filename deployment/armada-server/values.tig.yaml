@@ -15,6 +15,7 @@ global:
   # image tag to use for armada component containers
   image:
     tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
+  # CORS allowed origins
   corsAllowedOrigins:
     - "https://lookout.armada.grlab.co.uk"
    
