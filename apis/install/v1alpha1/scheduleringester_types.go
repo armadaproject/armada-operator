@@ -23,6 +23,9 @@ import (
 // SchedulerIngesterSpec defines the desired state of SchedulerIngester
 type SchedulerIngesterSpec struct {
 	CommonSpecBase `json:""`
+
+	// Replicas is the number of replicated instances
+	Replicas int32 `json:"replicas,omitempty"`
 }
 
 // SchedulerIngesterStatus defines the observed state of SchedulerIngester

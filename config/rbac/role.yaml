@@ -327,6 +327,26 @@ rules:
   - patch
   - update
 - apiGroups:
+  - install.armadaproject.io
+  resources:
+  - scheduleringesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - scheduleringesters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - monitoring.coreos.com
   resources:
   - prometheusrules

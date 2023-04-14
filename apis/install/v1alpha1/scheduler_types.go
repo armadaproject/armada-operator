@@ -48,20 +48,8 @@ type SchedulerList struct {
 type SchedulerSpec struct {
 	CommonSpecBase `json:""`
 
-	// Replicas is the number of replicated instances for Scheduler
+	// Replicas is the number of replicated instances
 	Replicas int32 `json:"replicas,omitempty"`
-	// NodeSelector restricts the Scheduler pod to run on nodes matching the configured selectors
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Ingress defines labels and annotations for the Ingress controller of Scheduler
-	Ingress *IngressConfig `json:"ingress,omitempty"`
-	// An array of host names to build ingress rules for
-	HostNames []string `json:"hostNames,omitempty"`
-	// Who is issuing certificates for CA
-	ClusterIssuer string `json:"clusterIssuer"`
-	// DbPruningEnabled when true a pruning CronJob is created
-	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
-	// DbPruningSchedule schedule to use for db pruning CronJob
-	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
 }
 
 // SchedulerStatus defines the observed state of scheduler
