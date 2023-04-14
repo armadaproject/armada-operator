@@ -48,6 +48,20 @@ type CommonComponents struct {
 	CronJob             *batchv1.CronJob
 }
 
+// PostgresConfig is used for scanning posgres section of application config
+type PostgresConfig struct {
+	Connection ConnectionConfig
+}
+
+// ConnectionConfig is used for scanning connection section of postgres config
+type ConnectionConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Dbname   string
+}
+
 // DeepCopy will deep copy values from the receiver and return a new reference
 func (cc *CommonComponents) DeepCopy() *CommonComponents {
 	var clusterRoleBindings []*rbacv1.ClusterRoleBinding

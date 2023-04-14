@@ -260,20 +260,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), []corev1.ServicePort{
-		{
-			Name: "grpc",
-			Port: as.Spec.PortConfig.GrpcPort,
-		},
-		{
-			Name: "rest",
-			Port: as.Spec.PortConfig.HttpPort,
-		},
-		{
-			Name: "metrics",
-			Port: as.Spec.PortConfig.MetricsPort,
-		},
-	})
+	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), as.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
 		return nil, err
 	}

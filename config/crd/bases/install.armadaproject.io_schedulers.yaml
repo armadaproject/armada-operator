@@ -1592,10 +1592,19 @@ spec:
                   application which will be created as a Kubernetes Secret and mounted
                   in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
+              clusterIssuer:
+                description: Who is issuing certificates for CA
+                type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
                   defined in spec.serviceAccount field)
+                type: string
+              dbPruningEnabled:
+                description: DbPruningEnabled when true a pruning CronJob is created
+                type: boolean
+              dbPruningSchedule:
+                description: DbPruningSchedule schedule to use for db pruning CronJob
                 type: string
               environment:
                 description: Extra environment variables that get added to deployment
@@ -1706,6 +1715,11 @@ spec:
                   - name
                   type: object
                 type: array
+              hostNames:
+                description: An array of host names to build ingress rules for
+                items:
+                  type: string
+                type: array
               image:
                 description: Image is the configuration block for the image repository
                   and tag
@@ -1722,6 +1736,29 @@ spec:
                 - repository
                 - tag
                 type: object
+              ingress:
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Scheduler
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
+                    type: object
+                  ingressClass:
+                    description: The type of ingress that is used
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -1732,7 +1769,13 @@ spec:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:
@@ -1930,6 +1973,7 @@ spec:
                 type: array
             required:
             - applicationConfig
+            - clusterIssuer
             - image
             type: object
           status:

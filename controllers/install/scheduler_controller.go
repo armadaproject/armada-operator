@@ -40,20 +40,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// migrationTimeout is how long we'll wait for the Lookout db migration job
-const (
-	migrationTimeout   = time.Second * 120
-	migrationPollSleep = time.Second * 5
-)
-
-// LookoutReconciler reconciles a Lookout object
-type LookoutReconciler struct {
+// SchedulerReconciler reconciles a Scheduler object
+type SchedulerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch;create;delete;deletecollection;patch;update
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules;servicemonitors,verbs=get;list;create;update;patch;delete
 
@@ -61,53 +55,53 @@ type LookoutReconciler struct {
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
 	started := time.Now()
-	logger.Info("Reconciling Lookout object")
+	logger.Info("Reconciling Scheduler object")
 
-	logger.Info("Fetching Lookout object from cache")
+	logger.Info("Fetching Scheduler object from cache")
 
-	var lookout installv1alpha1.Lookout
-	if err := r.Client.Get(ctx, req.NamespacedName, &lookout); err != nil {
+	var scheduler installv1alpha1.Scheduler
+	if err := r.Client.Get(ctx, req.NamespacedName, &scheduler); err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("Lookout not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
+			logger.Info("Scheduler not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	err := lookout.Spec.BuildPortConfig()
+	err := scheduler.Spec.BuildPortConfig()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	var components *CommonComponents
-	components, err = generateLookoutInstallComponents(&lookout, r.Scheme)
+	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// examine DeletionTimestamp to determine if object is under deletion
-	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
+	deletionTimestamp := scheduler.ObjectMeta.DeletionTimestamp
 	// examine DeletionTimestamp to determine if object is under deletion
 	if deletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
+		if !controllerutil.ContainsFinalizer(&scheduler, operatorFinalizer) {
+			logger.Info("Attaching finalizer to Scheduler object", "finalizer", operatorFinalizer)
+			controllerutil.AddFinalizer(&scheduler, operatorFinalizer)
+			if err := r.Update(ctx, &scheduler); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
-		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
+		logger.Info("Scheduler object is being deleted", "finalizer", operatorFinalizer)
 		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
+		if controllerutil.ContainsFinalizer(&scheduler, operatorFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Lookout cluster-scoped components", "finalizer", operatorFinalizer)
+			logger.Info("Running cleanup function for Scheduler cluster-scoped components", "finalizer", operatorFinalizer)
 			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
@@ -115,9 +109,9 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 
 			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
+			logger.Info("Removing finalizer from Scheduler object", "finalizer", operatorFinalizer)
+			controllerutil.RemoveFinalizer(&scheduler, operatorFinalizer)
+			if err := r.Update(ctx, &scheduler); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -134,14 +128,14 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if components.ServiceAccount != nil {
-		logger.Info("Upserting Lookout ServiceAccount object")
+		logger.Info("Upserting Scheduler ServiceAccount object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.Secret != nil {
-		logger.Info("Upserting Lookout Secret object")
+		logger.Info("Upserting Scheduler Secret object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -160,112 +154,99 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if components.Deployment != nil {
-		logger.Info("Upserting Lookout Deployment object")
+		logger.Info("Upserting Scheduler Deployment object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.Service != nil {
-		logger.Info("Upserting Lookout Service object")
+		logger.Info("Upserting Scheduler Service object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if components.IngressHttp != nil {
-		logger.Info("Upserting Lookout Ingress Rest object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.PrometheusRule != nil {
-		logger.Info("Upserting Lookout PrometheusRule object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
+	if components.IngressGrpc != nil {
+		logger.Info("Upserting Scheduler Ingress Grpc object")
+		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	if components.ServiceMonitor != nil {
-		logger.Info("Upserting Lookout ServiceMonitor object")
+		logger.Info("Upserting Scheduler ServiceMonitor object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Successfully reconciled Lookout object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled Scheduler object", "durationMilis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
 
-type LookoutConfig struct {
+type SchedulerConfig struct {
 	Postgres PostgresConfig
 }
 
-func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*CommonComponents, error) {
-	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
+func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, scheme *runtime.Scheme) (*CommonComponents, error) {
+	secret, err := builders.CreateSecret(scheduler.Spec.ApplicationConfig, scheduler.Name, scheduler.Namespace, GetConfigFilename(scheduler.Name))
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(scheduler, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment, err := createLookoutDeployment(lookout)
+	deployment, err := createSchedulerDeployment(scheduler)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(scheduler, deployment, scheme); err != nil {
 		return nil, err
 	}
 
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), lookout.Spec.PortConfig)
-	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
+	service := builders.Service(scheduler.Name, scheduler.Namespace, AllLabels(scheduler.Name, scheduler.Labels), IdentityLabel(scheduler.Name), scheduler.Spec.PortConfig)
+	if err := controllerutil.SetOwnerReference(scheduler, service, scheme); err != nil {
 		return nil, err
 	}
-	serviceAccount := builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+	serviceAccount := builders.CreateServiceAccount(scheduler.Name, scheduler.Namespace, AllLabels(scheduler.Name, scheduler.Labels), scheduler.Spec.ServiceAccount)
+	if err := controllerutil.SetOwnerReference(scheduler, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
-	var prometheusRule *monitoringv1.PrometheusRule
-	if lookout.Spec.Prometheus != nil && lookout.Spec.Prometheus.Enabled {
-		serviceMonitor = createLookoutServiceMonitor(lookout)
-		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
+	if scheduler.Spec.Prometheus != nil && scheduler.Spec.Prometheus.Enabled {
+		serviceMonitor = createSchedulerServiceMonitor(scheduler)
+		if err := controllerutil.SetOwnerReference(scheduler, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
-		var scrapeInterval *metav1.Duration
-		if lookout.Spec.Prometheus.ScrapeInterval != nil {
-			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
-		}
-		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels)
 	}
 
-	job, err := createLookoutMigrationJob(lookout)
+	job, err := createSchedulerMigrationJob(scheduler)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(scheduler, job, scheme); err != nil {
 		return nil, err
 	}
 
 	var cronJob *batchv1.CronJob
-	if lookout.Spec.DbPruningEnabled != nil && *lookout.Spec.DbPruningEnabled {
-		cronJob, err := createLookoutCronJob(lookout)
+	if scheduler.Spec.DbPruningEnabled != nil && *scheduler.Spec.DbPruningEnabled {
+		cronJob, err := createSchedulerCronJob(scheduler)
 		if err != nil {
 			return nil, err
 		}
-		if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
+		if err := controllerutil.SetOwnerReference(scheduler, cronJob, scheme); err != nil {
 			return nil, err
 		}
 	}
 
-	ingressHttp, err := createLookoutIngressHttp(lookout)
+	ingressGrpc, err := createSchedulerIngressGrpc(scheduler)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, ingressHttp, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(scheduler, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
 
@@ -274,24 +255,23 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		Service:        service,
 		ServiceAccount: serviceAccount,
 		Secret:         secret,
-		IngressHttp:    ingressHttp,
+		IngressGrpc:    ingressGrpc,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
-		PrometheusRule: prometheusRule,
 		CronJob:        cronJob,
 	}, nil
 }
 
-// createLookoutServiceMonitor will return a ServiceMonitor for this
-func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1.ServiceMonitor {
+// createSchedulerServiceMonitor will return a ServiceMonitor for this
+func createSchedulerServiceMonitor(scheduler *installv1alpha1.Scheduler) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceMonitor",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      lookout.Name,
-			Namespace: lookout.Namespace,
-			Labels:    AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels),
+			Name:      scheduler.Name,
+			Namespace: scheduler.Namespace,
+			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
@@ -301,32 +281,32 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 	}
 }
 
-// Function to build the deployment object for Lookout.
+// Function to build the deployment object for Scheduler.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployment, error) {
+func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
-	env := createEnv(lookout.Spec.Environment)
-	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
+	env := createEnv(scheduler.Spec.Environment)
+	volumes := createVolumes(scheduler.Name, scheduler.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
+		ObjectMeta: metav1.ObjectMeta{Name: scheduler.Name, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &lookout.Spec.Replicas,
+			Replicas: &scheduler.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: IdentityLabel(lookout.Name),
+				MatchLabels: IdentityLabel(scheduler.Name),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        lookout.Name,
-					Namespace:   lookout.Namespace,
-					Labels:      AllLabels(lookout.Name, lookout.Labels),
-					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+					Name:        scheduler.Name,
+					Namespace:   scheduler.Namespace,
+					Labels:      AllLabels(scheduler.Name, scheduler.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: lookout.DeletionGracePeriodSeconds,
+					TerminationGracePeriodSeconds: scheduler.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,
 						RunAsGroup: &runAsGroup,
@@ -341,7 +321,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 										MatchExpressions: []metav1.LabelSelectorRequirement{{
 											Key:      "app",
 											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{lookout.Name},
+											Values:   []string{scheduler.Name},
 										}},
 									},
 								},
@@ -349,24 +329,19 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 						},
 					},
 					Containers: []corev1.Container{{
-						Name:            "lookout",
+						Name:            "scheduler",
 						ImagePullPolicy: "IfNotPresent",
-						Image:           ImageString(lookout.Spec.Image),
+						Image:           ImageString(scheduler.Spec.Image),
 						Args:            []string{"--config", "/config/application_config.yaml"},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
-								ContainerPort: lookout.Spec.PortConfig.MetricsPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "http",
-								ContainerPort: lookout.Spec.PortConfig.HttpPort,
+								ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
 								Protocol:      "TCP",
 							},
 							{
 								Name:          "grpc",
-								ContainerPort: lookout.Spec.PortConfig.GrpcPort,
+								ContainerPort: scheduler.Spec.PortConfig.GrpcPort,
 								Protocol:      "TCP",
 							},
 						},
@@ -379,39 +354,40 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 			},
 		},
 	}
-	if lookout.Spec.Resources != nil {
-		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
+	if scheduler.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduler.Spec.Resources
 	}
 	return &deployment, nil
 }
 
-func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
-	ingressName := lookout.Name + "-rest"
+func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networking.Ingress, error) {
+	ingressName := scheduler.Name + "-grpc"
 	ingressHttp := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ingressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
+			Name: ingressName, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels),
 			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":              lookout.Spec.Ingress.IngressClass,
-				"certmanager.k8s.io/cluster-issuer":        lookout.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":           lookout.Spec.ClusterIssuer,
-				"nginx.ingress.kubernetes.io/ssl-redirect": "true",
+				"kubernetes.io/ingress.class":                  scheduler.Spec.Ingress.IngressClass,
+				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
+				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
+				"certmanager.k8s.io/cluster-issuer":            scheduler.Spec.ClusterIssuer,
+				"cert-manager.io/cluster-issuer":               scheduler.Spec.ClusterIssuer,
 			},
 		},
 	}
 
-	if lookout.Spec.Ingress.Annotations != nil {
-		for key, value := range lookout.Spec.Ingress.Annotations {
+	if scheduler.Spec.Ingress.Annotations != nil {
+		for key, value := range scheduler.Spec.Ingress.Annotations {
 			ingressHttp.ObjectMeta.Annotations[key] = value
 		}
 	}
-	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
+	ingressHttp.ObjectMeta.Labels = AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Ingress.Labels)
 
-	if len(lookout.Spec.HostNames) > 0 {
-		secretName := lookout.Name + "-service-tls"
-		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+	if len(scheduler.Spec.HostNames) > 0 {
+		secretName := scheduler.Name + "-service-tls"
+		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
 		ingressRules := []networking.IngressRule{}
-		serviceName := lookout.Name
-		for _, val := range lookout.Spec.HostNames {
+		serviceName := scheduler.Name
+		for _, val := range scheduler.Spec.HostNames {
 			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 				HTTP: &networking.HTTPIngressRuleValue{
 					Paths: []networking.HTTPIngressPath{{
@@ -421,7 +397,7 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 							Service: &networking.IngressServiceBackend{
 								Name: serviceName,
 								Port: networking.ServiceBackendPort{
-									Number: lookout.Spec.PortConfig.HttpPort,
+									Number: scheduler.Spec.PortConfig.HttpPort,
 								},
 							},
 						},
@@ -434,38 +410,38 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 	return ingressHttp, nil
 }
 
-// createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
-func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
+// createSchedulerMigrationJob returns a batch Job or an error if the app config is not correct
+func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
-	if lookout.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = int64(*scheduler.Spec.TerminationGracePeriodSeconds)
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
-	env := lookout.Spec.Environment
-	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
+	env := scheduler.Spec.Environment
+	volumes := createVolumes(scheduler.Name, scheduler.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 
-	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
+	appConfig, err := builders.ConvertRawExtensionToYaml(scheduler.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
-	var lookoutConfig LookoutConfig
-	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	var schedulerConfig SchedulerConfig
+	err = yaml.Unmarshal([]byte(appConfig), &schedulerConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	job := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name + "-migration",
-			Namespace:   lookout.Namespace,
-			Labels:      AllLabels(lookout.Name, lookout.Labels),
-			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+			Name:        scheduler.Name + "-migration",
+			Namespace:   scheduler.Namespace,
+			Labels:      AllLabels(scheduler.Name, scheduler.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.JobSpec{
 			Parallelism:  &parallelism,
@@ -473,9 +449,9 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      lookout.Name + "-migration",
-					Namespace: lookout.Namespace,
-					Labels:    AllLabels(lookout.Name, lookout.Labels),
+					Name:      scheduler.Name + "-migration",
+					Namespace: scheduler.Namespace,
+					Labels:    AllLabels(scheduler.Name, scheduler.Labels),
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:                 "Never",
@@ -485,7 +461,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 						RunAsGroup: &runAsGroup,
 					},
 					InitContainers: []corev1.Container{{
-						Name:  "lookout-migration-db-wait",
+						Name:  "scheduler-migration-db-wait",
 						Image: "postgres:15.2-alpine",
 						Command: []string{
 							"/bin/sh",
@@ -503,30 +479,30 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 						Env: []corev1.EnvVar{
 							{
 								Name:  "PGHOST",
-								Value: lookoutConfig.Postgres.Connection.Host,
+								Value: schedulerConfig.Postgres.Connection.Host,
 							},
 							{
 								Name:  "PGPORT",
-								Value: lookoutConfig.Postgres.Connection.Port,
+								Value: schedulerConfig.Postgres.Connection.Port,
 							},
 							{
 								Name:  "PGUSER",
-								Value: lookoutConfig.Postgres.Connection.User,
+								Value: schedulerConfig.Postgres.Connection.User,
 							},
 							{
 								Name:  "PGPASSWORD",
-								Value: lookoutConfig.Postgres.Connection.Password,
+								Value: schedulerConfig.Postgres.Connection.Password,
 							},
 							{
 								Name:  "PGDB",
-								Value: lookoutConfig.Postgres.Connection.Dbname,
+								Value: schedulerConfig.Postgres.Connection.Dbname,
 							},
 						},
 					}},
 					Containers: []corev1.Container{{
-						Name:            "lookout-migration",
+						Name:            "scheduler-migration",
 						ImagePullPolicy: "IfNotPresent",
-						Image:           ImageString(lookout.Spec.Image),
+						Image:           ImageString(scheduler.Spec.Image),
 						Args: []string{
 							"--migrateDatabase",
 							"--config",
@@ -534,16 +510,15 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: lookout.Spec.PortConfig.MetricsPort,
+							ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 					}},
-					NodeSelector: lookout.Spec.NodeSelector,
-					Tolerations:  lookout.Spec.Tolerations,
-					Volumes:      volumes,
+					Tolerations: scheduler.Spec.Tolerations,
+					Volumes:     volumes,
 				},
 			},
 		},
@@ -552,50 +527,46 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 	return &job, nil
 }
 
-// createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
-func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
+// createSchedulerCronJob returns a batch CronJob or an error if the app config is not correct
+func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
 	terminationGracePeriodSeconds := int64(0)
-	if lookout.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
+		terminationGracePeriodSeconds = int64(*scheduler.Spec.TerminationGracePeriodSeconds)
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
-	env := lookout.Spec.Environment
-	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
-	dbPruningSchedule := "@hourly"
-	if lookout.Spec.DbPruningSchedule != nil {
-		dbPruningSchedule = *lookout.Spec.DbPruningSchedule
-	}
+	env := scheduler.Spec.Environment
+	volumes := createVolumes(scheduler.Name, scheduler.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 
-	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
+	appConfig, err := builders.ConvertRawExtensionToYaml(scheduler.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
-	var lookoutConfig LookoutConfig
-	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	var schedulerConfig SchedulerConfig
+	err = yaml.Unmarshal([]byte(appConfig), &schedulerConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name + "-db-pruner",
-			Namespace:   lookout.Namespace,
-			Labels:      AllLabels(lookout.Name, lookout.Labels),
-			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
+			Name:        scheduler.Name + "-db-pruner",
+			Namespace:   scheduler.Namespace,
+			Labels:      AllLabels(scheduler.Name, scheduler.Labels),
+			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
-			Schedule: dbPruningSchedule,
+
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      lookout.Name + "-db-pruner",
-					Namespace: lookout.Namespace,
-					Labels:    AllLabels(lookout.Name, lookout.Labels),
+					Name:      scheduler.Name + "-db-pruner",
+					Namespace: scheduler.Namespace,
+					Labels:    AllLabels(scheduler.Name, scheduler.Labels),
 				},
 				Spec: batchv1.JobSpec{
 					Parallelism:  &parallelism,
@@ -603,9 +574,9 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 					BackoffLimit: &backoffLimit,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      lookout.Name + "-db-pruner",
-							Namespace: lookout.Namespace,
-							Labels:    AllLabels(lookout.Name, lookout.Labels),
+							Name:      scheduler.Name + "-db-pruner",
+							Namespace: scheduler.Namespace,
+							Labels:    AllLabels(scheduler.Name, scheduler.Labels),
 						},
 						Spec: corev1.PodSpec{
 							RestartPolicy:                 "Never",
@@ -615,7 +586,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								RunAsGroup: &runAsGroup,
 							},
 							InitContainers: []corev1.Container{{
-								Name:  "lookout-db-pruner-db-wait",
+								Name:  "scheduler-db-pruner-db-wait",
 								Image: "alpine:3.10",
 								Command: []string{
 									"/bin/sh",
@@ -629,18 +600,18 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								Env: []corev1.EnvVar{
 									{
 										Name:  "PGHOST",
-										Value: lookoutConfig.Postgres.Connection.Host,
+										Value: schedulerConfig.Postgres.Connection.Host,
 									},
 									{
 										Name:  "PGPORT",
-										Value: lookoutConfig.Postgres.Connection.Port,
+										Value: schedulerConfig.Postgres.Connection.Port,
 									},
 								},
 							}},
 							Containers: []corev1.Container{{
-								Name:            "lookout-db-pruner",
+								Name:            "scheduler-db-pruner",
 								ImagePullPolicy: "IfNotPresent",
-								Image:           ImageString(lookout.Spec.Image),
+								Image:           ImageString(scheduler.Spec.Image),
 								Args: []string{
 									"--pruneDatabase",
 									"--config",
@@ -648,16 +619,15 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								},
 								Ports: []corev1.ContainerPort{{
 									Name:          "metrics",
-									ContainerPort: lookout.Spec.PortConfig.MetricsPort,
+									ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
 									Protocol:      "TCP",
 								}},
 								Env:             env,
 								VolumeMounts:    volumeMounts,
 								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 							}},
-							NodeSelector: lookout.Spec.NodeSelector,
-							Tolerations:  lookout.Spec.Tolerations,
-							Volumes:      volumes,
+							Tolerations: scheduler.Spec.Tolerations,
+							Volumes:     volumes,
 						},
 					},
 				},
@@ -669,21 +639,21 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 }
 
 // deleteExternalResources removes any external resources during deletion
-func (r *LookoutReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
+func (r *SchedulerReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
 
 	if components.PrometheusRule != nil {
 		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
 		}
-		logger.Info("Successfully deleted Lookout PrometheusRule")
+		logger.Info("Successfully deleted Scheduler PrometheusRule")
 	}
 
 	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&installv1alpha1.Lookout{}).
+		For(&installv1alpha1.Scheduler{}).
 		Complete(r)
 }

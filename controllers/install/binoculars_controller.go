@@ -202,20 +202,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), []corev1.ServicePort{
-		{
-			Name: "web",
-			Port: binoculars.Spec.PortConfig.HttpPort,
-		},
-		{
-			Name: "grpc",
-			Port: binoculars.Spec.PortConfig.GrpcPort,
-		},
-		{
-			Name: "metrics",
-			Port: binoculars.Spec.PortConfig.MetricsPort,
-		},
-	})
+	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), binoculars.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
