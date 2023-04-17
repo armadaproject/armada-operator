@@ -1,0 +1,19 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: ArmadaServer
+metadata:
+  name: {{ include "armada.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{- include "armada.labels" . | nindent 4 }}
+spec:
+  pulsarInit: {{ .Values.pulsarInit }}
+  ingress:
+    ingressClass: {{ .Values.ingressClass | default .Values.global.ingressClass }}
+  clusterIssuer: {{ .Values.custerIssuer | default .Values.global.clusterIssuer }}
+  hostNames: {{ .Values.ingressHostNames }}
+  replicas: {{ .Values.replicas | default .Values.global.replicas }}
+  image:
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag | default .Values.global.image.tag}}
+  applicationConfig:
+{{ tpl (.Files.Get "application-config.yaml") . | indent 4 }}

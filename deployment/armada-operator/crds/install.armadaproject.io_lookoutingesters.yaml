@@ -1,33 +1,24 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: armada/armada-operator-serving-cert
     controller-gen.kubebuilder.io/version: v0.10.0
-  name: armadaservers.install.armadaproject.io
+  creationTimestamp: null
+  name: lookoutingesters.install.armadaproject.io
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: armada-operator-webhook-service
-          namespace: armada
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: install.armadaproject.io
   names:
-    kind: ArmadaServer
-    listKind: ArmadaServerList
-    plural: armadaservers
-    singular: armadaserver
+    kind: LookoutIngester
+    listKind: LookoutIngesterList
+    plural: lookoutingesters
+    singular: lookoutingester
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ArmadaServer is the Schema for the Armada Server API
+        description: LookoutIngester is the Schema for the lookoutingesters API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -42,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ArmadaServerSpec defines the desired state of ArmadaServer
+            description: LookoutIngesterSpec defines the desired state of LookoutIngester
             properties:
               additionalVolumeMounts:
                 description: Additional volume mounts that are added as volumes
@@ -1597,13 +1588,10 @@ spec:
                   type: object
                 type: array
               applicationConfig:
-                description: ApplicationConfig is the internal ArmadaServer configuration
-                  which will be created as a Kubernetes Secret and mounted in the
-                  Kubernetes Deployment object
+                description: ApplicationConfig is the internal configuration of the
+                  application which will be created as a Kubernetes Secret and mounted
+                  in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
-              clusterIssuer:
-                description: Who is issuing certificates for CA
-                type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
@@ -1718,51 +1706,45 @@ spec:
                   - name
                   type: object
                 type: array
-              hostNames:
-                description: An array of host names to build ingress rules for
-                items:
-                  type: string
-                type: array
               image:
                 description: Image is the configuration block for the image repository
                   and tag
                 properties:
                   repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
                     type: string
                   tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
                     type: string
                 required:
                 - repository
                 - tag
-                type: object
-              ingress:
-                description: Ingress defines labels and annotations for the Ingress
-                  controller of Armada Server
-                properties:
-                  annotations:
-                    additionalProperties:
-                      type: string
-                    description: Annotations is a map of annotations which will be
-                      added to all ingress rules
-                    type: object
-                  ingressClass:
-                    description: The type of ingress that is used
-                    type: string
-                  labels:
-                    additionalProperties:
-                      type: string
-                    description: Labels is the map of labels which wil be added to
-                      all objects
-                    type: object
-                  nameOverride:
-                    description: Overide name for ingress
-                    type: string
                 type: object
               labels:
                 additionalProperties:
                   type: string
                 description: Labels is the map of labels which wil be added to all
                   objects
+                type: object
+              portConfig:
+                description: PortConfig is automatically populated with defaults and
+                  overlaid by values in ApplicationConfig.
+                properties:
+                  grpcPort:
+                    format: int32
+                    type: integer
+                  httpPort:
+                    format: int32
+                    type: integer
+                  metricsPort:
+                    format: int32
+                    type: integer
+                required:
+                - grpcPort
+                - httpPort
+                - metricsPort
                 type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
@@ -1780,17 +1762,13 @@ spec:
                     type: object
                   scrapeInterval:
                     description: ScrapeInterval defines the interval at which Prometheus
-                      should scrape Executor metrics
+                      should scrape metrics
                     format: duration
                     type: string
                 type: object
-              replicas:
-                description: Replicas is the number of replicated instances for ArmadaServer
-                format: int32
-                type: integer
               resources:
-                description: Resources is the configuration block for setting Executor
-                  resource requirements
+                description: Resources is the configuration block for setting resource
+                  requirements for this service
                 properties:
                   limits:
                     additionalProperties:
@@ -1907,7 +1885,7 @@ spec:
                 type: integer
               tolerations:
                 description: Tolerations is the configuration block for specifying
-                  which taints the ArmadaServer pod can tolerate
+                  which taints this pod can tolerate
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
@@ -1948,11 +1926,10 @@ spec:
                 type: array
             required:
             - applicationConfig
-            - clusterIssuer
             - image
             type: object
           status:
-            description: ArmadaServerStatus defines the observed state of ArmadaServer
+            description: LookoutIngesterStatus defines the observed state of LookoutIngester
             type: object
         type: object
     served: true

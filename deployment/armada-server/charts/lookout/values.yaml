@@ -1,0 +1,24 @@
+hostNames:
+replicas: 2
+image:
+  repository: gresearch/armada-lookout
+  tag: 
+resources:
+  limits:
+    memory: 1Gi
+    cpu: 500m
+  requests:
+    memory: 500Mi
+    cpu: 300m
+environment:
+  LOG_FORMAT: json
+prometheus:
+  enabled: true
+  scrapeInterval: "5m"
+postgres:
+  dbname: lookout
+prunerConfig:
+  daysToKeep: 42
+  batchSize: 1000
+lookoutv2Url: http://localhost:10000
+binocularsUrl: http://localhost:8082
