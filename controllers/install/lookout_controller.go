@@ -248,6 +248,11 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
+		var scrapeInterval *metav1.Duration
+		if lookout.Spec.Prometheus.ScrapeInterval != nil {
+			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
+		}
+		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)
@@ -298,6 +303,7 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      lookout.Name,
 			Namespace: lookout.Namespace,
+			Labels:    AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{
@@ -410,11 +416,8 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 			ingressHttp.ObjectMeta.Annotations[key] = value
 		}
 	}
-	if lookout.Spec.Ingress.Labels != nil {
-		for key, value := range lookout.Spec.Ingress.Labels {
-			ingressHttp.ObjectMeta.Labels[key] = value
-		}
-	}
+	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
+
 	if len(lookout.Spec.HostNames) > 0 {
 		secretName := lookout.Name + "-service-tls"
 		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
