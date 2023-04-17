@@ -54,16 +54,13 @@ func TestBuildPortConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := CommonSpecBase{
-				ApplicationConfig: tt.input,
-			}
-			err := c.BuildPortConfig()
+			pc, err := BuildPortConfig(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				assert.Nil(t, err)
 			}
-			assert.Equal(t, tt.expected, c.PortConfig)
+			assert.Equal(t, tt.expected, pc)
 		})
 	}
 }

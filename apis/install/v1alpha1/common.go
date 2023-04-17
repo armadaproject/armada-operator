@@ -106,12 +106,11 @@ type CommonSpecBase struct {
 	PortConfig PortConfig `json:"portConfig,omitempty"`
 }
 
-// BuildPortConfig extracts ports from the ApplicationConfig and applies inplace
-// as the PortConfig
-func (c *CommonSpecBase) BuildPortConfig() error {
-	appConfig, err := convertRawExtensionToYaml(c.ApplicationConfig)
+// BuildPortConfig extracts ports from the ApplicationConfig and returns a PortConfig
+func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
+	appConfig, err := convertRawExtensionToYaml(rawAppConfig)
 	if err != nil {
-		return err
+		return PortConfig{}, err
 	}
 	// defaults
 	portConfig := PortConfig{
@@ -121,10 +120,9 @@ func (c *CommonSpecBase) BuildPortConfig() error {
 	}
 	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
 	if err != nil {
-		return err
+		return PortConfig{}, err
 	}
-	c.PortConfig = portConfig
-	return nil
+	return portConfig, nil
 }
 
 // convertRawExtensionToYaml converts a RawExtension input to Yaml

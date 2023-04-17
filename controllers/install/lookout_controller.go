@@ -77,10 +77,12 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	err := lookout.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(lookout.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	lookout.Spec.PortConfig = pc
+
 	var components *CommonComponents
 	components, err = generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {

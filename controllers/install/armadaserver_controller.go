@@ -74,10 +74,11 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	err := as.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(as.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	as.Spec.PortConfig = pc
 	var components *CommonComponents
 	components, err = generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
