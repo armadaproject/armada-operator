@@ -248,11 +248,6 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
-		var scrapeInterval *metav1.Duration
-		if lookout.Spec.Prometheus.ScrapeInterval != nil {
-			scrapeInterval = lookout.Spec.Prometheus.ScrapeInterval
-		}
-		prometheusRule = createPrometheusRule(lookout.Name, lookout.Namespace, scrapeInterval, lookout.Spec.Labels, lookout.Spec.Prometheus.Labels)
 	}
 
 	job, err := createLookoutMigrationJob(lookout)
