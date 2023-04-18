@@ -292,7 +292,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	var pr *monitoringv1.PrometheusRule
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
+		pr = createServerPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
 	}
 
 	sm := createServiceMonitor(as)
@@ -745,7 +745,7 @@ func (r *ArmadaServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // createServerPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration) *monitoringv1.PrometheusRule {
+func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
 	if scrapeInterval == nil {
 		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
 	}
@@ -772,6 +772,7 @@ func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.D
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    AllLabels(name, labels...),
 		},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
