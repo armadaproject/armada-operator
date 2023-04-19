@@ -37,6 +37,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -278,7 +280,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	var pr *monitoringv1.PrometheusRule
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
+		pr = createServerPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
 	}
 
 	sm := createServiceMonitor(as)
@@ -725,4 +727,93 @@ func (r *ArmadaServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.ArmadaServer{}).
 		Complete(r)
+}
+
+// createServerPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
+func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
+	if scrapeInterval == nil {
+		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
+	}
+	queueSize := `avg(sum(armada_queue_size) by (queueName, pod)) by (queueName) > 0`
+	queuePriority := `avg(sum(armada_queue_priority) by (pool, queueName, pod)) by (pool, queueName)`
+	queueIdeal := `(sum(armada:queue:resource:queued{resourceType="cpu"} > bool 0) by (queueName, pool) * (1 / armada:queue:priority))
+			       / ignoring(queueName) group_left
+		       sum(sum(armada:queue:resource:queued{resourceType="cpu"} > bool 0) by (queueName, pool) * (1 / armada:queue:priority)) by (pool)
+		       * 100`
+	queueResourceQueued := `avg(armada_queue_resource_queued) by (pool, queueName, resourceType)`
+	queueResourceAllocated := `avg(armada_queue_resource_allocated) by (pool, cluster, queueName, resourceType, nodeType)`
+	queueResourceUsed := `avg(armada_queue_resource_used) by (pool, cluster, queueName, resourceType, nodeType)`
+	serverHist := `histogram_quantile(0.95, sum(rate(grpc_server_handling_seconds_bucket{grpc_type!="server_stream"}[2m])) by (grpc_method,grpc_service, le))`
+	serverRequestRate := `sum(rate(grpc_server_handled_total[2m])) by (grpc_method,grpc_service)`
+	logRate := `sum(rate(log_messages[2m])) by (level)`
+	availableCapacity := `avg(armada_cluster_available_capacity) by (pool, cluster, resourceType, nodeType)`
+	resourceCapacity := `avg(armada_cluster_capacity) by (pool, cluster, resourceType, nodeType)`
+	queuePodPhaseCount := `max(armada_queue_leased_pod_count) by (pool, cluster, queueName, phase, nodeType)`
+
+	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	objectMetaName := "armada-" + name + "-metrics"
+	return &monitoringv1.PrometheusRule{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    AllLabels(name, labels...),
+		},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{{
+				Name:     objectMetaName,
+				Interval: monitoringv1.Duration(durationString),
+				Rules: []monitoringv1.Rule{
+					{
+						Record: "armada:queue:size",
+						Expr:   intstr.IntOrString{StrVal: queueSize},
+					},
+					{
+						Record: "armada:queue:priority",
+						Expr:   intstr.IntOrString{StrVal: queuePriority},
+					},
+					{
+						Record: "armada:queue:ideal_current_share",
+						Expr:   intstr.IntOrString{StrVal: queueIdeal},
+					},
+					{
+						Record: "armada:queue:resource:queued",
+						Expr:   intstr.IntOrString{StrVal: queueResourceQueued},
+					},
+					{
+						Record: "armada:queue:resource:allocated",
+						Expr:   intstr.IntOrString{StrVal: queueResourceAllocated},
+					},
+					{
+						Record: "armada:queue:resource:used",
+						Expr:   intstr.IntOrString{StrVal: queueResourceUsed},
+					},
+					{
+						Record: "armada:grpc:server:histogram95",
+						Expr:   intstr.IntOrString{StrVal: serverHist},
+					},
+					{
+						Record: "armada:grpc:server:requestrate",
+						Expr:   intstr.IntOrString{StrVal: serverRequestRate},
+					},
+					{
+						Record: "armada:log:rate",
+						Expr:   intstr.IntOrString{StrVal: logRate},
+					},
+					{
+						Record: "armada:resource:available_capacity",
+						Expr:   intstr.IntOrString{StrVal: availableCapacity},
+					},
+					{
+						Record: "armada:resource:capacity",
+						Expr:   intstr.IntOrString{StrVal: resourceCapacity},
+					},
+					{
+						Record: "armada:queue:pod_phase:count",
+						Expr:   intstr.IntOrString{StrVal: queuePodPhaseCount},
+					},
+				},
+			}},
+		},
+	}
 }
