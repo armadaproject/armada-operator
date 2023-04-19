@@ -66,10 +66,12 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	err := eventIngester.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(eventIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	eventIngester.Spec.PortConfig = pc
+
 	components, err := r.generateEventIngesterComponents(&eventIngester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err

@@ -1,9 +1,10 @@
 package builders
 
 import (
-	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
 func Service(name string, namespace string, labels, identityLabel map[string]string, portConfig v1alpha1.PortConfig) *corev1.Service {
@@ -33,6 +34,6 @@ func Service(name string, namespace string, labels, identityLabel map[string]str
 	if portConfig.HttpNodePort > 0 || portConfig.GrpcNodePort > 0 {
 		service.Spec.Type = "NodePort"
 	}
-	
+
 	return &service
 }

@@ -3,9 +3,10 @@ package builders
 import (
 	"testing"
 
-	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/armadaproject/armada-operator/apis/install/v1alpha1"
 )
 
 func TestService(t *testing.T) {
@@ -84,7 +85,7 @@ func TestService(t *testing.T) {
 			} else {
 				assert.Equal(t, corev1.ServiceType(""), got.Spec.Type)
 			}
-				
+
 		})
 	}
 }

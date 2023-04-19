@@ -88,10 +88,12 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	err := executor.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	executor.Spec.PortConfig = pc
+
 	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err

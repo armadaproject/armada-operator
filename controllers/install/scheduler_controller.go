@@ -76,7 +76,7 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	scheduler.Spec.PortConfig = pc
-	
+
 	var components *CommonComponents
 	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme)
 	if err != nil {
@@ -655,7 +655,7 @@ func (r *SchedulerReconciler) deleteExternalResources(ctx context.Context, compo
 
 // schedulerPortConfigs will unmarshal ports from the scheduler app config
 type schedulerPortConfigs struct {
-	Grpc schedulerPortConfig
+	Grpc    schedulerPortConfig
 	Metrics schedulerPortConfig
 }
 
@@ -667,15 +667,15 @@ type schedulerPortConfig struct {
 // buildSchedulerPortConfig extracts ports from the ApplicationConfig and applies inplace
 // as the PortConfig
 func buildSchedulerPortConfig(rawAppConfig runtime.RawExtension) (installv1alpha1.PortConfig, error) {
-	appConfig, err := installv1alpha1.convertRawExtensionToYaml(rawAppConfig)
+	appConfig, err := installv1alpha1.ConvertRawExtensionToYaml(rawAppConfig)
 	if err != nil {
-		return installv1alpha1.PortConfig{},  err
+		return installv1alpha1.PortConfig{}, err
 	}
 
 	// default ports
 	schedulerPorts := schedulerPortConfigs{
-		Grpc: schedulerPortConfig{ Port: 50051 },
-		Metrics: schedulerPortConfig{ Port: 9000 },
+		Grpc:    schedulerPortConfig{Port: 50051},
+		Metrics: schedulerPortConfig{Port: 9000},
 	}
 
 	// unmarshall app config
@@ -683,8 +683,8 @@ func buildSchedulerPortConfig(rawAppConfig runtime.RawExtension) (installv1alpha
 	if err != nil {
 		return installv1alpha1.PortConfig{}, err
 	}
-	
-	portConfig := PortConfig{
+
+	portConfig := installv1alpha1.PortConfig{
 		GrpcPort:    schedulerPorts.Grpc.Port,
 		MetricsPort: schedulerPorts.Metrics.Port,
 	}
@@ -697,4 +697,3 @@ func (r *SchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&installv1alpha1.Scheduler{}).
 		Complete(r)
 }
-

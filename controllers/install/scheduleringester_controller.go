@@ -66,10 +66,12 @@ func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	err := scheduleringester.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(scheduleringester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	scheduleringester.Spec.PortConfig = pc
+
 	components, err := r.generateSchedulerIngesterComponents(&scheduleringester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err

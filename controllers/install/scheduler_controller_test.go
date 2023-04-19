@@ -404,7 +404,7 @@ func TestSchedulerReconciler_ReconcileDeletingSchedulerWithError(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Scheduler{})).
 		Return(errors.NewBadRequest("something is amiss"))
-	
+
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	if err != nil {
 		t.Fatalf("should not return error when building schema")

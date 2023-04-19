@@ -65,7 +65,7 @@ func TestBuildPortConfig(t *testing.T) {
 	}
 }
 
-func Test_convertRawExtensionToYaml(t *testing.T) {
+func TestConvertRawExtensionToYaml(t *testing.T) {
 
 	tests := []struct {
 		name     string
@@ -93,7 +93,7 @@ func Test_convertRawExtensionToYaml(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := convertRawExtensionToYaml(tt.input)
+			output, err := ConvertRawExtensionToYaml(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

@@ -108,7 +108,7 @@ type CommonSpecBase struct {
 
 // BuildPortConfig extracts ports from the ApplicationConfig and returns a PortConfig
 func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
-	appConfig, err := convertRawExtensionToYaml(rawAppConfig)
+	appConfig, err := ConvertRawExtensionToYaml(rawAppConfig)
 	if err != nil {
 		return PortConfig{}, err
 	}
@@ -125,8 +125,8 @@ func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
 	return portConfig, nil
 }
 
-// convertRawExtensionToYaml converts a RawExtension input to Yaml
-func convertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
+// ConvertRawExtensionToYaml converts a RawExtension input to Yaml
+func ConvertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
 	yamlConfig, err := yaml.JSONToYAML(config.Raw)
 	if err != nil {
 		return "", err

@@ -79,7 +79,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	binoculars.Spec.PortConfig = pc
-	
+
 	var components *CommonComponents
 	components, err = generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
