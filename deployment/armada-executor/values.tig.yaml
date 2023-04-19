@@ -1,9 +1,0 @@
-# global scope is for values that which are common to all component subcharts
-global:
-  # clusterIssuer installed in the cluster
-  clusterIssuer: "letsencrypt-prod"
-  # image tag to use for armada component containers
-  image:
-    tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
-  corsAllowedOrigins:
-    - "https://lookout.armada.grlab.co.uk"
