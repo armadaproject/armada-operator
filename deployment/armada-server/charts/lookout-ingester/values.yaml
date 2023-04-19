@@ -1,0 +1,8 @@
+# Default values for lookoutingester.
+metricsPort: 9000
+postgres:
+  dbname: lookout
+pulsar:
+  url:
+image:
+  repository: gresearch/armada-lookout-ingester

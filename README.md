@@ -94,6 +94,31 @@ UnDeploy the controller to the cluster:
 make undeploy
 ```
 
+## Using Helm Charts
+
+This repo includes Helm charts for Armada Operator and Armada
+Application installation, in the `deployment` directory. The first
+chart, `armada-operator`, will install the Operator (CRDs and
+controller-manager, mainly). The other two, `armada-server` and
+`armada-executor`, will install the Armada application itself in your
+cluster(s).
+
+The armada-operator chart should be installed first on all clusters
+to be used. Then, one or both of the application charts.
+
+Why two charts for the application? Armada supports two cluster
+types: server and executor. The server install includes the API
+server and scheduler. The executor install includes the worker process
+(executor) which manages Armada jobs for a particular cluster. They
+can be installed in the same cluster, but typically we'd expect to see
+one server install and several executor installations.
+
+```bash
+cd deployment
+helm install armada-server ./armada-server -n armada
+helm install armada-executor ./armada-executor -n armada
+```
+
 ## Contributing
 
 Please feel free to contribute bug-reports or ideas for enhancements via 

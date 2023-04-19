@@ -438,14 +438,11 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 				Spec: corev1.PodSpec{
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{{
 						Name:            "init-pulsar",
 						ImagePullPolicy: "IfNotPresent",
-						Image:           "apachepulsar/pulsar:2.11.0",
+						Image:           fmt.Sprintf("%v:%v", asConfig.Pulsar.ArmadaInit.Image.Repository, asConfig.Pulsar.ArmadaInit.Image.Tag),
 						Args: []string{
 							"/bin/sh",
 							"-c",

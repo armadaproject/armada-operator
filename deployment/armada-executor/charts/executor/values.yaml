@@ -1,0 +1,18 @@
+clusterId: "exec-cluster"
+armadaUrl: 
+forceNoTls: true
+image:
+  repository: "gresearch/armada-executor"
+  tag:
+resources:
+  limits:
+    memory: 1Gi
+    cpu: 500m
+  requests:
+    memory: 500Mi
+    cpu: 300m
+environment:
+  LOG_FORMAT: json
+prometheus:
+  enabled: true
+  scrapeInterval: "5m"
