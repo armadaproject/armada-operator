@@ -234,7 +234,7 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 	}
 
 	var cronJob *batchv1.CronJob
-	if scheduler.Spec.DbPruningEnabled != nil && *scheduler.Spec.DbPruningEnabled {
+	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
 		cronJob, err := createSchedulerCronJob(scheduler)
 		if err != nil {
 			return nil, err
@@ -698,5 +698,3 @@ func (r *SchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&installv1alpha1.Scheduler{}).
 		Complete(r)
 }
-
-

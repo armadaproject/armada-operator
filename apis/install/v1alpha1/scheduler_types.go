@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,10 +57,23 @@ type SchedulerSpec struct {
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
-	// DbPruningEnabled when true a pruning CronJob is created
-	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
-	// DbPruningSchedule schedule to use for db pruning CronJob
-	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
+	// Pruning config for cron job
+	Pruner *PrunerConfig `json:"pruner,omitempty"`
+}
+
+// PrunerConfig definees the pruner cronjob settings
+type PrunerConfig struct {
+	Enabled   bool                         `json:"enabled"`
+	Schedule  string                       `json:"scheduler,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Args      PrunerArgs                   `json:"args,omitempty"`
+}
+
+// PrunerArgs represent command-line args to the pruner cron job
+type PrunerArgs struct {
+	Timeout     string `json:"timeout,omitempty"`
+	Batchsize   int32  `json:"batchsize,omitempty"`
+	ExpireAfter string `json:"expireAfter,omitempty"`
 }
 
 // SchedulerStatus defines the observed state of scheduler

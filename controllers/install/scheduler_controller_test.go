@@ -66,8 +66,10 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
-			DbPruningEnabled:  &dbPruningEnabled,
-			DbPruningSchedule: &dbPruningSchedule,
+			Pruner: &installv1alpha1.PrunerConfig{
+				Enabled:  dbPruningEnabled,
+				Schedule: dbPruningSchedule,
+			},
 		},
 	}
 
@@ -353,7 +355,9 @@ func TestSchedulerReconciler_ReconcileDeletingScheduler(t *testing.T) {
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
-			DbPruningEnabled: &dbPruningEnabled,
+			Pruner: &installv1alpha1.PrunerConfig{
+				Enabled: dbPruningEnabled,
+			},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
