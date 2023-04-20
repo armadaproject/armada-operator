@@ -111,10 +111,11 @@ types: server and executor. The server install includes the API
 server and scheduler. The executor install includes the worker process
 (executor) which manages Armada jobs for a particular cluster. They
 can be installed in the same cluster, but typically we'd expect to see
-one server install and several executor installations.
+one server install and one or more executor installations.
 
 ```bash
 cd deployment
+helm install armada-operator ./armada-operator/ -n armada
 helm install armada-server ./armada-server -n armada
 helm install armada-executor ./armada-executor -n armada
 ```

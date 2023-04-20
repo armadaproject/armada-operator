@@ -1,7 +1,7 @@
 hostNames:
 replicas: 2
 image:
-  repository: gresearch/armada-lookout
+  repository: gresearch/armada-scheduler
   tag: 
 resources:
   limits:
@@ -15,6 +15,7 @@ environment:
 prometheus:
   enabled: true
   scrapeInterval: "5m"
+redis:
 postgres:
   dbname: lookout
 prunerConfig:

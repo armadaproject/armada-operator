@@ -13,7 +13,7 @@ controllerManager:
   manager:
     image:
       repository: gresearch/armada-operator
-      tag: 7a199c3030ed87035975bf83a0dee08c42e1f6f5
+      tag: 04f91a8641f3ea6a72889e538cbffe87a70ec4c2
     resources:
       limits:
         cpu: 500m

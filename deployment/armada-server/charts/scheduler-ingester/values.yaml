@@ -1,8 +1,8 @@
-# Default values for lookoutingester.
+# Default values for scheduleringester.
 metricsPort: 9000
 postgres:
-  dbname: lookout
+  dbname: 
 pulsar:
   url:
 image:
-  repository: gresearch/armada-lookout-ingester
+  repository: gresearch/armada-scheduler-ingester

@@ -314,7 +314,7 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 						RunAsGroup: &runAsGroup,
 					},
 					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
 								Weight: 100,
 								PodAffinityTerm: corev1.PodAffinityTerm{
@@ -356,6 +356,7 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 			},
 		},
 	}
+
 	if scheduler.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduler.Spec.Resources
 	}
@@ -697,3 +698,5 @@ func (r *SchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&installv1alpha1.Scheduler{}).
 		Complete(r)
 }
+
+

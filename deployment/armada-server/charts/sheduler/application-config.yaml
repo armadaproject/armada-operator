@@ -1,6 +1,3 @@
-grpcPort: 50059
-metricsPort: 9000
----
 cyclePeriod: 10s
 executorTimeout: 1h
 databaseFetchSize: 1000
@@ -9,11 +6,6 @@ internedStringsCacheSize: 100000
 metrics:
   port: 9000
   refreshInterval: 30s
-redis:
-  addrs: {{ .Values.redis.addrs | default .Values.global.redis.addrs }}
-  password: {{ .Values.redis.password | default .Values.global.redis.password }}
-  db: {{ .Values.redis.db | default .Values.global.redis.db }}
-  poolSize: {{ .Values.redis.poolSize | default .Values.global.redis.poolSize }}
 pulsar:
   URL: {{ .Values.pulsar.url | default .Values.global.pulsar.url }}
   jobsetEventsTopic: "events"
