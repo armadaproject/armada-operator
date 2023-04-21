@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "chart.fullname" . }}-proxy-role
+  name: {{ include "armada-operator.fullname" . }}-proxy-role
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
     app.kubernetes.io/created-by: armada-operator
     app.kubernetes.io/part-of: armada-operator
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "armada-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -24,17 +24,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "chart.fullname" . }}-proxy-rolebinding
+  name: {{ include "armada-operator.fullname" . }}-proxy-rolebinding
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
     app.kubernetes.io/created-by: armada-operator
     app.kubernetes.io/part-of: armada-operator
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "armada-operator.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ include "chart.fullname" . }}-proxy-role'
+  name: '{{ include "armada-operator.fullname" . }}-proxy-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "chart.fullname" . }}-controller-manager'
+  name: '{{ include "armada-operator.fullname" . }}-controller-manager'
   namespace: '{{ .Release.Namespace }}'
