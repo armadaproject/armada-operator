@@ -313,6 +313,7 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: installv1alpha1.BinocularsSpec{
+			HostNames: []string{"ingress.host"},
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: installv1alpha1.Image{

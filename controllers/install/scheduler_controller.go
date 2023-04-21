@@ -389,7 +389,6 @@ func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networki
 	}
 	ingressHttp.ObjectMeta.Labels = AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Ingress.Labels)
 
-
 	secretName := scheduler.Name + "-service-tls"
 	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
 	ingressRules := []networking.IngressRule{}
@@ -578,7 +577,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 	if scheduler.Spec.Pruner.Resources != nil {
 		prunerResources = *scheduler.Spec.Pruner.Resources
 	}
-	
+
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        scheduler.Name + "-db-pruner",

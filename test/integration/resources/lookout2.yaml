@@ -22,3 +22,4 @@ spec:
     toleratedTaints:
       - key: armada.io/batch
         operator: in
+  hostNames: [localhost]

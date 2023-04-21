@@ -261,7 +261,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingressHttp, ett := createIngressHttp(as)
+	ingressHttp, err := createIngressHttp(as)
 	if err != nil {
 		return nil, err
 	}

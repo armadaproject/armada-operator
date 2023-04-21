@@ -293,6 +293,7 @@ func TestArmadaServerReconciler_ReconcileDeletingArmadaServer(t *testing.T) {
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
 			},
+			HostNames: []string{"ingress.host"},
 		},
 	}
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)

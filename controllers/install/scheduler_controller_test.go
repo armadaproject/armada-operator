@@ -341,6 +341,7 @@ func TestSchedulerReconciler_ReconcileDeletingScheduler(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.SchedulerSpec{
+			HostNames: []string{"ingress.host"},
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: v1alpha1.Image{

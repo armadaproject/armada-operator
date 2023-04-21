@@ -339,6 +339,7 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.LookoutSpec{
+			HostNames: []string{"ingress.host"},
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: v1alpha1.Image{
@@ -411,6 +412,7 @@ func TestLookoutReconciler_ReconcileDeletingLookoutWithError(t *testing.T) {
 			Finalizers:        []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.LookoutSpec{
+			HostNames: []string{"ingress.host"},
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: v1alpha1.Image{
