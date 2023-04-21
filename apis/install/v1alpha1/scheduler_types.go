@@ -64,7 +64,7 @@ type SchedulerSpec struct {
 // PrunerConfig definees the pruner cronjob settings
 type PrunerConfig struct {
 	Enabled   bool                         `json:"enabled"`
-	Schedule  string                       `json:"scheduler,omitempty"`
+	Schedule  string                       `json:"schedule,omitempty"`
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Args      PrunerArgs                   `json:"args,omitempty"`
 }

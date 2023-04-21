@@ -1751,7 +1751,13 @@ spec:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:

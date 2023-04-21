@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "armada-operator.fullname" . }}-manager-role
+  name: {{ include "chart.fullname" . }}-manager-role
   labels:
-  {{- include "armada-operator.labels" . | nindent 4 }}
+  {{- include "chart.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -106,6 +106,33 @@ rules:
   - tokenreviews
   verbs:
   - create
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -300,6 +327,58 @@ rules:
   - patch
   - update
 - apiGroups:
+  - install.armadaproject.io
+  resources:
+  - scheduleringesters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - scheduleringesters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - schedulers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - install.armadaproject.io
+  resources:
+  - schedulers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheusrules
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
@@ -343,17 +422,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "armada-operator.fullname" . }}-manager-rolebinding
+  name: {{ include "chart.fullname" . }}-manager-rolebinding
   labels:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: armada-operator
     app.kubernetes.io/part-of: armada-operator
-  {{- include "armada-operator.labels" . | nindent 4 }}
+  {{- include "chart.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ include "armada-operator.fullname" . }}-manager-role'
+  name: '{{ include "chart.fullname" . }}-manager-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "armada-operator.fullname" . }}-controller-manager'
+  name: '{{ include "chart.fullname" . }}-controller-manager'
   namespace: '{{ .Release.Namespace }}'

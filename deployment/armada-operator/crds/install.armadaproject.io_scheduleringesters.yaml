@@ -1732,7 +1732,13 @@ spec:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:
@@ -1766,6 +1772,10 @@ spec:
                     format: duration
                     type: string
                 type: object
+              replicas:
+                description: Replicas is the number of replicated instances
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting resource
                   requirements for this service

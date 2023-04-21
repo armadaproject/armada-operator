@@ -15,6 +15,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -556,6 +557,25 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 		return nil, err
 	}
 
+	prunerArgs := []string{
+		"--pruneDatabase",
+		"--config",
+		"/config/application_config.yaml",
+	}
+	if scheduler.Spec.Pruner.Args.Timeout != "" {
+		prunerArgs = append(prunerArgs, "--timeout", scheduler.Spec.Pruner.Args.Timeout)
+	}
+	if scheduler.Spec.Pruner.Args.Batchsize > 0 {
+		prunerArgs = append(prunerArgs, "--batchsize", fmt.Sprintf("%v", scheduler.Spec.Pruner.Args.Batchsize))
+	}
+	if scheduler.Spec.Pruner.Args.ExpireAfter != "" {
+		prunerArgs = append(prunerArgs, "--expireAfter", scheduler.Spec.Pruner.Args.ExpireAfter)
+	}
+	prunerResources := corev1.ResourceRequirements{}
+	if scheduler.Spec.Pruner.Resources != nil {
+		prunerResources = *scheduler.Spec.Pruner.Resources
+	}
+	
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        scheduler.Name + "-db-pruner",
@@ -565,6 +585,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 		},
 		Spec: batchv1.CronJobSpec{
 
+			Schedule: scheduler.Spec.Pruner.Schedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      scheduler.Name + "-db-pruner",
@@ -615,11 +636,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 								Name:            "scheduler-db-pruner",
 								ImagePullPolicy: "IfNotPresent",
 								Image:           ImageString(scheduler.Spec.Image),
-								Args: []string{
-									"--pruneDatabase",
-									"--config",
-									"/config/application_config.yaml",
-								},
+								Args:            prunerArgs,
 								Ports: []corev1.ContainerPort{{
 									Name:          "metrics",
 									ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
@@ -628,6 +645,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 								Env:             env,
 								VolumeMounts:    volumeMounts,
 								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+								Resources:       prunerResources,
 							}},
 							Tolerations: scheduler.Spec.Tolerations,
 							Volumes:     volumes,

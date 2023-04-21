@@ -1,4 +1,4 @@
-hostNames:
+ghostNames:
 replicas: 2
 image:
   repository: gresearch/armada-scheduler
@@ -16,10 +16,13 @@ prometheus:
   enabled: true
   scrapeInterval: "5m"
 redis:
+pulsar:
+  url:
 postgres:
   dbname: lookout
-prunerConfig:
-  daysToKeep: 42
-  batchSize: 1000
+pruner:
+  enabled: true
+  args:
+    batchSize: 1000
 lookoutv2Url: http://localhost:10000
 binocularsUrl: http://localhost:8082

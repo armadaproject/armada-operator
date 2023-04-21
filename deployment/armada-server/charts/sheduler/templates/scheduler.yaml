@@ -32,12 +32,23 @@ spec:
   prometheus:
     enabled: {{ .Values.prometheus.enabled }}
     scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
-  prunerConfig:
-    daysToKeep: {{ .Values.prunerConfig.daysToKeep }}
-    batchSize: {{ .Values.prunerConfig.batchSize }}
   image:
     repository: {{ .Values.image.repository }}
     tag: {{ .Values.image.tag | default .Values.global.image.tag}}
+  pruner:
+    enabled: true
+    schedule: "@hourly"
+    resources:
+      limits:
+        memory: 1Gi
+        cpu: 300m
+      requests:
+        memory: 512Mi
+        cpu: 200m
+    args:
+      timeout: 5m
+      batchsize: {{ .Values.pruner.args.batchsize }}
+      expireAfter: 2h
   applicationConfig:
 {{ tpl (.Files.Get "application-config.yaml") . | indent 4 }}
 
