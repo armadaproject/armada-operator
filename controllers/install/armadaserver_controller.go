@@ -253,12 +253,18 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingressGrpc := createIngressGrpc(as)
+	ingressGrpc, err := createIngressGrpc(as)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(as, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
 
-	ingressHttp := createIngressHttp(as)
+	ingressHttp, ett := createIngressHttp(as)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(as, ingressHttp, scheme); err != nil {
 		return nil, err
 	}
@@ -580,7 +586,10 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 	return &deployment
 }
 
-func createIngressGrpc(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+	if len(as.Spec.HostNames) == 0 {
+		return nil, errors.New("hostname(s) must be provided for ingress")
+	}
 	ingressGRPCName := as.Name + "-grpc"
 	grpcIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: ingressGRPCName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
@@ -600,36 +609,37 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	}
 	grpcIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
 
-	if len(as.Spec.HostNames) > 0 {
-		secretName := as.Name + "-service-tls"
-		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := as.Name
-		for _, val := range as.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: as.Spec.PortConfig.GrpcPort,
-								},
+	secretName := as.Name + "-service-tls"
+	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := as.Name
+	for _, val := range as.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/",
+					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: as.Spec.PortConfig.GrpcPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		grpcIngress.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
+	grpcIngress.Spec.Rules = ingressRules
 
-	return grpcIngress
+	return grpcIngress, nil
 }
 
-func createIngressHttp(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
+func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+	if len(as.Spec.HostNames) == 0 {
+		return nil, errors.New("hostname(s) must be provided for ingress")
+	}
 	restIngressName := as.Name + "-rest"
 	restIngress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -651,32 +661,31 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) *networkingv1.Ingress {
 	}
 	restIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
 
-	if len(as.Spec.HostNames) > 0 {
-		secretName := as.Name + "-service-tls"
-		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := as.Name
-		for _, val := range as.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/api(/|$)(.*)",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: as.Spec.PortConfig.HttpPort,
-								},
+	secretName := as.Name + "-service-tls"
+	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := as.Name
+	for _, val := range as.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/api(/|$)(.*)",
+					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: as.Spec.PortConfig.HttpPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		restIngress.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
-	return restIngress
+	restIngress.Spec.Rules = ingressRules
+
+	return restIngress, nil
 }
 
 func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {

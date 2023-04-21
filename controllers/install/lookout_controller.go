@@ -17,6 +17,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -370,6 +371,9 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 }
 
 func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+	if len(lookout.Spec.HostNames) == 0 {
+		return nil, errors.New("hostname(s) must be provided for ingress")
+	}
 	ingressName := lookout.Name + "-rest"
 	ingressHttp := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -390,31 +394,30 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 	}
 	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
 
-	if len(lookout.Spec.HostNames) > 0 {
-		secretName := lookout.Name + "-service-tls"
-		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := lookout.Name
-		for _, val := range lookout.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: lookout.Spec.PortConfig.HttpPort,
-								},
+	secretName := lookout.Name + "-service-tls"
+	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := lookout.Name
+	for _, val := range lookout.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/",
+					PathType: (*networking.PathType)(pointer.String("Prefix")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: lookout.Spec.PortConfig.HttpPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		ingressHttp.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
+	ingressHttp.Spec.Rules = ingressRules
+
 	return ingressHttp, nil
 }
 

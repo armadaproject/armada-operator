@@ -365,6 +365,9 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 }
 
 func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networking.Ingress, error) {
+	if len(scheduler.Spec.HostNames) == 0 {
+		return nil, errors.New("hostname(s) must be provided for ingress")
+	}
 	ingressName := scheduler.Name + "-grpc"
 	ingressHttp := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -386,31 +389,31 @@ func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networki
 	}
 	ingressHttp.ObjectMeta.Labels = AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Ingress.Labels)
 
-	if len(scheduler.Spec.HostNames) > 0 {
-		secretName := scheduler.Name + "-service-tls"
-		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := scheduler.Name
-		for _, val := range scheduler.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: scheduler.Spec.PortConfig.HttpPort,
-								},
+
+	secretName := scheduler.Name + "-service-tls"
+	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := scheduler.Name
+	for _, val := range scheduler.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/",
+					PathType: (*networking.PathType)(pointer.String("Prefix")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: scheduler.Spec.PortConfig.GrpcPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		ingressHttp.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
+	ingressHttp.Spec.Rules = ingressRules
+
 	return ingressHttp, nil
 }
 
