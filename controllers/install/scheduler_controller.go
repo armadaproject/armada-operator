@@ -103,14 +103,6 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(&scheduler, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Scheduler cluster-scoped components", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
-
 			// remove our finalizer from the list and update it.
 			logger.Info("Removing finalizer from Scheduler object", "finalizer", operatorFinalizer)
 			controllerutil.RemoveFinalizer(&scheduler, operatorFinalizer)
@@ -660,19 +652,6 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 	}
 
 	return &job, nil
-}
-
-// deleteExternalResources removes any external resources during deletion
-func (r *SchedulerReconciler) deleteExternalResources(ctx context.Context, components *CommonComponents, logger logr.Logger) error {
-
-	if components.PrometheusRule != nil {
-		if err := r.Delete(ctx, components.PrometheusRule); err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrapf(err, "error deleting PrometheusRule %s", components.PrometheusRule.Name)
-		}
-		logger.Info("Successfully deleted Scheduler PrometheusRule")
-	}
-
-	return nil
 }
 
 // schedulerPortConfigs will unmarshal ports from the scheduler app config
