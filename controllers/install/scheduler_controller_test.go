@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -320,14 +321,21 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 					Batchsize:   1000,
 					ExpireAfter: "1d",
 				},
+				Resources: &corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"memory": resource.Quantity{Format: "4gi"},
+					},
+				},
 			},
 		},
 	}
 	cronJob, err := createSchedulerCronJob(&schedulerInput)
 	expectedArgs := []string([]string{"--pruneDatabase", "--config", "/config/application_config.yaml", "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"})
+	expectedResources := *schedulerInput.Spec.Pruner.Resources
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedArgs, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Args)
+	assert.Equal(t, expectedResources, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources)
 }
 
 func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
