@@ -588,7 +588,8 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 
 func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
 	if len(as.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// if no hostnames, no ingress can be configured
+		return nil, nil
 	}
 	ingressGRPCName := as.Name + "-grpc"
 	grpcIngress := &networkingv1.Ingress{
@@ -638,7 +639,8 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 
 func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
 	if len(as.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// when no hostnames, no ingress can be configured
+		return nil, nil
 	}
 	restIngressName := as.Name + "-rest"
 	restIngress := &networkingv1.Ingress{

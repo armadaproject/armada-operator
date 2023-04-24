@@ -1,5 +1,5 @@
 # Default values for armadaserver.
-ingressHostNames: []
+ingressHostNames: [localhost]
 image:
   repository: gresearch/armada-server
   tag: 

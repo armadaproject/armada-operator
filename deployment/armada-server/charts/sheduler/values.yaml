@@ -1,4 +1,4 @@
-ghostNames:
+hostNames: [localhost]
 replicas: 2
 image:
   repository: gresearch/armada-scheduler
@@ -19,7 +19,7 @@ redis:
 pulsar:
   url:
 postgres:
-  dbname: lookout
+  dbname: scheduler
 pruner:
   enabled: true
   args:

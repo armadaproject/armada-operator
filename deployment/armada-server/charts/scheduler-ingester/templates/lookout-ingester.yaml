@@ -1,5 +1,5 @@
 apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
+kind: SchedulerIngester
 metadata:
   name: {{ include "armada.name" . }}
   namespace: {{ .Release.Namespace }}

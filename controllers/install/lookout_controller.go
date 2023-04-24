@@ -17,7 +17,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
@@ -372,7 +371,8 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 
 func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
 	if len(lookout.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// when no hostnames, no ingress can be configured
+		return nil, nil
 	}
 	ingressName := lookout.Name + "-rest"
 	ingressHttp := &networking.Ingress{

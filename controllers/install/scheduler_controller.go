@@ -335,7 +335,7 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 						Name:            "scheduler",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(scheduler.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{"run", "--config", "/config/application_config.yaml"},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
@@ -366,7 +366,8 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 
 func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networking.Ingress, error) {
 	if len(scheduler.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// when no hostnames provided, no ingress can be configured
+		return nil, nil
 	}
 	ingressName := scheduler.Name + "-grpc"
 	ingressHttp := &networking.Ingress{
@@ -476,7 +477,7 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"
+                                                         echo "Postgres started!"
 							 echo "Creating DB $PGDB if needed..."
 							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "CREATE DATABASE $PGDB"
 							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "GRANT ALL PRIVILEGES ON DATABASE $PGDB TO $PGUSER"
@@ -510,7 +511,7 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(scheduler.Spec.Image),
 						Args: []string{
-							"--migrateDatabase",
+							"migrateDatabase",
 							"--config",
 							"/config/application_config.yaml",
 						},

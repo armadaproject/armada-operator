@@ -25,7 +25,7 @@ global:
     poolSize: 1000
   # image tag to use for armada components
   image:
-    tag: "b292be39d6f960fcf20a8de26657ce79019abef5"
+    tag: "70a27e91003a32b90cfb8d8bfd736c65556daae9"
   # replica count  
   replicas: 1
   # cross-origin allowed origins
@@ -36,12 +36,17 @@ global:
   armadaUrl: armadaserver.armada.svc.cluster.local:50051
   
 armadaserver:
-  ingressHostNames: []
+  ingressHostNames: [server.armada.example.com]
   pulsarInit: true
+
+binoculars:
+  hostNames: [binoculars.armada.example.com]
     
 lookout:
-  ingressHostNames: []
+  hostNames: [lookout.armada.example.com]
 
 lookout-v2:
-  ingressHostNames: []
+  hostNames: [lookoutv2.armada.example.com]
   
+scheduler:
+  hostNames: [scheduler.armada.example.com]

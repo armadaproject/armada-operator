@@ -372,7 +372,8 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 
 func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
 	if len(binoculars.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// when no hostnames provided, no ingress can be configured
+		return nil, nil
 	}
 
 	grpcIngressName := binoculars.Name + "-grpc"
@@ -424,7 +425,8 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*netwo
 
 func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
 	if len(binoculars.Spec.HostNames) == 0 {
-		return nil, errors.New("hostname(s) must be provided for ingress")
+		// when no hostnames provided, no ingress can be configured
+		return nil, nil
 	}
 	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
