@@ -285,7 +285,52 @@ func TestSchedulerReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) 
 	assert.Error(t, err)
 }
 
-func TestSchedulerReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T) {
+func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
+	t.Parallel()
+
+	schedulerInput := v1alpha1.Scheduler{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Scheduler",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "scheduler",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.SchedulerSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			Pruner: &v1alpha1.PrunerConfig{
+				Enabled: true,
+				Args: installv1alpha1.PrunerArgs{
+					Timeout:     "10m",
+					Batchsize:   1000,
+					ExpireAfter: "1d",
+				},
+			},
+		},
+	}
+	cronJob, err := createSchedulerCronJob(&schedulerInput)
+	expectedArgs := []string([]string{"--pruneDatabase", "--config", "/config/application_config.yaml", "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"})
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedArgs, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Args)
+}
+
+func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 	t.Parallel()
 
 	expectedScheduler := v1alpha1.Scheduler{
