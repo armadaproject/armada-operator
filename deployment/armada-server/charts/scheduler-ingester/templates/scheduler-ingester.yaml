@@ -6,6 +6,7 @@ metadata:
   labels:
 {{- include "armada.labels" . | nindent 4 }}
 spec:
+  replicas: {{ .Values.replicas }}
   image:
     repository: {{ .Values.image.repository }}
     tag: {{ .Values.image.tag | default .Values.global.image.tag}}
