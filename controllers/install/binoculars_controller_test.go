@@ -430,3 +430,50 @@ func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 	_, err = r.Reconcile(context.Background(), req)
 	assert.Error(t, err)
 }
+
+func TestSchedulerReconciler_createBinolcularsIngress_EmptyHosts(t *testing.T) {
+	t.Parallel()
+
+	input := v1alpha1.Binoculars{}
+	ingress, err := createBinocularsIngressHttp(&input)
+	// expect no error and nil ingress with empty hosts slice
+	assert.NoError(t, err)
+	assert.Nil(t, ingress)
+
+	ingress, err = createBinocularsIngressGrpc(&input)
+	// expect no error and nil ingress with empty hosts slice
+	assert.NoError(t, err)
+	assert.Nil(t, ingress)
+}
+
+func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
+	t.Parallel()
+
+	input := v1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "lookout",
+		},
+		Spec: v1alpha1.BinocularsSpec{
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			HostNames: []string{"localhost"},
+		},
+	}
+	ingress, err := createBinocularsIngressHttp(&input)
+	// expect no error and not-nil ingress
+	assert.NoError(t, err)
+	assert.NotNil(t, ingress)
+
+	ingress, err = createBinocularsIngressGrpc(&input)
+	// expect no error and not-nil ingress
+	assert.NoError(t, err)
+	assert.NotNil(t, ingress)
+}

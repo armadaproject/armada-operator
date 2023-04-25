@@ -338,6 +338,43 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 	assert.Equal(t, expectedResources, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources)
 }
 
+func TestSchedulerReconciler_createSchedulerIngressGrpc_EmptyHosts(t *testing.T) {
+	t.Parallel()
+
+	schedulerInput := v1alpha1.Scheduler{}
+	ingress, err := createSchedulerIngressGrpc(&schedulerInput)
+	// expect no error and nil ingress with empty hosts slice
+	assert.NoError(t, err)
+	assert.Nil(t, ingress)
+}
+
+func TestSchedulerReconciler_createSchedulerIngressGrpc(t *testing.T) {
+	t.Parallel()
+
+	schedulerInput := v1alpha1.Scheduler{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Scheduler",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "scheduler",
+		},
+		Spec: v1alpha1.SchedulerSpec{
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			HostNames: []string{"localhost"},
+		},
+	}
+	ingress, err := createSchedulerIngressGrpc(&schedulerInput)
+	// expect no error and not-nil ingress
+	assert.NoError(t, err)
+	assert.NotNil(t, ingress)
+}
+
 func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 	t.Parallel()
 

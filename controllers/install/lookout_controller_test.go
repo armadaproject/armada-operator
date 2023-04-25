@@ -537,3 +537,40 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 		})
 	}
 }
+
+func TestSchedulerReconciler_createIngressHttp_EmptyHosts(t *testing.T) {
+	t.Parallel()
+
+	lookoutInput := v1alpha1.Lookout{}
+	ingress, err := createLookoutIngressHttp(&lookoutInput)
+	// expect no error and nil ingress with empty hosts slice
+	assert.NoError(t, err)
+	assert.Nil(t, ingress)
+}
+
+func TestSchedulerReconciler_createLookoutIngressHttp(t *testing.T) {
+	t.Parallel()
+
+	lookoutInput := v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "lookout",
+		},
+		Spec: v1alpha1.LookoutSpec{
+			Replicas:      2,
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+			HostNames: []string{"localhost"},
+		},
+	}
+	ingress, err := createLookoutIngressHttp(&lookoutInput)
+	// expect no error and not-nil ingress
+	assert.NoError(t, err)
+	assert.NotNil(t, ingress)
+}
