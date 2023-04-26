@@ -17,7 +17,7 @@ pulsar:
   jobsetEventsTopic: "events"
   receiveTimeout: 5s
   backoffTime: 1s
-paralellism: 1
+parallelism: 1
 subscriptionName: "scheduler-ingester"
 batchSize: 10000
 batchDuration: 500ms
