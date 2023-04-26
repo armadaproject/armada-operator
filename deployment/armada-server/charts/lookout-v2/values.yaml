@@ -1,4 +1,4 @@
-hostNames:
+hostNames: [localhost]
 replicas: 2
 image:
   repository: gresearch/armada-lookout-v2

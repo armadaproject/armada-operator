@@ -1,5 +1,10 @@
 controllerManager:
   kubeRbacProxy:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
     image:
       repository: gcr.io/kubebuilder/kube-rbac-proxy
       tag: v0.13.0
@@ -11,9 +16,15 @@ controllerManager:
         cpu: 5m
         memory: 64Mi
   manager:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
     image:
-      repository: gresearch/armada-operator
-      tag: 7a199c3030ed87035975bf83a0dee08c42e1f6f5
+      repository: armada-operator
+      tag: latest
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: 500m

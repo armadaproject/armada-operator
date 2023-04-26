@@ -87,3 +87,23 @@ webhooks:
     resources:
     - lookoutingesters
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-scheduleringester
+  failurePolicy: Fail
+  name: vscheduleringester.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - scheduleringesters
+  sideEffects: None

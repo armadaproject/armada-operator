@@ -1,12 +1,22 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: armada/armada-operator-serving-cert
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: binoculars.install.armadaproject.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: armada-operator-webhook-service
+          namespace: armada
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: install.armadaproject.io
   names:
     kind: Binoculars
@@ -1769,7 +1779,13 @@ spec:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:

@@ -1,0 +1,9 @@
+# Default values for scheduleringester.
+metricsPort: 9000
+replicas: 1
+postgres:
+  dbname: 
+pulsar:
+  url:
+image:
+  repository: gresearch/armada-scheduler-ingester

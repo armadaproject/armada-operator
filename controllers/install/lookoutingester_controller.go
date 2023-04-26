@@ -64,10 +64,12 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	logger.Info(fmt.Sprintf("LookoutIngester Name %s", lookoutIngester.Name))
-	err := lookoutIngester.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(lookoutIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	lookoutIngester.Spec.PortConfig = pc
+
 	components, err := r.generateInstallComponents(&lookoutIngester)
 	if err != nil {
 		return ctrl.Result{}, err

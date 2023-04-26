@@ -74,10 +74,12 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	err := binoculars.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(binoculars.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	binoculars.Spec.PortConfig = pc
+
 	var components *CommonComponents
 	components, err = generateBinocularsInstallComponents(&binoculars, r.Scheme)
 	if err != nil {
@@ -202,20 +204,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), []corev1.ServicePort{
-		{
-			Name: "web",
-			Port: binoculars.Spec.PortConfig.HttpPort,
-		},
-		{
-			Name: "grpc",
-			Port: binoculars.Spec.PortConfig.GrpcPort,
-		},
-		{
-			Name: "metrics",
-			Port: binoculars.Spec.PortConfig.MetricsPort,
-		},
-	})
+	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), binoculars.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, err
 	}
@@ -232,7 +221,10 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 		return nil, err
 	}
 
-	ingressGrpc := createBinocularsIngressGrpc(binoculars)
+	ingressGrpc, err := createBinocularsIngressGrpc(binoculars)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
 		return nil, err
 	}
@@ -378,7 +370,12 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 	return nil
 }
 
-func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) *networking.Ingress {
+func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+	if len(binoculars.Spec.HostNames) == 0 {
+		// when no hostnames provided, no ingress can be configured
+		return nil, nil
+	}
+
 	grpcIngressName := binoculars.Name + "-grpc"
 
 	grpcIngress := &networking.Ingress{
@@ -399,35 +396,38 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) *networ
 	}
 	grpcIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
 
-	if len(binoculars.Spec.HostNames) > 0 {
-		secretName := binoculars.Name + "-service-tls"
-		grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := "armada" + "-" + binoculars.Name
-		for _, val := range binoculars.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: binoculars.Spec.PortConfig.GrpcPort,
-								},
+	secretName := binoculars.Name + "-service-tls"
+	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := "armada" + "-" + binoculars.Name
+	for _, val := range binoculars.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/",
+					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: binoculars.Spec.PortConfig.GrpcPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		grpcIngress.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
-	return grpcIngress
+	grpcIngress.Spec.Rules = ingressRules
+
+	return grpcIngress, nil
 }
 
 func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+	if len(binoculars.Spec.HostNames) == 0 {
+		// when no hostnames provided, no ingress can be configured
+		return nil, nil
+	}
 	restIngressName := binoculars.Name + "-rest"
 	restIngress := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
@@ -448,31 +448,30 @@ func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*netwo
 	}
 	restIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
 
-	if len(binoculars.Spec.HostNames) > 0 {
-		secretName := binoculars.Name + "-service-tls"
-		restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := binoculars.Name
-		for _, val := range binoculars.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/api(/|$)(.*)",
-						PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: binoculars.Spec.PortConfig.HttpPort,
-								},
+	secretName := binoculars.Name + "-service-tls"
+	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := binoculars.Name
+	for _, val := range binoculars.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/api(/|$)(.*)",
+					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: binoculars.Spec.PortConfig.HttpPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		restIngress.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
+	restIngress.Spec.Rules = ingressRules
+
 	return restIngress, nil
 }
 

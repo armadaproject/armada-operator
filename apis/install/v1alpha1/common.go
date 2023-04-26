@@ -66,9 +66,11 @@ type AdditionalClusterRoleBinding struct {
 }
 
 type PortConfig struct {
-	HttpPort    int32 `json:"httpPort"`
-	GrpcPort    int32 `json:"grpcPort"`
-	MetricsPort int32 `json:"metricsPort"`
+	HttpPort     int32 `json:"httpPort"`
+	HttpNodePort int32 `json:"httpNodePort,omitempty"`
+	GrpcPort     int32 `json:"grpcPort"`
+	GrpcNodePort int32 `json:"grpcNodePort,omitempty"`
+	MetricsPort  int32 `json:"metricsPort"`
 }
 
 // NOTE(Clif): You must label this with `json:""` when using it as an embedded
@@ -104,12 +106,11 @@ type CommonSpecBase struct {
 	PortConfig PortConfig `json:"portConfig,omitempty"`
 }
 
-// BuildPortConfig extracts ports from the ApplicationConfig and applies inplace
-// as the PortConfig
-func (c *CommonSpecBase) BuildPortConfig() error {
-	appConfig, err := convertRawExtensionToYaml(c.ApplicationConfig)
+// BuildPortConfig extracts ports from the ApplicationConfig and returns a PortConfig
+func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
+	appConfig, err := ConvertRawExtensionToYaml(rawAppConfig)
 	if err != nil {
-		return err
+		return PortConfig{}, err
 	}
 	// defaults
 	portConfig := PortConfig{
@@ -119,14 +120,13 @@ func (c *CommonSpecBase) BuildPortConfig() error {
 	}
 	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
 	if err != nil {
-		return err
+		return PortConfig{}, err
 	}
-	c.PortConfig = portConfig
-	return nil
+	return portConfig, nil
 }
 
-// convertRawExtensionToYaml converts a RawExtension input to Yaml
-func convertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
+// ConvertRawExtensionToYaml converts a RawExtension input to Yaml
+func ConvertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
 	yamlConfig, err := yaml.JSONToYAML(config.Raw)
 	if err != nil {
 		return "", err

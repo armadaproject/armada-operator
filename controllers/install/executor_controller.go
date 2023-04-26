@@ -88,10 +88,12 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	err := executor.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	executor.Spec.PortConfig = pc
+
 	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -226,16 +228,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, err
 	}
-	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), []corev1.ServicePort{
-		{
-			Name: "rest",
-			Port: executor.Spec.PortConfig.HttpPort,
-		},
-		{
-			Name: "metrics",
-			Port: executor.Spec.PortConfig.MetricsPort,
-		},
-	})
+	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), executor.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, err
 	}

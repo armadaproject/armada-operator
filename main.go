@@ -162,6 +162,20 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LookoutIngester")
 		os.Exit(1)
 	}
+	if err = (&install.SchedulerIngesterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SchedulerIngester")
+		os.Exit(1)
+	}
+	if err = (&install.SchedulerReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Scheduler")
+		os.Exit(1)
+	}
 
 	disableWebhooks := os.Getenv("DISABLE_WEBHOOKS") == "true"
 	if !disableWebhooks {
@@ -187,6 +201,14 @@ func main() {
 		}
 		if err = (&installv1alpha1.LookoutIngester{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LookoutIngester")
+			os.Exit(1)
+		}
+		if err = (&installv1alpha1.SchedulerIngester{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "SchedulerIngester")
+			os.Exit(1)
+		}
+		if err = (&installv1alpha1.Scheduler{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Scheduler")
 			os.Exit(1)
 		}
 	}

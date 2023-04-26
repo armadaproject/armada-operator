@@ -74,10 +74,12 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	err := lookout.Spec.BuildPortConfig()
+	pc, err := installv1alpha1.BuildPortConfig(lookout.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	lookout.Spec.PortConfig = pc
+
 	var components *CommonComponents
 	components, err = generateLookoutInstallComponents(&lookout, r.Scheme)
 	if err != nil {
@@ -192,18 +194,6 @@ type LookoutConfig struct {
 	Postgres PostgresConfig
 }
 
-type PostgresConfig struct {
-	Connection ConnectionConfig
-}
-
-type ConnectionConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Dbname   string
-}
-
 func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
@@ -220,20 +210,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), []corev1.ServicePort{
-		{
-			Name: "web",
-			Port: lookout.Spec.PortConfig.HttpPort,
-		},
-		{
-			Name: "grpc",
-			Port: lookout.Spec.PortConfig.GrpcPort,
-		},
-		{
-			Name: "metrics",
-			Port: lookout.Spec.PortConfig.MetricsPort,
-		},
-	})
+	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), lookout.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
 	}
@@ -393,6 +370,10 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 }
 
 func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+	if len(lookout.Spec.HostNames) == 0 {
+		// when no hostnames, no ingress can be configured
+		return nil, nil
+	}
 	ingressName := lookout.Name + "-rest"
 	ingressHttp := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -413,31 +394,30 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 	}
 	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
 
-	if len(lookout.Spec.HostNames) > 0 {
-		secretName := lookout.Name + "-service-tls"
-		ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-		ingressRules := []networking.IngressRule{}
-		serviceName := lookout.Name
-		for _, val := range lookout.Spec.HostNames {
-			ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{{
-						Path:     "/",
-						PathType: (*networking.PathType)(pointer.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: serviceName,
-								Port: networking.ServiceBackendPort{
-									Number: lookout.Spec.PortConfig.HttpPort,
-								},
+	secretName := lookout.Name + "-service-tls"
+	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
+	ingressRules := []networking.IngressRule{}
+	serviceName := lookout.Name
+	for _, val := range lookout.Spec.HostNames {
+		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: []networking.HTTPIngressPath{{
+					Path:     "/",
+					PathType: (*networking.PathType)(pointer.String("Prefix")),
+					Backend: networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: serviceName,
+							Port: networking.ServiceBackendPort{
+								Number: lookout.Spec.PortConfig.HttpPort,
 							},
 						},
-					}},
-				},
-			}})
-		}
-		ingressHttp.Spec.Rules = ingressRules
+					},
+				}},
+			},
+		}})
 	}
+	ingressHttp.Spec.Rules = ingressRules
+
 	return ingressHttp, nil
 }
 

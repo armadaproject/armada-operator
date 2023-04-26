@@ -24,9 +24,6 @@ spec:
   prometheus:
     enabled: {{ .Values.prometheus.enabled }}
     scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
-  prunerConfig:
-    daysToKeep: {{ .Values.prunerConfig.daysToKeep }}
-    batchSize: {{ .Values.prunerConfig.batchSize }}
   image:
     repository: {{ .Values.image.repository }}
     tag: {{ .Values.image.tag | default .Values.global.image.tag}}

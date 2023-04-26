@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: executors.install.armadaproject.io
+  name: scheduleringesters.install.armadaproject.io
 spec:
   group: install.armadaproject.io
   names:
-    kind: Executor
-    listKind: ExecutorList
-    plural: executors
-    singular: executor
+    kind: SchedulerIngester
+    listKind: SchedulerIngesterList
+    plural: scheduleringesters
+    singular: scheduleringester
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Executor is the Schema for the executors API
+        description: SchedulerIngester is the Schema for the scheduleringesters API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,21 +33,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ExecutorSpec defines the desired state of Executor
+            description: SchedulerIngesterSpec defines the desired state of SchedulerIngester
             properties:
-              additionalClusterRoleBindings:
-                description: Additional ClusterRoleBindings which will be created
-                items:
-                  properties:
-                    clusterRoleName:
-                      type: string
-                    nameSuffix:
-                      type: string
-                  required:
-                  - clusterRoleName
-                  - nameSuffix
-                  type: object
-                type: array
               additionalVolumeMounts:
                 description: Additional volume mounts that are added as volumes
                 items:
@@ -1741,17 +1728,17 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
-              nodeSelector:
-                additionalProperties:
-                  type: string
-                description: NodeSelector restricts the Executor pod to run on nodes
-                  matching the configured selectors
-                type: object
               portConfig:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:
@@ -1765,57 +1752,6 @@ spec:
                 - httpPort
                 - metricsPort
                 type: object
-              priorityClasses:
-                description: List of PriorityClasses which will be created
-                items:
-                  description: PriorityClass defines mapping from a priority class
-                    name to the priority integer value. The value can be any valid
-                    integer.
-                  properties:
-                    apiVersion:
-                      description: 'APIVersion defines the versioned schema of this
-                        representation of an object. Servers should convert recognized
-                        schemas to the latest internal value, and may reject unrecognized
-                        values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-                      type: string
-                    description:
-                      description: description is an arbitrary string that usually
-                        provides guidelines on when this priority class should be
-                        used.
-                      type: string
-                    globalDefault:
-                      description: globalDefault specifies whether this PriorityClass
-                        should be considered as the default priority for pods that
-                        do not have any priority class. Only one PriorityClass can
-                        be marked as `globalDefault`. However, if more than one PriorityClasses
-                        exists with their `globalDefault` field set to true, the smallest
-                        value of such global default PriorityClasses will be used
-                        as the default priority.
-                      type: boolean
-                    kind:
-                      description: 'Kind is a string value representing the REST resource
-                        this object represents. Servers may infer this from the endpoint
-                        the client submits requests to. Cannot be updated. In CamelCase.
-                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                      type: string
-                    metadata:
-                      description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-                      type: object
-                    preemptionPolicy:
-                      description: PreemptionPolicy is the Policy for preempting pods
-                        with lower priority. One of Never, PreemptLowerPriority. Defaults
-                        to PreemptLowerPriority if unset.
-                      type: string
-                    value:
-                      description: The value of this priority class. This is the actual
-                        priority that pods receive when they have the name of this
-                        class in their pod spec.
-                      format: int32
-                      type: integer
-                  required:
-                  - value
-                  type: object
-                type: array
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus
                   monitoring
@@ -1836,6 +1772,10 @@ spec:
                     format: duration
                     type: string
                 type: object
+              replicas:
+                description: Replicas is the number of replicated instances
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting resource
                   requirements for this service
@@ -1999,7 +1939,7 @@ spec:
             - image
             type: object
           status:
-            description: ExecutorStatus defines the observed state of Executor
+            description: SchedulerIngesterStatus defines the observed state of SchedulerIngester
             type: object
         type: object
     served: true

@@ -29,3 +29,6 @@ postgres:
     password: {{ .Values.postgres.password | default .Values.global.postgres.password }}
     dbname: {{ .Values.postgres.dbname }}
     sslmode: {{ .Values.postgres.sslmode | default .Values.global.postgres.sslmode }}
+prunerConfig:
+  daysToKeep: {{ .Values.prunerConfig.daysToKeep }}
+  batchSize: {{ .Values.prunerConfig.batchSize }}

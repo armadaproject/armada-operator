@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: lookoutingesters.install.armadaproject.io
+  name: schedulers.install.armadaproject.io
 spec:
   group: install.armadaproject.io
   names:
-    kind: LookoutIngester
-    listKind: LookoutIngesterList
-    plural: lookoutingesters
-    singular: lookoutingester
+    kind: Scheduler
+    listKind: SchedulerList
+    plural: schedulers
+    singular: scheduler
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LookoutIngester is the Schema for the lookoutingesters API
+        description: Scheduler is the Schema for the scheduler API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: LookoutIngesterSpec defines the desired state of LookoutIngester
+            description: SchedulerSpec defines the desired state of Scheduler
             properties:
               additionalVolumeMounts:
                 description: Additional volume mounts that are added as volumes
@@ -1592,6 +1592,9 @@ spec:
                   application which will be created as a Kubernetes Secret and mounted
                   in the Kubernetes Deployment object
                 x-kubernetes-preserve-unknown-fields: true
+              clusterIssuer:
+                description: Who is issuing certificates for CA
+                type: string
               customServiceAccount:
                 description: if CustomServiceAccount is specified, then that service
                   account is referenced in the Deployment (overrides service account
@@ -1706,6 +1709,11 @@ spec:
                   - name
                   type: object
                 type: array
+              hostNames:
+                description: An array of host names to build ingress rules for
+                items:
+                  type: string
+                type: array
               image:
                 description: Image is the configuration block for the image repository
                   and tag
@@ -1722,6 +1730,29 @@ spec:
                 - repository
                 - tag
                 type: object
+              ingress:
+                description: Ingress defines labels and annotations for the Ingress
+                  controller of Scheduler
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
+                    type: object
+                  ingressClass:
+                    description: The type of ingress that is used
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
+                  nameOverride:
+                    description: Overide name for ingress
+                    type: string
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -1732,7 +1763,13 @@ spec:
                 description: PortConfig is automatically populated with defaults and
                   overlaid by values in ApplicationConfig.
                 properties:
+                  grpcNodePort:
+                    format: int32
+                    type: integer
                   grpcPort:
+                    format: int32
+                    type: integer
+                  httpNodePort:
                     format: int32
                     type: integer
                   httpPort:
@@ -1766,6 +1803,59 @@ spec:
                     format: duration
                     type: string
                 type: object
+              pruner:
+                description: Pruning config for cron job
+                properties:
+                  args:
+                    description: PrunerArgs represent command-line args to the pruner
+                      cron job
+                    properties:
+                      batchsize:
+                        format: int32
+                        type: integer
+                      expireAfter:
+                        type: string
+                      timeout:
+                        type: string
+                    type: object
+                  enabled:
+                    type: boolean
+                  resources:
+                    description: ResourceRequirements describes the compute resource
+                      requirements.
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
+                  schedule:
+                    type: string
+                required:
+                - enabled
+                type: object
+              replicas:
+                description: Replicas is the number of replicated instances
+                format: int32
+                type: integer
               resources:
                 description: Resources is the configuration block for setting resource
                   requirements for this service
@@ -1926,10 +2016,11 @@ spec:
                 type: array
             required:
             - applicationConfig
+            - clusterIssuer
             - image
             type: object
           status:
-            description: LookoutIngesterStatus defines the observed state of LookoutIngester
+            description: SchedulerStatus defines the observed state of scheduler
             type: object
         type: object
     served: true

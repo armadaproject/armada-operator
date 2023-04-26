@@ -6,8 +6,10 @@ metadata:
   {{- include "armada-operator.labels" . | nindent 4 }}
 spec:
   dnsNames:
-  - {{ include "armada-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
-  - {{ include "armada-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}
+  - '{{ include "{{ .Release.Namespace }}-operator.fullname" . }}-webhook-service.{{
+    .Release.Namespace }}.svc'
+  - '{{ include "{{ .Release.Namespace }}-operator.fullname" . }}-webhook-service.{{
+    .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer
     name: '{{ include "armada-operator.fullname" . }}-selfsigned-issuer'
