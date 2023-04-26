@@ -13,7 +13,10 @@ pulsar:
   armadaInit:
     # -- Pulsar image
     image:
-      repository: richgross/pulsar
+      # uncomment for amd64 arch
+      repository: apachepulsar/pulsar
+      # uncomment for arm64 arch (M1 mac, in particular)
+      #repository: richgross/pulsar
       tag: 2.11.0
     # -- Pulsar Broker host
     brokerHost: pulsar-broker.armada.svc.cluster.local
