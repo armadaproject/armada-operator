@@ -6,9 +6,9 @@ metadata:
   {{- include "armada-operator.labels" . | nindent 4 }}
 spec:
   dnsNames:
-  - '{{ include "{{ .Release.Namespace }}-operator.fullname" . }}-webhook-service.{{
+  - '{{ include "armada-operator.fullname" . }}-webhook-service.{{
     .Release.Namespace }}.svc'
-  - '{{ include "{{ .Release.Namespace }}-operator.fullname" . }}-webhook-service.{{
+  - '{{ include "armada-operator.fullname" . }}-webhook-service.{{
     .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer

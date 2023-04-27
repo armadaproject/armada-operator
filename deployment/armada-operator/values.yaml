@@ -22,8 +22,8 @@ controllerManager:
         drop:
         - ALL
     image:
-      repository: armada-operator
-      tag: latest
+      repository: gresearch/armada-operator
+      tag: 0f7631b9b1d4c5fb1c9b2223ac064129a6c0cfec
     imagePullPolicy: IfNotPresent
     resources:
       limits:

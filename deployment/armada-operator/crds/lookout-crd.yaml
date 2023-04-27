@@ -4,7 +4,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: armada/armada-operator-serving-cert
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: "null"
+  creationTimestamp: null
   name: lookouts.install.armadaproject.io
 spec:
   conversion:
