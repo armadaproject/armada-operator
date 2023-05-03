@@ -48,7 +48,7 @@ type CommonComponents struct {
 	CronJob             *batchv1.CronJob
 }
 
-// PostgresConfig is used for scanning posgres section of application config
+// PostgresConfig is used for scanning postgres section of application config
 type PostgresConfig struct {
 	Connection ConnectionConfig
 }
@@ -60,6 +60,36 @@ type ConnectionConfig struct {
 	User     string
 	Password string
 	Dbname   string
+}
+
+// PulsarConfig is used for scanning pulsar section of application config
+type PulsarConfig struct {
+	ArmadaInit            ArmadaInit
+	AuthenticationEnabled bool
+	TlsEnabled            bool
+	AuthenticationSecret  string
+	Cacert                string
+}
+
+// ArmadaInit used to initialize pulsar
+type ArmadaInit struct {
+	Enabled    bool
+	Image      Image
+	BrokerHost string
+	Protocol   string
+	AdminPort  int
+	Port       int
+}
+
+// Image represents a docker image
+type Image struct {
+	Repository string
+	Tag        string
+}
+
+// AppConfig is used for scanning the appconfig to find particular values
+type AppConfig struct {
+	Pulsar PulsarConfig
 }
 
 // DeepCopy will deep copy values from the receiver and return a new reference
@@ -298,6 +328,68 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 	}
 	volumeMounts = append(volumeMounts, crdVolumeMounts...)
 	return volumeMounts
+}
+
+// createPulsarVolumeMounts creates the pulsar volumeMounts for token and/or cert
+func createPulsarVolumeMounts(pulsarConfig PulsarConfig) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{}
+	if pulsarConfig.AuthenticationEnabled{
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "pulsar-token",
+			ReadOnly:  true,
+			MountPath: "/pulsar/tokens",
+		})
+	}
+	if pulsarConfig.TlsEnabled{
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "pulsar-ca",
+			ReadOnly:  true,
+			MountPath: "/pulsar/ca",
+		})
+	}
+	return volumeMounts
+}
+
+// createPulsarVolumes creates the pulsar volumes for token and/or cert
+func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
+	volumes := []corev1.Volume{}
+	if pulsarConfig.AuthenticationEnabled {
+		secretName := "armada-pulsar-token-armada-admin"
+		if pulsarConfig.AuthenticationSecret != "" {
+			secretName = pulsarConfig.AuthenticationSecret
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "pulsar-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+					Items: []corev1.KeyToPath{{
+						Key: "TOKEN",
+						Path: "pulsar-token",
+					}},
+				},
+			},
+		})
+	}
+	if pulsarConfig.TlsEnabled {
+		secretName := "armada-pulsar-ca-tls"
+		if pulsarConfig.Cacert != "" {
+			secretName = pulsarConfig.Cacert
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "pulsar-ca",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+					Items: []corev1.KeyToPath{{
+						Key: "ca.crt",
+						Path: "ca.crt",
+					}},
+				},
+			},
+		})
+	}
+	return volumes
 }
 
 // createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval

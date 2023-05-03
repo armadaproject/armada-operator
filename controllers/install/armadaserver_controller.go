@@ -217,28 +217,6 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-type Image struct {
-	Repository string
-	Tag        string
-}
-
-type ArmadaInit struct {
-	Enabled    bool
-	Image      Image
-	BrokerHost string
-	Protocol   string
-	AdminPort  int
-	Port       int
-}
-
-type PulsarConfig struct {
-	ArmadaInit ArmadaInit
-}
-
-type ASConfig struct {
-	Pulsar PulsarConfig
-}
-
 func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
@@ -335,7 +313,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	if err != nil {
 		return []*batchv1.Job{}, err
 	}
-	var asConfig ASConfig
+	var asConfig AppConfig
 	err = yaml.Unmarshal([]byte(appConfig), &asConfig)
 	if err != nil {
 		return []*batchv1.Job{}, err
