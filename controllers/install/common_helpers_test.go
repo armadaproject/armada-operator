@@ -374,6 +374,61 @@ func Test_createVolumes(t *testing.T) {
 	}
 }
 
+func Test_createPulsarVolumes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    PulsarConfig
+		expected []corev1.Volume
+	}{
+		{
+			name:     "with empty pulsar config expect empty array",
+			expected: []corev1.Volume{},
+		},
+		{
+			name: "with authentication enabled, expect token volume",
+			input: PulsarConfig{
+				AuthenticationEnabled: true,
+			},
+			expected: []corev1.Volume{{
+				Name: "pulsar-token",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "armada-pulsar-token-armada-admin",
+						Items: []corev1.KeyToPath{{
+							Key: "TOKEN",
+							Path: "pulsar-token",
+						}},
+					},
+				},
+			}},
+		},
+		{
+			name: "with tls enabled, expect cert volume",
+			input: PulsarConfig{
+				TlsEnabled: true,
+			},
+			expected: []corev1.Volume{{
+				Name: "pulsar-ca",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "armada-pulsar-ca-tls",
+						Items: []corev1.KeyToPath{{
+							Key: "ca.crt",
+							Path: "ca.crt",
+						}},
+					},
+				},
+			}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createPulsarVolumes(tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
 func Test_createVolumeMount(t *testing.T) {
 	defaultVolumeMounts := []corev1.VolumeMount{
 		{
@@ -407,6 +462,47 @@ func Test_createVolumeMount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := createVolumeMounts("secret-name", tt.input)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func Test_createPulsarVolumeMount(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    PulsarConfig
+		expected []corev1.VolumeMount
+	}{
+		{
+			name:     "with empty pulsar config expect empty array",
+			expected: []corev1.VolumeMount{},
+		},
+		{
+			name: "with authentication enabled, expect token volume",
+			input: PulsarConfig{
+				AuthenticationEnabled: true,
+			},
+			expected: []corev1.VolumeMount{{
+				Name: "pulsar-token",
+				ReadOnly: true,
+				MountPath: "/pulsar/tokens",
+			}},
+		},
+		{
+			name: "with tls enabled, expect cert volume",
+			input: PulsarConfig{
+				TlsEnabled: true,
+			},
+			expected: []corev1.VolumeMount{{
+				Name: "pulsar-ca",
+				ReadOnly: true,
+				MountPath: "/pulsar/ca",
+			}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := createPulsarVolumeMounts(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
 	}

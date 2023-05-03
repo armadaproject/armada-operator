@@ -19,11 +19,14 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
 const (
@@ -245,6 +248,19 @@ func AllLabels(name string, labelMaps ...map[string]string) map[string]string {
 	identityLabels := IdentityLabel(name)
 	baseLabels = MergeMaps(baseLabels, identityLabels)
 	return baseLabels
+}
+
+func ExctractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return PulsarConfig{}, err
+	}
+	var asConfig AppConfig
+	err = yaml.Unmarshal([]byte(appConfig), &asConfig)
+	if err != nil {
+		return PulsarConfig{}, err
+	}
+	return asConfig.Pulsar, nil
 }
 
 // waitForJob will wait for some resolution of the job. Provide context with timeout if needed.
