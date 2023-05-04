@@ -406,7 +406,7 @@ func Test_createPulsarVolumes(t *testing.T) {
 			name: "with different secret name, use it",
 			input: PulsarConfig{
 				AuthenticationEnabled: true,
-				AuthenticationSecret: "some-other-secret",
+				AuthenticationSecret:  "some-other-secret",
 			},
 			expected: []corev1.Volume{{
 				Name: "pulsar-token",
@@ -443,7 +443,7 @@ func Test_createPulsarVolumes(t *testing.T) {
 			name: "with different cert, use it for secret name",
 			input: PulsarConfig{
 				TlsEnabled: true,
-				Cacert: "some-other-cert-name",
+				Cacert:     "some-other-cert-name",
 			},
 			expected: []corev1.Volume{{
 				Name: "pulsar-ca",
