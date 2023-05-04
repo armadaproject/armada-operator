@@ -250,7 +250,8 @@ func AllLabels(name string, labelMaps ...map[string]string) map[string]string {
 	return baseLabels
 }
 
-func ExctractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
+// ExtractPulsarConfig will unmarshal the appconfig and return the PulsarConfig portion
+func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
 	appConfig, err := builders.ConvertRawExtensionToYaml(config)
 	if err != nil {
 		return PulsarConfig{}, err
@@ -349,14 +350,14 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 // createPulsarVolumeMounts creates the pulsar volumeMounts for token and/or cert
 func createPulsarVolumeMounts(pulsarConfig PulsarConfig) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{}
-	if pulsarConfig.AuthenticationEnabled{
+	if pulsarConfig.AuthenticationEnabled {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "pulsar-token",
 			ReadOnly:  true,
 			MountPath: "/pulsar/tokens",
 		})
 	}
-	if pulsarConfig.TlsEnabled{
+	if pulsarConfig.TlsEnabled {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "pulsar-ca",
 			ReadOnly:  true,
@@ -380,7 +381,7 @@ func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: secretName,
 					Items: []corev1.KeyToPath{{
-						Key: "TOKEN",
+						Key:  "TOKEN",
 						Path: "pulsar-token",
 					}},
 				},
@@ -398,7 +399,7 @@ func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: secretName,
 					Items: []corev1.KeyToPath{{
-						Key: "ca.crt",
+						Key:  "ca.crt",
 						Path: "ca.crt",
 					}},
 				},

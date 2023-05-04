@@ -134,7 +134,10 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	if err := controllerutil.SetOwnerReference(eventIngester, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := r.createDeployment(eventIngester)
+	deployment, err := r.createDeployment(eventIngester)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(eventIngester, deployment, scheme); err != nil {
 		return nil, err
 	}
@@ -150,13 +153,19 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	}, nil
 }
 
-func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) *appsv1.Deployment {
+func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(eventIngester.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(eventIngester.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
 	volumes := createVolumes(eventIngester.Name, eventIngester.Spec.AdditionalVolumes)
+	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(eventIngester.Name), eventIngester.Spec.AdditionalVolumeMounts)
+	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: eventIngester.Name, Namespace: eventIngester.Namespace, Labels: AllLabels(eventIngester.Name, eventIngester.Labels)},
@@ -226,6 +235,6 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 		deployment.Spec.Template.Spec.Containers[0].Resources = *eventIngester.Spec.Resources
 	}
 
-	return &deployment
+	return &deployment, nil
 
 }

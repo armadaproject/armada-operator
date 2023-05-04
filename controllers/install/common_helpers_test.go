@@ -395,7 +395,26 @@ func Test_createPulsarVolumes(t *testing.T) {
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: "armada-pulsar-token-armada-admin",
 						Items: []corev1.KeyToPath{{
-							Key: "TOKEN",
+							Key:  "TOKEN",
+							Path: "pulsar-token",
+						}},
+					},
+				},
+			}},
+		},
+		{
+			name: "with different secret name, use it",
+			input: PulsarConfig{
+				AuthenticationEnabled: true,
+				AuthenticationSecret: "some-other-secret",
+			},
+			expected: []corev1.Volume{{
+				Name: "pulsar-token",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "some-other-secret",
+						Items: []corev1.KeyToPath{{
+							Key:  "TOKEN",
 							Path: "pulsar-token",
 						}},
 					},
@@ -413,7 +432,26 @@ func Test_createPulsarVolumes(t *testing.T) {
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: "armada-pulsar-ca-tls",
 						Items: []corev1.KeyToPath{{
-							Key: "ca.crt",
+							Key:  "ca.crt",
+							Path: "ca.crt",
+						}},
+					},
+				},
+			}},
+		},
+		{
+			name: "with different cert, use it for secret name",
+			input: PulsarConfig{
+				TlsEnabled: true,
+				Cacert: "some-other-cert-name",
+			},
+			expected: []corev1.Volume{{
+				Name: "pulsar-ca",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "some-other-cert-name",
+						Items: []corev1.KeyToPath{{
+							Key:  "ca.crt",
 							Path: "ca.crt",
 						}},
 					},
@@ -483,8 +521,8 @@ func Test_createPulsarVolumeMount(t *testing.T) {
 				AuthenticationEnabled: true,
 			},
 			expected: []corev1.VolumeMount{{
-				Name: "pulsar-token",
-				ReadOnly: true,
+				Name:      "pulsar-token",
+				ReadOnly:  true,
 				MountPath: "/pulsar/tokens",
 			}},
 		},
@@ -494,8 +532,8 @@ func Test_createPulsarVolumeMount(t *testing.T) {
 				TlsEnabled: true,
 			},
 			expected: []corev1.VolumeMount{{
-				Name: "pulsar-ca",
-				ReadOnly: true,
+				Name:      "pulsar-ca",
+				ReadOnly:  true,
 				MountPath: "/pulsar/ca",
 			}},
 		},

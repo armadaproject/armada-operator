@@ -226,7 +226,10 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	deployment := createArmadaServerDeployment(as)
+	deployment, err := createArmadaServerDeployment(as)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(as, deployment, scheme); err != nil {
 		return nil, err
 	}
@@ -469,14 +472,20 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	return []*batchv1.Job{&pulsarWaitJob, &initPulsarJob}, nil
 }
 
-func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Deployment {
+func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(as.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(as.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
 	volumes := createVolumes(as.Name, as.Spec.AdditionalVolumes)
+	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(as.Name), as.Spec.AdditionalVolumeMounts)
+	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -561,7 +570,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) *appsv1.Depl
 		deployment.Spec.Template.Spec.Containers[0].Resources = *as.Spec.Resources
 	}
 
-	return &deployment
+	return &deployment, nil
 }
 
 func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
