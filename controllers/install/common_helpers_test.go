@@ -20,6 +20,7 @@ import (
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -643,6 +644,40 @@ func TestReconcileComponents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.old.ReconcileComponents(&tt.new)
 			tt.expectations(t, tt.new)
+		})
+	}
+}
+
+func TestExtractPulsarConfig(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		input    runtime.RawExtension
+		expected PulsarConfig
+		wantErr  bool
+	}{
+		{
+			name:     "it converts runtime.RawExtension json to PulsarConfig",
+			input:    runtime.RawExtension{Raw: []byte(`{ "pulsar": { "tlsEnabled": true }}`)},
+			expected: PulsarConfig{TlsEnabled: true},
+		},
+		{
+			name:     "it errors if runtime.RawExtension raw is malformed json",
+			input:    runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+			expected: PulsarConfig{},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := ExtractPulsarConfig(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+			assert.Equal(t, tt.expected, output)
 		})
 	}
 }
