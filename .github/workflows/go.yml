@@ -30,10 +30,10 @@ jobs:
       - name: make test
         run: make test
 
-      # - name: Go Test Coverage
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     files: ./operator.out # optional
+      - name: Go Test Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./operator.out # optional
 
   go-integration-tests:
     runs-on: ubuntu-latest
