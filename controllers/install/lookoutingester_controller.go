@@ -136,7 +136,10 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	if err := controllerutil.SetOwnerReference(lookoutIngester, secret, r.Scheme); err != nil {
 		return nil, err
 	}
-	deployment := r.createDeployment(lookoutIngester, secret)
+	deployment, err := r.createDeployment(lookoutIngester, secret)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(lookoutIngester, deployment, r.Scheme); err != nil {
 		return nil, err
 	}
@@ -153,15 +156,21 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 }
 
 // TODO: Flesh this out for lookoutingester
-func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, secret *corev1.Secret) *appsv1.Deployment {
+func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, secret *corev1.Secret) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 
 	env := createEnv(lookoutIngester.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(lookoutIngester.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
 	volumes := createVolumes(lookoutIngester.Name, lookoutIngester.Spec.AdditionalVolumes)
+	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookoutIngester.Name), lookoutIngester.Spec.AdditionalVolumeMounts)
+	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookoutIngester.Name, Namespace: lookoutIngester.Namespace, Labels: AllLabels(lookoutIngester.Name, lookoutIngester.Labels)},
@@ -207,5 +216,5 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 	if lookoutIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookoutIngester.Spec.Resources
 	}
-	return &deployment
+	return &deployment, nil
 }
