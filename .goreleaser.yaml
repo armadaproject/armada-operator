@@ -1,5 +1,8 @@
 project_name: armada-operator
 
+snapshot:
+  name_template: "{{ .Tag }}"
+
 dist: "dist"
 
 builds:
@@ -10,18 +13,42 @@ builds:
     goarch:
       - amd64
 
-#sboms:
-#  - artifacts: archive
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_{{ replace .Version "-" "_" }}_source'
+  format: "zip"
 
 env:
+  # FULL_RELEASE is a boolean that indicates whether should GoReleaser only build & push Docker images (false), or also do the release step (true)
+  - FULL_RELEASE={{ if index .Env "FULL_RELEASE"  }}{{ .Env.FULL_RELEASE }}{{ else }}false{{ end }}
+  - GOPROXY={{ if index .Env "GOPROXY"  }}{{ .Env.GOPROXY }}{{ else }}https://proxy.golang.org,direct{{ end }}
+  - GOSUMDB={{ if index .Env "GOSUMDB"  }}{{ .Env.GOSUMDB }}{{ else }}sum.golang.org{{ end }}
   - DOCKER_REPO={{ if index .Env "DOCKER_REPO"  }}{{ .Env.DOCKER_REPO }}/{{ else }}{{ end }}
+  # GoReleaser always uses the docker buildx builder with name "default"; see
+  # https://github.com/goreleaser/goreleaser/pull/3199
+  # To use a builder other than "default", set this variable.
+  # Necessary for, e.g., GitHub actions cache integration.
+  - DOCKER_BUILDX_BUILDER={{ if index .Env "DOCKER_BUILDX_BUILDER"  }}{{ .Env.DOCKER_BUILDX_BUILDER }}{{ else }}default{{ end }}
+  # Setup to enable Docker to use, e.g., the GitHub actions cache; see
+  # https://docs.docker.com/build/building/cache/backends/
+  # https://github.com/moby/buildkit#export-cache
+  - DOCKER_BUILDX_CACHE_FROM={{ if index .Env "DOCKER_BUILDX_CACHE_FROM"  }}{{ .Env.DOCKER_BUILDX_CACHE_FROM }}{{ else }}type=inline{{ end }}
+  - DOCKER_BUILDX_CACHE_TO={{ if index .Env "DOCKER_BUILDX_CACHE_TO"  }}{{ .Env.DOCKER_BUILDX_CACHE_TO }}{{ else }}type=inline{{ end }}
 
 dockers:
-  - image_templates:
+  - id: operator
+    use: buildx
+    goos: linux
+    goarch: amd64
+    image_templates:
       - "{{ .Env.DOCKER_REPO }}armada-operator:latest"
       - "{{ .Env.DOCKER_REPO }}armada-operator:{{ .Version }}"
     dockerfile: Dockerfile
     build_flag_templates:
+      - --builder={{ .Env.DOCKER_BUILDX_BUILDER }}
+      - --cache-to={{ .Env.DOCKER_BUILDX_CACHE_TO }}
+      - --cache-from={{ .Env.DOCKER_BUILDX_CACHE_FROM }}
+      - --label=org.opencontainers.image.source=https://github.com/armadaproject/armada
       - --label=org.opencontainers.image.title={{ .ProjectName }}
       - --label=org.opencontainers.image.description=Exposes Armada resources as CRDs for a more Kubernetes-native experience
       - --label=org.opencontainers.image.url=https://github.com/armadaproject/armada-operator
@@ -31,10 +58,55 @@ dockers:
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
       - --label=org.opencontainers.image.licenses=Apache
 
-snapshot:
-  name_template: "{{ .Tag }}"
+changelog:
+  use:
+    github
+  sort: asc
+  abbrev: 0
+  groups: # Regex use RE2 syntax as defined here: https://github.com/google/re2/wiki/Syntax.
+    - title: 'Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: 'Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    - title: 'Dependency updates'
+      regexp: '^.*?(feat|fix|chore)\(deps?.+\)!?:.+$'
+      order: 400
+    - title: 'Other work'
+      order: 999
+  filters:
+    exclude:
+      - '^test:'
+      - '^.*?Bump(\([[:word:]]+\))?.+$'
 
-source:
-  enabled: true
-  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
-  format: "zip"
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+
+release:
+  disable: "{{ .Env.FULL_RELEASE }}"
+  header: |
+    ## Armada Operator v{{ .Version }}
+
+    ### Docker images
+    Armada Operator image is hosted on Dockerhub in the [{{ .Env.DOCKER_REPO }}](https://hub.docker.com/r/{{ .Env.DOCKER_REPO }}/armada-operator) organization.
+    - `docker pull {{ .Env.DOCKER_REPO }}armada-operator:latest`
+    - `docker pull {{ .Env.DOCKER_REPO }}armada-operator:{{ .Version }}`
+
+  footer: |
+    **Full Changelog**: https://github.com/armadaproject/armada-operator/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    * * *
+
+    Have a new idea? Found a bug? Start a GitHub [Discussion](https://github.com/armadaproject/armada-operator/discussions) or [Issue](https://github.com/armadaproject/armada-operator/issues) and let's talk about it!
+
+    Real-time interactions between Armada developers and users occurs primarily in CNCF Slack. To join us there:
+    * If you already have an account on CNCF Slack, join #armada on https://cloud-native.slack.com
+    * If you need an invitation to CNCF Slack, you can get one at https://slack.cncf.io
