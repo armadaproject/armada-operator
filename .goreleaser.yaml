@@ -19,6 +19,7 @@ source:
   format: "zip"
 
 env:
+  # FULL_RELEASE is a boolean that indicates whether should GoReleaser only build & push Docker images (false), or also do the release step (true)
   - FULL_RELEASE={{ if index .Env "FULL_RELEASE"  }}{{ .Env.FULL_RELEASE }}{{ else }}false{{ end }}
   - GOPROXY={{ if index .Env "GOPROXY"  }}{{ .Env.GOPROXY }}{{ else }}https://proxy.golang.org,direct{{ end }}
   - GOSUMDB={{ if index .Env "GOSUMDB"  }}{{ .Env.GOSUMDB }}{{ else }}sum.golang.org{{ end }}
@@ -90,7 +91,7 @@ sboms:
   - artifacts: archive
 
 release:
-  disable: "{{ if .Env.FULL_RELEASE }}false{{ else }}true{{ end }}"
+  disable: "{{ .Env.FULL_RELEASE }}"
   header: |
     ## Armada Operator v{{ .Version }}
 
