@@ -19,11 +19,14 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	"github.com/armadaproject/armada-operator/controllers/builders"
 )
 
 const (
@@ -48,7 +51,7 @@ type CommonComponents struct {
 	CronJob             *batchv1.CronJob
 }
 
-// PostgresConfig is used for scanning posgres section of application config
+// PostgresConfig is used for scanning postgres section of application config
 type PostgresConfig struct {
 	Connection ConnectionConfig
 }
@@ -60,6 +63,36 @@ type ConnectionConfig struct {
 	User     string
 	Password string
 	Dbname   string
+}
+
+// PulsarConfig is used for scanning pulsar section of application config
+type PulsarConfig struct {
+	ArmadaInit            ArmadaInit
+	AuthenticationEnabled bool
+	TlsEnabled            bool
+	AuthenticationSecret  string
+	Cacert                string
+}
+
+// ArmadaInit used to initialize pulsar
+type ArmadaInit struct {
+	Enabled    bool
+	Image      Image
+	BrokerHost string
+	Protocol   string
+	AdminPort  int
+	Port       int
+}
+
+// Image represents a docker image
+type Image struct {
+	Repository string
+	Tag        string
+}
+
+// AppConfig is used for scanning the appconfig to find particular values
+type AppConfig struct {
+	Pulsar PulsarConfig
 }
 
 // DeepCopy will deep copy values from the receiver and return a new reference
@@ -217,6 +250,20 @@ func AllLabels(name string, labelMaps ...map[string]string) map[string]string {
 	return baseLabels
 }
 
+// ExtractPulsarConfig will unmarshal the appconfig and return the PulsarConfig portion
+func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return PulsarConfig{}, err
+	}
+	var asConfig AppConfig
+	err = yaml.Unmarshal([]byte(appConfig), &asConfig)
+	if err != nil {
+		return PulsarConfig{}, err
+	}
+	return asConfig.Pulsar, nil
+}
+
 // waitForJob will wait for some resolution of the job. Provide context with timeout if needed.
 func waitForJob(ctx context.Context, cl client.Client, job *batchv1.Job, sleepTime time.Duration) (err error) {
 	for {
@@ -298,6 +345,68 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 	}
 	volumeMounts = append(volumeMounts, crdVolumeMounts...)
 	return volumeMounts
+}
+
+// createPulsarVolumeMounts creates the pulsar volumeMounts for token and/or cert
+func createPulsarVolumeMounts(pulsarConfig PulsarConfig) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{}
+	if pulsarConfig.AuthenticationEnabled {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "pulsar-token",
+			ReadOnly:  true,
+			MountPath: "/pulsar/tokens",
+		})
+	}
+	if pulsarConfig.TlsEnabled {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "pulsar-ca",
+			ReadOnly:  true,
+			MountPath: "/pulsar/ca",
+		})
+	}
+	return volumeMounts
+}
+
+// createPulsarVolumes creates the pulsar volumes for token and/or cert
+func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
+	volumes := []corev1.Volume{}
+	if pulsarConfig.AuthenticationEnabled {
+		secretName := "armada-pulsar-token-armada-admin"
+		if pulsarConfig.AuthenticationSecret != "" {
+			secretName = pulsarConfig.AuthenticationSecret
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "pulsar-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+					Items: []corev1.KeyToPath{{
+						Key:  "TOKEN",
+						Path: "pulsar-token",
+					}},
+				},
+			},
+		})
+	}
+	if pulsarConfig.TlsEnabled {
+		secretName := "armada-pulsar-ca-tls"
+		if pulsarConfig.Cacert != "" {
+			secretName = pulsarConfig.Cacert
+		}
+		volumes = append(volumes, corev1.Volume{
+			Name: "pulsar-ca",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+					Items: []corev1.KeyToPath{{
+						Key:  "ca.crt",
+						Path: "ca.crt",
+					}},
+				},
+			},
+		})
+	}
+	return volumes
 }
 
 // createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval

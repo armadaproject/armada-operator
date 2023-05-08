@@ -134,7 +134,10 @@ func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedu
 	if err := controllerutil.SetOwnerReference(scheduleringester, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment := r.createDeployment(scheduleringester)
+	deployment, err := r.createDeployment(scheduleringester)
+	if err != nil {
+		return nil, err
+	}
 	if err := controllerutil.SetOwnerReference(scheduleringester, deployment, scheme); err != nil {
 		return nil, err
 	}
@@ -150,13 +153,19 @@ func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedu
 	}, nil
 }
 
-func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *installv1alpha1.SchedulerIngester) *appsv1.Deployment {
+func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *installv1alpha1.SchedulerIngester) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(scheduleringester.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(scheduleringester.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
 	volumes := createVolumes(scheduleringester.Name, scheduleringester.Spec.AdditionalVolumes)
+	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(scheduleringester.Name), scheduleringester.Spec.AdditionalVolumeMounts)
+	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: scheduleringester.Name, Namespace: scheduleringester.Namespace, Labels: AllLabels(scheduleringester.Name, scheduleringester.Labels)},
@@ -225,6 +234,6 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduleringester.Spec.Resources
 	}
 
-	return &deployment
+	return &deployment, nil
 
 }
