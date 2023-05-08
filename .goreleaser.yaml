@@ -19,10 +19,10 @@ source:
   format: "zip"
 
 env:
-  - OFFICIAL_RELEASE={{ if index .Env "OFFICIAL_RELEASE"  }}{{ .Env.OFFICIAL_RELEASE }}{{ else }}false{{ end }}
+  - FULL_RELEASE={{ if index .Env "FULL_RELEASE"  }}{{ .Env.FULL_RELEASE }}{{ else }}false{{ end }}
   - GOPROXY={{ if index .Env "GOPROXY"  }}{{ .Env.GOPROXY }}{{ else }}https://proxy.golang.org,direct{{ end }}
   - GOSUMDB={{ if index .Env "GOSUMDB"  }}{{ .Env.GOSUMDB }}{{ else }}sum.golang.org{{ end }}
-  - DOCKER_REPO={{ if index .Env "DOCKER_REPO"  }}{{ .Env.DOCKER_REPO }}/{{ else }}gresearch/{{ end }}
+  - DOCKER_REPO={{ if index .Env "DOCKER_REPO"  }}{{ .Env.DOCKER_REPO }}/{{ else }}{{ end }}
   # Goreleaser always uses the docker buildx builder with name "default"; see
   # https://github.com/goreleaser/goreleaser/pull/3199
   # To use a builder other than "default", set this variable.
@@ -31,7 +31,7 @@ env:
   # Setup to enable Docker to use, e.g., the GitHub actions cache; see
   # https://docs.docker.com/build/building/cache/backends/
   # https://github.com/moby/buildkit#export-cache
-  - DOCKER_BUILDX_CACHE_FROM={{ if index .Env "DOCKER_BUILDX_CACHE_FROM"  }}{{ .Env.DOCKER_BUILDX_CACHE_FROM }}{{ else }}type=registry{{ end }}
+  - DOCKER_BUILDX_CACHE_FROM={{ if index .Env "DOCKER_BUILDX_CACHE_FROM"  }}{{ .Env.DOCKER_BUILDX_CACHE_FROM }}{{ else }}type=inline{{ end }}
   - DOCKER_BUILDX_CACHE_TO={{ if index .Env "DOCKER_BUILDX_CACHE_TO"  }}{{ .Env.DOCKER_BUILDX_CACHE_TO }}{{ else }}type=inline{{ end }}
 
 dockers:
@@ -90,7 +90,7 @@ sboms:
   - artifacts: archive
 
 release:
-  disable: "{{ if .Env.OFFICIAL_RELEASE }}false{{ else }}true{{ end }}"
+  disable: "{{ if .Env.FULL_RELEASE }}false{{ else }}true{{ end }}"
   header: |
     ## Armada Operator v{{ .Version }}
 

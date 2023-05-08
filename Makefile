@@ -149,7 +149,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # Go Release Build
 .PHONY: go-release-build
 go-release-build: goreleaser
-	$(GORELEASER) release --rm-dist --snapshot
+	$(GORELEASER) release --skip-publish --skip-sign --skip-sbom --clean --snapshot
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -323,7 +323,7 @@ $(HELMIFY): $(LOCALBIN)
 .PHONY: goreleaser
 goreleaser: $(GORELEASER)
 $(GORELEASER): $(LOCALBIN)
-	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.11.5
+	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.18.1
 
 
 .PHONY: bundle
