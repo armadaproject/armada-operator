@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"sigs.k8s.io/yaml"
+
 	"context"
 
 	"github.com/stretchr/testify/assert"
@@ -720,10 +722,61 @@ func makeCommonComponents() CommonComponents {
 	secret := corev1.Secret{
 		StringData: map[string]string{"secretkey": "secretval"},
 	}
-
 	return CommonComponents{
 		Deployment:      &deployment,
 		PriorityClasses: []*schedulingv1.PriorityClass{&pc},
 		Secret:          &secret,
+	}
+}
+
+func TestAddGoMemLimit(t *testing.T) {
+	type test struct {
+		name               string
+		resourcesYaml      string
+		expectedGoMemLimit string
+	}
+
+	tests := []test{
+		{
+			name: "1Gi memory limit",
+			resourcesYaml: `limits:
+    memory: 1Gi`,
+			expectedGoMemLimit: "1073741824B",
+		},
+		{
+			name: "500Mi memory limit",
+			resourcesYaml: `limits:
+    memory: 500Mi`,
+			expectedGoMemLimit: "524288000B",
+		},
+		{
+			name:               "no memory limit",
+			resourcesYaml:      ``,
+			expectedGoMemLimit: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resources := corev1.ResourceRequirements{}
+			if err := yaml.Unmarshal([]byte(tc.resourcesYaml), &resources); err != nil {
+				t.Fatalf("error unmarshalling resources yaml: %v", err)
+			}
+
+			var env []corev1.EnvVar
+			env = addGoMemLimit(env, resources)
+
+			goMemLimitFound := false
+			for _, envVar := range env {
+				if envVar.Name == "GOMEMLIMIT" {
+					goMemLimitFound = true
+					assert.Equal(t, tc.expectedGoMemLimit, envVar.Value)
+				}
+			}
+
+			if !goMemLimitFound && tc.expectedGoMemLimit != "" {
+				t.Errorf("expected GOMEMLIMIT to be set, but it was not found")
+			}
+		})
 	}
 }

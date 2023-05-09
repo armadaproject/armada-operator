@@ -444,3 +444,12 @@ func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duratio
 		},
 	}
 }
+
+func addGoMemLimit(env []corev1.EnvVar, resources corev1.ResourceRequirements) []corev1.EnvVar {
+	if resources.Limits.Memory() != nil && resources.Limits.Memory().Value() != 0 {
+		val := resources.Limits.Memory().Value()
+		goMemLimit := corev1.EnvVar{Name: "GOMEMLIMIT", Value: fmt.Sprintf("%dB", val)}
+		env = append(env, goMemLimit)
+	}
+	return env
+}

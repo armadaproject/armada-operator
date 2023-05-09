@@ -365,6 +365,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 	}
 	if lookout.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookout.Spec.Resources)
 	}
 	return &deployment, nil
 }

@@ -323,6 +323,7 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) (*appsv1
 	}
 	if binoculars.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *binoculars.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *binoculars.Spec.Resources)
 	}
 	return &deployment, nil
 }

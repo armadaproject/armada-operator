@@ -359,6 +359,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 	}
 	if executor.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *executor.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *executor.Spec.Resources)
 	}
 	return &deployment
 }

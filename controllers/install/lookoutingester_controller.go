@@ -215,6 +215,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 	}
 	if lookoutIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookoutIngester.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookoutIngester.Spec.Resources)
 	}
 	return &deployment, nil
 }
