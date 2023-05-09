@@ -10,9 +10,6 @@ permissions:
   packages: write
   issues: write
 
-env:
-  DOCKER_REPO: "gresearch"
-
 jobs:
   release:
     name: "Release"
@@ -56,6 +53,7 @@ jobs:
           args: "-f ./.goreleaser.yml release --clean"
         env:
           FULL_RELEASE: true
+          DOCKER_REPO: "gresearch"
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_BUILDX_BUILDER: "${{ steps.buildx.outputs.name }}"
           DOCKER_BUILDX_CACHE_FROM: "type=gha"
@@ -67,7 +65,7 @@ jobs:
             DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
             DOCKER_PASS: ${{ secrets.DOCKERHUB_PASS }}
         with:
-            destination_container_repo: ${{ env.DOCKER_REPO }}/armada-operator
+            destination_container_repo: gresearch/armada-operator
             provider: dockerhub
             short_description: 'Armada Operator is the installer for Armada'
             readme_file: 'README.md'
