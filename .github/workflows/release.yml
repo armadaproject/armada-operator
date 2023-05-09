@@ -49,7 +49,7 @@ jobs:
         with:
           distribution: goreleaser
           version: v1.18.2
-          args: "-f ./.goreleaser.yml release --clean"
+          args: "-f ./.goreleaser.yaml release --clean"
         env:
           FULL_RELEASE: true
           DOCKER_REPO: "gresearch"
