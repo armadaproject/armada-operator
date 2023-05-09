@@ -44,9 +44,9 @@ type SchedulerReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=scheduler,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=scheduler/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=install.armadaproject.io,resources=scheduler/finalizers,verbs=update
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=groups;users,verbs=impersonate
 //+kubebuilder:rbac:groups=core,resources=secrets;services;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
