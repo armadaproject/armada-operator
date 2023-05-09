@@ -15,7 +15,7 @@ builds:
 
 source:
   enabled: true
-  name_template: '{{ .ProjectName }}_{{ replace .Version "-" "_" }}_source'
+  name_template: '{{ replace .ProjectName "-" "_" }}_{{ replace .Version "-" "_" }}_source'
   format: "zip"
 
 env:
@@ -91,7 +91,7 @@ sboms:
   - artifacts: archive
 
 release:
-  disable: "{{ .Env.FULL_RELEASE }}"
+  disable: "{{ if .Env.FULL_RELEASE }}false{{ else }}true{{ end }}"
   header: |
     ## Armada Operator v{{ .Version }}
 
