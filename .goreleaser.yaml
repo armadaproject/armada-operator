@@ -91,7 +91,7 @@ sboms:
   - artifacts: archive
 
 release:
-  disable: "{{ if .Env.FULL_RELEASE }}false{{ else }}true{{ end }}"
+  disable: '{{ if index .Env "FULL_RELEASE" }}false{{ else }}true{{ end }}'
   header: |
     ## Armada Operator v{{ .Version }}
 
