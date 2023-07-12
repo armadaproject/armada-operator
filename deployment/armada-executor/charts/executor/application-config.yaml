@@ -1,4 +1,0 @@
-clusterId: {{ .Values.clusterId | default .Values.global.clusterId }}
-apiConnection:
-  armadaUrl: {{ .Values.armadaUrl | default .Values.global.armadaUrl }}
-  forceNoTls: {{ .Values.forceNoTls }}
