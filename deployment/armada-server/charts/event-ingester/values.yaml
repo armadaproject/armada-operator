@@ -1,7 +1,0 @@
-image:
-  repository: "gresearch/armada-event-ingester"
-redis:
-  db:
-pulsar:
-  url:
-  
