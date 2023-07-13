@@ -37,15 +37,8 @@ jobs:
         # https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning#changing-the-languages-that-are-analyzed
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
-
-      # The ArmadaProject.Io.Client needs the generated proto files
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: '3.17.3'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Golang with cache
         uses: magnetikonline/action-golang-cache@v4
