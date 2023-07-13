@@ -1,15 +1,33 @@
 name: Release Helm Chart
+
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    types: [completed]
+    workflows: [Release Armada Operator]
+    branches:
+      - v*
 
 jobs:
   release-chart:
-    runs-on: ubuntu-latest
+    name: Release Chart
+    runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Sync version
+      run: scripts/update_chart.sh
+
+    - name: Commit & push changes
+      run: |
+        git config --global user.name "armadaproject-ci-bot"
+        git config --global user.email "armadaproject-ci-bot@users.noreply.github.com"
+        git status
+        git add .
+        git commit -m "updating armada-operator chart version"
+        git push
+
     - name: Publish Helm chart
-      uses: stefanprodan/helm-gh-pages@master
+      uses: stefanprodan/helm-gh-pages@v1
       with:
-        token: ${{ secrets.BOT_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
