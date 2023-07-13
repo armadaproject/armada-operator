@@ -112,6 +112,6 @@ jobs:
           git push
 
       - name: Publish Helm chart
-        uses: stefanprodan/helm-gh-pages@v1
+        uses: stefanprodan/helm-gh-pages@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
