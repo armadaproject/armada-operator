@@ -90,6 +90,7 @@ sboms:
 
 release:
   disable: '{{ if index .Env "FULL_RELEASE" }}false{{ else }}true{{ end }}'
+  mode: replace
   header: |
     ## Armada Operator v{{ .Version }}
 
