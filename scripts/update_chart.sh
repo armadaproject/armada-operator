@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if ! command -v jq&>/dev/null; then
-  echo "jq is not installed!"
+if ! command -v yq&>/dev/null; then
+  echo "yq is not installed!"
   exit 1
 fi
 
