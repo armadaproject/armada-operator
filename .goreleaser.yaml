@@ -1,7 +1,7 @@
 project_name: armada-operator
 
 snapshot:
-  name_template: "{{ .Tag }}"
+  name_template: "{{ .FullCommit }}"
 
 dist: "dist"
 
