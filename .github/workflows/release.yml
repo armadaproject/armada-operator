@@ -31,7 +31,7 @@ jobs:
           sha='${{ github.event.workflow_run.head_sha }}'
 
           [[ $ref =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
-          [ $(git rev-parse refs/tags/$ref) == $sha ] &&
+          [ $(git tag --points-at $sha | grep -E "^$ref\$" | wc -l) -eq 1 ] &&
           [ $(git branch --contains=$sha main | wc -l) -eq 1 ]
           if [ $? -ne 0 ]; then
             echo "::error ::Invalid ref $ref $sha: must be a tag, belong to the main branch and match the semver regex"
@@ -81,7 +81,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
-          version: v1.18.2
+          version: v1.19.2
           args: "-f ./.goreleaser.yaml release --clean"
         env:
           FULL_RELEASE: true
@@ -90,30 +90,10 @@ jobs:
           DOCKER_BUILDX_BUILDER: "${{ steps.buildx.outputs.name }}"
           DOCKER_BUILDX_CACHE_FROM: "type=gha"
           DOCKER_BUILDX_CACHE_TO: "type=gha,mode=max"
-  release-chart:
-    name: Release Chart
+  invoke-chart-push:
+    name: Invoke Chart push
     needs: release
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Sync version
-        run: scripts/update_chart.sh
-
-      - name: Commit & push changes
-        run: |
-          git config --global user.name "armadaproject-ci-bot"
-          git config --global user.email "armadaproject-ci-bot@users.noreply.github.com"
-          git status
-          git add .
-          git commit -m "updating armada-operator chart version"
-          git push
-
-      - name: Publish Helm chart
-        uses: stefanprodan/helm-gh-pages@master
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    uses: G-Research/charts/.github/workflows/invoke-push.yaml@master
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
