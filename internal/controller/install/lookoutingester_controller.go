@@ -136,7 +136,7 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	if err := controllerutil.SetOwnerReference(lookoutIngester, secret, r.Scheme); err != nil {
 		return nil, err
 	}
-	deployment, err := r.createDeployment(lookoutIngester, secret)
+	deployment, err := r.createDeployment(lookoutIngester)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 }
 
 // TODO: Flesh this out for lookoutingester
-func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, secret *corev1.Secret) (*appsv1.Deployment, error) {
+func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000

@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/utils/pointer"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,11 +54,11 @@ func (r *Lookout) Default() {
 	}
 
 	if r.Spec.Replicas == nil {
-		r.Spec.Replicas = pointer.Int32(1)
+		r.Spec.Replicas = ptr.To[int32](1)
 	}
 
 	if r.Spec.Migrate == nil {
-		r.Spec.Migrate = pointer.Bool(true)
+		r.Spec.Migrate = ptr.To[bool](true)
 	}
 
 	// resources

@@ -2,9 +2,10 @@ package install
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"testing"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -424,7 +425,7 @@ func TestSchedulerReconciler_createIngress(t *testing.T) {
 			Name:      "lookout",
 		},
 		Spec: v1alpha1.ArmadaServerSpec{
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",

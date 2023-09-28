@@ -3,9 +3,10 @@ package builders
 import (
 	"testing"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 )
@@ -26,7 +27,7 @@ func Test_ServiceAccount(t *testing.T) {
 			name:                 "test",
 			namespace:            "default",
 			labels:               map[string]string{"hello": "world"},
-			serviceAccountConfig: &installv1alpha1.ServiceAccountConfig{Secrets: []v1.ObjectReference{}, AutomountServiceAccountToken: pointer.Bool(true), ImagePullSecrets: []v1.LocalObjectReference{}},
+			serviceAccountConfig: &installv1alpha1.ServiceAccountConfig{Secrets: []v1.ObjectReference{}, AutomountServiceAccountToken: ptr.To[bool](true), ImagePullSecrets: []v1.LocalObjectReference{}},
 		},
 	}
 

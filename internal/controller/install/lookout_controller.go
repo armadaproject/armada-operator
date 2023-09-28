@@ -17,6 +17,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -29,7 +31,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -397,14 +398,14 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 
 	secretName := lookout.Name + "-service-tls"
 	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := lookout.Name
 	for _, val := range lookout.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/",
-					PathType: (*networking.PathType)(pointer.String("Prefix")),
+					PathType: (*networking.PathType)(ptr.To[string]("Prefix")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,
@@ -428,7 +429,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
@@ -546,7 +547,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 	runAsGroup := int64(2000)
 	terminationGracePeriodSeconds := int64(0)
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*lookout.Spec.TerminationGracePeriodSeconds)
+		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)

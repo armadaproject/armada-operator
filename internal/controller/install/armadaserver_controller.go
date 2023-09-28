@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
@@ -39,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -607,7 +608,7 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/",
-					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,
@@ -660,7 +661,7 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/api(/|$)(.*)",
-					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,

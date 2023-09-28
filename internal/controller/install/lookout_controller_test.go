@@ -2,9 +2,10 @@ package install
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"testing"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +49,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout"},
 		Spec: v1alpha1.LookoutSpec{
-			Replicas: pointer.Int32(2),
+			Replicas: ptr.To[int32](2),
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: v1alpha1.Image{
@@ -251,7 +252,7 @@ func TestLookoutReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -307,7 +308,7 @@ func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -350,7 +351,7 @@ func TestLookoutReconciler_ReconcileDeletingLookout(t *testing.T) {
 				ApplicationConfig: runtime.RawExtension{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -423,7 +424,7 @@ func TestLookoutReconciler_ReconcileDeletingLookoutWithError(t *testing.T) {
 				ApplicationConfig: runtime.RawExtension{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -562,7 +563,7 @@ func TestSchedulerReconciler_createLookoutIngressHttp(t *testing.T) {
 			Name:      "lookout",
 		},
 		Spec: v1alpha1.LookoutSpec{
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",

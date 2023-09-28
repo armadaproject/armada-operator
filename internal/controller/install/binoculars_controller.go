@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -32,7 +34,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -399,14 +400,14 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*netwo
 
 	secretName := binoculars.Name + "-service-tls"
 	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := "armada" + "-" + binoculars.Name
 	for _, val := range binoculars.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/",
-					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,
@@ -451,14 +452,14 @@ func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*netwo
 
 	secretName := binoculars.Name + "-service-tls"
 	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := binoculars.Name
 	for _, val := range binoculars.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/api(/|$)(.*)",
-					PathType: (*networking.PathType)(pointer.String("ImplementationSpecific")),
+					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,

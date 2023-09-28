@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -46,7 +46,7 @@ func (r *EventIngester) Default() {
 
 	// TODO(user): fill in your defaulting logic.
 	if r.Spec.Replicas == nil {
-		r.Spec.Replicas = pointer.Int32(1)
+		r.Spec.Replicas = ptr.To[int32](1)
 	}
 }
 

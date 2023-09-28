@@ -2,9 +2,10 @@ package install
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"testing"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/stretchr/testify/assert"
 
@@ -57,7 +58,7 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 						ApplicationConfig: runtime.RawExtension{},
 						Resources:         &corev1.ResourceRequirements{},
 					},
-					Replicas:      pointer.Int32(2),
+					Replicas:      ptr.To[int32](2),
 					HostNames:     []string{"localhost"},
 					ClusterIssuer: "test",
 					Ingress: &installv1alpha1.IngressConfig{
@@ -86,7 +87,7 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 						ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 						Resources:         &corev1.ResourceRequirements{},
 					},
-					Replicas:      pointer.Int32(2),
+					Replicas:      ptr.To[int32](2),
 					HostNames:     []string{"localhost"},
 					ClusterIssuer: "test",
 					Ingress: &installv1alpha1.IngressConfig{
@@ -141,7 +142,7 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 				Resources:         &corev1.ResourceRequirements{},
 			},
 
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			HostNames:     []string{"localhost"},
 			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
@@ -323,7 +324,7 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -399,7 +400,7 @@ func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &installv1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -460,7 +461,7 @@ func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
 			Name:      "lookout",
 		},
 		Spec: v1alpha1.BinocularsSpec{
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",

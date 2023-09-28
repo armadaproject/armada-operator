@@ -2,9 +2,10 @@ package install
 
 import (
 	"context"
-	"k8s.io/utils/pointer"
 	"testing"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +50,7 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduler"},
 		Spec: v1alpha1.SchedulerSpec{
-			Replicas: pointer.Int32(2),
+			Replicas: ptr.To[int32](2),
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: v1alpha1.Image{
@@ -254,7 +255,7 @@ func TestSchedulerReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) 
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -310,7 +311,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -362,7 +363,7 @@ func TestSchedulerReconciler_createSchedulerIngressGrpc(t *testing.T) {
 			Name:      "scheduler",
 		},
 		Spec: v1alpha1.SchedulerSpec{
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -399,7 +400,7 @@ func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",
@@ -442,7 +443,7 @@ func TestSchedulerReconciler_ReconcileDeletingScheduler(t *testing.T) {
 				ApplicationConfig: runtime.RawExtension{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
-			Replicas:      pointer.Int32(2),
+			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
 			Ingress: &v1alpha1.IngressConfig{
 				IngressClass: "nginx",

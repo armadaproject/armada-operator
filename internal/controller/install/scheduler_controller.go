@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -30,7 +32,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -387,14 +388,14 @@ func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networki
 
 	secretName := scheduler.Name + "-service-tls"
 	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := scheduler.Name
 	for _, val := range scheduler.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
 			HTTP: &networking.HTTPIngressRuleValue{
 				Paths: []networking.HTTPIngressPath{{
 					Path:     "/",
-					PathType: (*networking.PathType)(pointer.String("Prefix")),
+					PathType: (*networking.PathType)(ptr.To[string]("Prefix")),
 					Backend: networking.IngressBackend{
 						Service: &networking.IngressServiceBackend{
 							Name: serviceName,
@@ -418,7 +419,7 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1
 	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*scheduler.Spec.TerminationGracePeriodSeconds)
+		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
@@ -535,7 +536,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 	runAsGroup := int64(2000)
 	terminationGracePeriodSeconds := int64(0)
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
-		terminationGracePeriodSeconds = int64(*scheduler.Spec.TerminationGracePeriodSeconds)
+		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
 	}
 	allowPrivilegeEscalation := false
 	parallelism := int32(1)
