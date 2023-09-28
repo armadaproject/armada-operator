@@ -91,7 +91,7 @@ lookoutingester.install.armadaproject.io/lookoutingester-sample configured
 
 ### Take Advantage of Composition and Go's Type System
 Markers on a member of a struct will be applied wherever that struct member 
-is used in the CRD API. Therefore it is beneficial to take advantage of 
+is used in the CRD API. Therefore, it is beneficial to take advantage of 
 DRY (Don't Repeat Yourself) and golang's type system to provide consistent
 validation across our CRD's API.
 

@@ -11,7 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

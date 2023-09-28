@@ -5,46 +5,12 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.0.1
 
-# CHANNELS define the bundle channels used in the bundle.
-# Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
-# To re-generate a bundle for other specific channels without changing the standard setup, you can:
-# - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
-# - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-ifneq ($(origin CHANNELS), undefined)
-BUNDLE_CHANNELS := --channels=$(CHANNELS)
-endif
-
-# DEFAULT_CHANNEL defines the default channel used in the bundle.
-# Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
-# To re-generate a bundle for any other default channel without changing the default setup, you can:
-# - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
-# - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
-BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
-BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
-
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # armadaproject.io/armada-operator-bundle:$VERSION and armadaproject.io/armada-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= armadaproject.io/armada-operator
-
-# BUNDLE_IMG defines the image:tag used for the bundle.
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
-
-# BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
-BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-
-# USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
-# You can enable this value if you would like to use SHA Based Digests
-# To enable set flag to true
-USE_IMAGE_DIGESTS ?= false
-ifeq ($(USE_IMAGE_DIGESTS), true)
-	BUNDLE_GEN_FLAGS += --use-image-digests
-endif
 
 # Image URL to use all building/pushing image targets
 IMG ?= armada-operator:latest
@@ -124,9 +90,11 @@ test: manifests generate fmt vet gotestsum ## Run tests.
 .PHONY: test-integration
 test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./apis/...
+
 .PHONY: kind-create
 kind-create: kind
 	kind create cluster --config hack/kind-config.yaml
+
 .PHONY: test-e2e
 test-e2e: kind docker-build install-cert-manager
 	kind load docker-image controller:latest
@@ -144,7 +112,10 @@ build: generate fmt vet ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run ./cmd/main.go
+
+run-no-webhook: manifests generate fmt vet ## Run a controller from your host without webhooks.
+	ENABLE_WEBHOOKS=false go run ./cmd/main.go
 
 # Go Release Build
 .PHONY: go-release-build
@@ -211,7 +182,8 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 
 .PHONY: generate-helm-chart
 generate-helm-chart: manifests kustomize helmify
-	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir deployment/armada-operator
+	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir charts/armada-operator
+	./hack/fix-helmify.sh
 
 ## Kubernetes Dependencies
 CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.6.3/cert-manager.yaml"
@@ -231,30 +203,24 @@ install-ingress-controller:
 uninstall-ingress-controller:
 	kubectl delete -f ${INGRESS_MANIFEST}
 
-PULSAR_IMAGE="apachepulsar/pulsar"
-ifeq ($(ARCH), arm64)
-   PULSAR_IMAGE="richgross/pulsar:2.11.0"
-endif
-.PHONY: install-pulsar
-install-pulsar:
-	docker pull $(PULSAR_IMAGE)
-	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) $(PULSAR_IMAGE)
-	cat dev/manifests/pulsar.yaml | PULSAR_IMAGE=$(PULSAR_IMAGE) envsubst | kubectl apply -n armada -f -
-
-.PHONY: helm-bitnami
-helm-bitnami: helm
+.PHONY: helm-repos
+helm-repos: helm
 	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
+	$(HELM) repo add apache https://pulsar.apache.org/charts
+	$(HELM) repo add dandydev https://dandydeveloper.github.io/charts
 	$(HELM) repo update
 
+.PHONY: install-pulsar
+install-pulsar: helm-repos
+	$(HELM) install pulsar apache/pulsar -f dev/quickstart/pulsar.values.yaml --namespace data
+
 .PHONY: helm-install-postgres
-helm-install-postgres: helm-bitnami
-	docker pull postgres:15.2-alpine
-	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) postgres:15.2-alpine
-	$(HELM) install postgresql -n armada -f ./dev/helm-charts/postgres_bitnami_values.yaml bitnami/postgresql
+helm-install-postgres: helm-repos
+	helm install postgres bitnami/postgresql -f dev/quickstart/postgres.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-install-redis
-helm-install-redis: helm-bitnami
-	$(HELM) install redis -n armada -f ./dev/helm-charts/redis_bitnami_values.yaml bitnami/redis
+helm-install-redis: helm-repos
+	$(HELM) install redis dandydev/redis-ha -f dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 PROMETHEUS_OPERATOR_VERSION=v0.62.0
 .PHONY: dev-install-prometheus-operator
@@ -282,7 +248,7 @@ HELMIFY ?= $(LOCALBIN)/helmify
 GORELEASER ?= $(LOCALBIN)/goreleaser
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.7
-CONTROLLER_TOOLS_VERSION ?= v0.10.0
+CONTROLLER_TOOLS_VERSION ?= v0.13.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -318,69 +284,12 @@ $(KIND): $(LOCALBIN)
 .PHONY: helmify
 helmify: $(HELMIFY)
 $(HELMIFY): $(LOCALBIN)
-	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@v0.3.22
+	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@v0.4.6
 
 .PHONY: goreleaser
 goreleaser: $(GORELEASER)
 $(GORELEASER): $(LOCALBIN)
-	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.18.1
-
-
-.PHONY: bundle
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle $(BUNDLE_GEN_FLAGS)
-	operator-sdk bundle validate ./bundle
-
-.PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-.PHONY: bundle-push
-bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
-
-.PHONY: opm
-OPM = ./bin/opm
-opm: ## Download opm locally if necessary.
-ifeq (,$(wildcard $(OPM)))
-ifeq (,$(shell which opm 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(OPM)) ;\
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.23.0/$${OS}-$${ARCH}-opm ;\
-	chmod +x $(OPM) ;\
-	}
-else
-OPM = $(shell which opm)
-endif
-endif
-
-# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
-# These images MUST exist in a registry and be pull-able.
-BUNDLE_IMGS ?= $(BUNDLE_IMG)
-
-# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
-
-# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
-ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
-endif
-
-# Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
-# This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
-# https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
-.PHONY: catalog-build
-catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
-
-# Push the catalog image.
-.PHONY: catalog-push
-catalog-push: ## Push a catalog image.
-	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.21.2
 
 .PHONY: helm
 HELM = ./bin/helm
@@ -415,8 +324,8 @@ create-dev-cluster:
 
 # Setup dependencies for a local development environment
 .PHONY: dev-setup
-dev-setup: create-dev-cluster install-pulsar helm-install-postgres \
-    helm-install-redis dev-install-prometheus-operator \
+dev-setup: dev-install-prometheus-operator install-pulsar \
+    helm-install-redis helm-install-postgres 		      \
     install-cert-manager install-ingress-controller dev-setup-webhook-tls
 
 .PHONY: dev-install-controller

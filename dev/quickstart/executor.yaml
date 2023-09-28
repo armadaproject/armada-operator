@@ -1,0 +1,13 @@
+apiVersion: install.armadaproject.io/v1alpha1
+kind: Executor
+metadata:
+  name: armada-executor
+  namespace: armada
+spec:
+  image:
+    repository: gresearch/armada-executor
+    tag: 0.3.92
+  applicationConfig:
+    apiConnection:
+      armadaUrl: server.demo.armadaproject.io:443
+      forceNoTls: false

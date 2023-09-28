@@ -8,10 +8,12 @@ dist: "dist"
 builds:
   - env: [CGO_ENABLED=0]
     mod_timestamp: '{{ .CommitTimestamp }}'
+    main: cmd/main.go
     goos:
       - linux
     goarch:
       - amd64
+      - arm64
 
 source:
   enabled: true

@@ -26,12 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/armadaproject/armada-operator/controllers/install"
+	"github.com/armadaproject/armada-operator/internal/controller/install"
 
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
