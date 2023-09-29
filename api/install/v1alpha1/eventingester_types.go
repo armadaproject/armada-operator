@@ -24,7 +24,7 @@ import (
 type EventIngesterSpec struct {
 	CommonSpecBase `json:""`
 
-	// Replicas is the number of replicated instances for ArmadaServer
+	// Replicas is the number of replicated instances for EventIngester
 	Replicas *int32 `json:"replicas,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`

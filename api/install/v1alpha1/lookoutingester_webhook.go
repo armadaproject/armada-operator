@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -44,6 +45,9 @@ func (r *LookoutIngester) Default() {
 	lookoutingesterlog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
+	if r.Spec.Replicas == nil {
+		r.Spec.Replicas = ptr.To[int32](1)
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

@@ -49,7 +49,7 @@ type SchedulerList struct {
 type SchedulerSpec struct {
 	CommonSpecBase `json:""`
 
-	// Replicas is the number of replicated instances
+	// Replicas is the number of replicated instances for Scheduler
 	Replicas *int32 `json:"replicas,omitempty"`
 	// Ingress defines labels and annotations for the Ingress controller of Scheduler
 	Ingress *IngressConfig `json:"ingress,omitempty"`

@@ -48,7 +48,7 @@ type BinocularsList struct {
 type BinocularsSpec struct {
 	CommonSpecBase `json:""`
 
-	// Replicas is the number of replicated instances
+	// Replicas is the number of replicated instances for Binoculars
 	Replicas *int32 `json:"replicas"`
 	// NodeSelector restricts the pod to run on nodes matching the configured selectors
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`

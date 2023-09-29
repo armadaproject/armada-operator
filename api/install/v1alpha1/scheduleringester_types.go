@@ -24,7 +24,7 @@ import (
 type SchedulerIngesterSpec struct {
 	CommonSpecBase `json:""`
 
-	// Replicas is the number of replicated instances
+	// Replicas is the number of replicated instances for SchedulerIngester
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 

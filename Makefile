@@ -102,7 +102,7 @@ test-e2e: kind docker-build install-cert-manager
 # Integration test without Ginkgo colorized output and control chars, for logging purposes
 .PHONY: test-integration-debug
 test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run integration tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/... ./apis/... --coverprofile integration.out -args --ginkgo.no-color
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./test/... ./api/... --coverprofile integration.out -args --ginkgo.no-color
 
 ##@ Build
 
@@ -125,7 +125,7 @@ go-release-build: goreleaser
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
 .PHONY: docker-push

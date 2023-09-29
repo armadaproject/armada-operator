@@ -1924,7 +1924,7 @@ spec:
                 - enabled
                 type: object
               replicas:
-                description: Replicas is the number of replicated instances
+                description: Replicas is the number of replicated instances for Scheduler
                 format: int32
                 type: integer
               resources:

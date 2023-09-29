@@ -23,6 +23,9 @@ import (
 // LookoutIngesterSpec defines the desired state of LookoutIngester
 type LookoutIngesterSpec struct {
 	CommonSpecBase `json:""`
+
+	// Replicas is the number of replicated instances for LookoutIngester
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 // LookoutIngesterStatus defines the observed state of LookoutIngester

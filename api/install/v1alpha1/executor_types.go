@@ -48,6 +48,7 @@ type ExecutorList struct {
 // ExecutorSpec defines the desired state of Executor
 type ExecutorSpec struct {
 	CommonSpecBase `json:""`
+
 	// Replicas is the number of replicated instances for Executor
 	Replicas *int32 `json:"replicas,omitempty"`
 	// NodeSelector restricts the Executor pod to run on nodes matching the configured selectors

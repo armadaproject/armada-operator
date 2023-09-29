@@ -1834,7 +1834,7 @@ spec:
                     type: string
                 type: object
               replicas:
-                description: Replicas is the number of replicated instances for ArmadaServer
+                description: Replicas is the number of replicated instances for EventIngester
                 format: int32
                 type: integer
               resources:
