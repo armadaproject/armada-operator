@@ -24,12 +24,15 @@ kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
 This section assumes you have [KIND](https://sigs.k8s.io/kind) installed.
 
+If you do not have a Kubernetes cluster to test against, you can start one using the following command:
+```bash
+make create-dev-cluster
+```
+
+Run the following command to install all Armada external dependencies (Apache Pulsar, Redis, PostgreSQL, NGINX, Prometheus)
 ```bash
 make dev-setup
 ```
-This will:
-- boot a kind cluster specifically for armada-operator development work
-- start postgres, pulsar, and redis pods in the cluster
 
 Then:
 ```bash
@@ -45,11 +48,11 @@ the cluster with `$ kubectl get -n armada pods`.
 
 Finally:
 ```bash
-kubectl apply -n armada -f $(REPO_ROOT)/config/samples/deploy_armada.yaml
+kubectl apply -n armada -f $(REPO_ROOT)/dev/quickstart/armada-crds.yaml
 ```
 
 Which will deploy samples of each CRD. Once every Armada service is deployed,
-you should have a fully functional install of Aramda running.
+you should have a fully functional install of Armada running.
 
 To stop the development cluster:
 ```bash
@@ -92,32 +95,6 @@ UnDeploy the controller to the cluster:
 
 ```bash
 make undeploy
-```
-
-## Using Helm Charts
-
-This repo includes Helm charts for Armada Operator and Armada
-Application installation, in the `deployment` directory. The first
-chart, `armada-operator`, will install the Operator (CRDs and
-controller-manager, mainly). The other two, `armada-server` and
-`armada-executor`, will install the Armada application itself in your
-cluster(s).
-
-The armada-operator chart should be installed first on all clusters
-to be used. Then, one or both of the application charts.
-
-Why two charts for the application? Armada supports two cluster
-types: server and executor. The server install includes the API
-server and scheduler. The executor install includes the worker process
-(executor) which manages Armada jobs for a particular cluster. They
-can be installed in the same cluster, but typically we'd expect to see
-one server install and one or more executor installations.
-
-```bash
-cd deployment
-helm install armada-operator ./armada-operator/ -n armada
-helm install armada-server ./armada-server -n armada
-helm install armada-executor ./armada-executor -n armada
 ```
 
 ## Contributing

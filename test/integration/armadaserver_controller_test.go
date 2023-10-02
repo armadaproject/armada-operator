@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	installv1alpha1 "github.com/armadaproject/armada-operator/apis/install/v1alpha1"
+	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 )
 
 var _ = Describe("Armada Operator", func() {

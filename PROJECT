@@ -1,6 +1,6 @@
 domain: armadaproject.io
 layout:
-- go.kubebuilder.io/v4-alpha
+- go.kubebuilder.io/v4
 multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
@@ -15,7 +15,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Server
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -28,7 +28,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Executor
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -41,7 +41,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Binoculars
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -54,7 +54,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Lookout
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -67,7 +67,7 @@ resources:
   domain: armadaproject.io
   group: core
   kind: Queue
-  path: github.com/armadaproject/armada-operator/apis/core/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/core/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -76,7 +76,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: EventIngester
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -89,7 +89,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: LookoutIngester
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -102,7 +102,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: SchedulerIngester
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -115,7 +115,7 @@ resources:
   domain: armadaproject.io
   group: install
   kind: Scheduler
-  path: github.com/armadaproject/armada-operator/apis/install/v1alpha1
+  path: github.com/armadaproject/armada-operator/api/install/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true

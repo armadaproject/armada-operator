@@ -3,8 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: armada/armada-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: queues.core.armadaproject.io
 spec:
   conversion:

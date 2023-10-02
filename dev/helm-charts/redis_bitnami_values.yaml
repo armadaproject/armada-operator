@@ -1,5 +1,0 @@
-auth:
-  enabled: false
-
-replica:
-  replicaCount: 1

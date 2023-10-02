@@ -361,6 +361,12 @@ rules:
 - apiGroups:
   - install.armadaproject.io
   resources:
+  - schedulers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - install.armadaproject.io
+  resources:
   - schedulers/status
   verbs:
   - get
