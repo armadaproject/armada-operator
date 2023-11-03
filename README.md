@@ -29,6 +29,20 @@ If you do not have a Kubernetes cluster to test against, you can start one using
 make create-dev-cluster
 ```
 
+### Install using Helm
+
+First, add the `gresearch` public Helm registry:
+```bash
+helm repo add gresearch https://g-research.github.io/charts
+```
+
+After that, you can install the Armada Operator using Helm:
+```bash
+helm install armada-operator gresearch/armada-operator --namespace armada-system --create-namespace
+```
+
+### Build & install from scratch
+
 Run the following command to install all Armada external dependencies (Apache Pulsar, Redis, PostgreSQL, NGINX, Prometheus)
 ```bash
 make dev-setup
@@ -61,40 +75,21 @@ make delete-dev-cluster
 
 This will totally destroy your development Kind cluster. 
 
-## Getting Started
+### Local development
 
-### Running on a Cluster
-
-1. Build and push your image to the location specified by `IMG`:
-	
+Before running the Operator, we first need to install the CRDs by running the following command:
 ```bash
-make docker-build docker-push IMG=<some-registry>/armada-operator:tag
-```
-	
-2. Deploy the controller to the cluster with the image specified by `IMG`:
-
-```bash
-make deploy IMG=<some-registry>/armada-operator:tag
+make install
 ```
 
-3. Install Instances of Custom Resources:
-
+To run the operator locally, you can use the following command:
 ```bash
-kubectl apply -f config/samples/
+make run
 ```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
-
+To uninstall the Operator CRDs, you can use the following command:
 ```bash
 make uninstall
-```
-
-### Undeploy controller
-UnDeploy the controller to the cluster:
-
-```bash
-make undeploy
 ```
 
 ## Contributing
@@ -106,7 +101,7 @@ Code contributions are also welcome. When submitting a pull-request please
 ensure it references a relevant issue as well as making sure all CI checks 
 pass.
 
-### Test All Changes
+## Testing
 
 Please test contributions thoroughly before requesting reviews. At a minimum:
 ```bash
@@ -123,33 +118,7 @@ are covered by automated tests and appear to be correct.
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
 
 It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```bash
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```bash
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```bash
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster
 
 ## License
 
