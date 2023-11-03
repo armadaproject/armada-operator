@@ -22,7 +22,7 @@ Let's run the following commands to install the required dependencies:
 kubectl create namespace data
 
 helm repo add jetstack https://charts.jetstack.io
-helm upgrade --install                \
+helm upgrade --install               \
   cert-manager jetstack/cert-manager \
   --namespace cert-manager           \
   --create-namespace                 \

@@ -5,5 +5,5 @@ Armada queues are the mechanism to control access to the Armada cluster and ensu
 Let's run the following command to submit a job:
 
 ```bash
-armadactl create queue queue-kubecon-demo
+armadactl create queue queue-a
 ```
