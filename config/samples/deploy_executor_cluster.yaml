@@ -14,8 +14,8 @@ spec:
   hostNames: [localhost-binoculars]
   replicas: 2
   image:
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
     repository: gresearch/armada-binoculars
+    tag: 0.3.103
   resources:
     limits:
       memory: 1Gi
@@ -54,7 +54,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    tag: 0.3.103
   applicationConfig:
     apiConnection:
       armadaUrl: armadaserver-sample.armada.svc.cluster.local:50051

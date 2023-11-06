@@ -23,7 +23,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: f0102f1ba985a289e97e990b822d457a45a4ef73
+    tag: 0.3.103
   applicationConfig:
     server: example.com:443
     prometheusRule:

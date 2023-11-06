@@ -120,7 +120,7 @@ run-no-webhook: manifests generate fmt vet ## Run a controller from your host wi
 # Go Release Build
 .PHONY: go-release-build
 go-release-build: goreleaser
-	$(GORELEASER) release --skip-publish --skip-sign --skip-sbom --clean --snapshot
+	$(GORELEASER) release --skip=publish --skip=sign --skip=sbom --clean --snapshot
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -321,6 +321,7 @@ endif
 create-dev-cluster:
 	kind create cluster --name $(KIND_DEV_CLUSTER_NAME) --config hack/kind-config.yaml
 	kubectl create namespace armada
+	kubectl create namespace data
 
 # Setup dependencies for a local development environment
 .PHONY: dev-setup

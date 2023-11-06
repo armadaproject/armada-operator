@@ -13,7 +13,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: "70a27e91003a32b90cfb8d8bfd736c65556daae9"
+    tag: 0.3.103
   applicationConfig:
     postgres:
       maxOpenConns: 100

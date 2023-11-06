@@ -12,7 +12,7 @@ controllerManager:
         - ALL
     image:
       repository: gcr.io/kubebuilder/kube-rbac-proxy
-      tag: v0.13.0
+      tag: 0.13.0
     resources:
       limits:
         cpu: 500m
