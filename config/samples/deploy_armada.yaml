@@ -12,7 +12,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    tag: 0.3.103
   applicationConfig:
     server: localhost:50051
     forceNoTls: true
@@ -105,7 +105,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-event-ingester
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
+    tag: 0.3.103
   applicationConfig:
     redis:
       addrs:
@@ -130,116 +130,6 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
-  name: lookout-sample
-  namespace: armada
-spec:
-  ingress:
-    ingressClass: "nginx"
-    labels:
-      hello: "world"
-    annotations:
-      hello: "world2"
-  clusterIssuer: "k8s-cluster-issuer"
-  hostNames: [localhost-lookout]
-  replicas: 2
-  image:
-    repository: gresearch/armada-lookout
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
-  resources:
-    limits:
-      memory: 1Gi
-      cpu: "0.5"
-    requests:
-      memory: 500Mi
-      cpu: "0.3"
-
-  environment:
-  - name: LOG_FORMAT
-    value: json
-
-  prometheus:
-    enabled: false
-    labels:
-      metrics: "true"
-      prometheus: armada
-      role: prometheus-rulefiles
-
-  applicationConfig:
-    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
-    # for the full list of configuration options.
-    # See https://github.com/armadaproject/armada/blob/master/config/lookout/config.yaml
-    # for the full list of configuration options.
-    grpcPort: 50059
-    httpPort: 8080
-    metricsPort: 9000
-    grpc:
-      keepaliveParams:
-        maxConnectionIdle: 5m
-        time: 2h
-        timeout: 20s
-      keepaliveEnforcementPolicy:
-        minTime: 5m
-        permitWithoutStream: false
-    uiConfig:
-      armadaApiBaseUrl: "http://localhost:8080"
-      userAnnotationPrefix: "armadaproject.io/"
-      binocularsEnabled: true
-      binocularsBaseUrlPattern: "http://localhost:8082"
-      overviewAutoRefreshMs: 15000
-      jobSetsAutoRefreshMs: 15000
-      jobsAutoRefreshMs: 30000
-      lookoutV2ApiBaseUrl: "http://localhost:10000"
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgresql.armada.svc.cluster.local
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: lookout
-        sslmode: disable
----
-apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
-  namespace: armada
-  name: lookoutingester-sample
-spec:
-  image:
-    repository: gresearch/armada-lookout-ingester
-    tag: b292be39d6f960fcf20a8de26657ce79019abef5
-  applicationConfig:
-    postgres:
-      maxOpenConns: 100
-      maxIdleConns: 25
-      connMaxLifetime: 30m
-      connection:
-        host: postgresql.armada.svc.cluster.local
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: lookout
-        sslmode: disable
-    metrics:
-      port: 9000
-    pulsar:
-      enabled: true
-      URL: "pulsar://pulsar-broker.armada.svc.cluster.local:6650"
-      jobsetEventsTopic: "events"
-      receiveTimeout: 5s
-      backoffTime: 1s
-    paralellism: 1
-    subscriptionName: "lookout-ingester"
-    batchSize: 10000
-    batchDuration: 500ms
-    minJobSpecCompressionSize: 1024
-    userAnnotationPrefix: "armadaproject.io/"
----
-apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
-metadata:
   name: lookoutv2-sample
   namespace: armada
 spec:
@@ -254,7 +144,7 @@ spec:
   replicas: 2
   image:
     repository: gresearch/armada-lookout-v2
-    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
+    tag: 0.3.103
   resources:
     limits:
       memory: 1Gi
@@ -304,7 +194,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
+    tag: 0.3.103
   applicationConfig:
     postgres:
       maxOpenConns: 100
@@ -347,7 +237,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: "70a27e91003a32b90cfb8d8bfd736c65556daae9"
+    tag: 0.3.103
   applicationConfig:
     postgres:
       maxOpenConns: 100
@@ -408,8 +298,8 @@ spec:
   hostNames: [localhost]
   replicas: 2
   image:
-    repository: gresearchdev/armada-scheduler
-    tag: v0.3.47
+    repository: gresearch/armada-scheduler
+    tag: 0.3.103
   resources:
     limits:
       memory: 1Gi

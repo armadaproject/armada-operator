@@ -6,7 +6,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     apiConnection:
       armadaUrl: server.demo.armadaproject.io:443

@@ -12,7 +12,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     auth:
       anonymousAuth: true
@@ -50,47 +50,11 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     apiConnection:
       armadaUrl: armada-server.armada.svc.cluster.local:50051
       forceNoTls: true
----
-apiVersion: install.armadaproject.io/v1alpha1
-kind: Lookout
-metadata:
-  name: armada-lookout-v1
-  namespace: armada
-spec:
-  replicas: 1
-  ingress:
-    ingressClass: "nginx"
-  clusterIssuer: "letsencrypt-dev"
-  hostNames: [ui.demo.armadaproject.io]
-  image:
-    repository: gresearch/armada-lookout
-    tag: 0.3.92
-  prometheus:
-    enabled: true
-  applicationConfig:
-    grpcPort: 50051
-    # See https://github.com/armadaproject/armada/blob/master/config/lookoutv2/config.yaml
-    # for the full list of configuration options.
-    apiPort: 8080
-    corsAllowedOrigins:
-      - "*"
-    uiConfig:
-      armadaApiBaseUrl: "https://server.demo.armadaproject.io/api"
-      binocularsBaseUrlPattern: "http://armada-binoculars:8080"
-      lookoutV2ApiBaseUrl: "https://lookoutv2.demo.armadaproject.io"
-    postgres:
-      connection:
-        host: postgres-postgresql.data.svc.cluster.local
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: lookoutv1
-        sslmode: disable
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
@@ -105,7 +69,7 @@ spec:
   hostNames: [lookoutv2.demo.armadaproject.io]
   image:
     repository: gresearch/armada-lookout-v2
-    tag: 0.3.92
+    tag: 0.3.103
   prometheus:
     enabled: true
   applicationConfig:
@@ -126,33 +90,12 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: LookoutIngester
 metadata:
-  name: armada-lookout-ingester-v1
-  namespace: armada
-spec:
-  image:
-    repository: gresearch/armada-lookout-ingester
-    tag: 0.3.92
-  applicationConfig:
-    postgres:
-      connection:
-        host: postgres-postgresql.data.svc.cluster.local
-        port: 5432
-        user: postgres
-        password: psw
-        dbname: lookoutv1
-        sslmode: disable
-    pulsar:
-      URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
----
-apiVersion: install.armadaproject.io/v1alpha1
-kind: LookoutIngester
-metadata:
   name: armada-lookout-ingester-v2
   namespace: armada
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     postgres:
       connection:
@@ -178,7 +121,7 @@ spec:
   hostNames: [scheduler.demo.armadaproject.io]
   image:
     repository: gresearch/armada-scheduler
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     auth:
       anonymousAuth: true
@@ -202,7 +145,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     postgres:
       connection:
@@ -224,7 +167,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-event-ingester
-    tag: 0.3.92
+    tag: 0.3.103
   applicationConfig:
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650

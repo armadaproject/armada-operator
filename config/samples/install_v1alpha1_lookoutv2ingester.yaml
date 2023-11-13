@@ -12,7 +12,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 2a9b6e8cef1c0a1851ec34d0808a3ecfdcc9c926
+    tag: 0.3.103
   applicationConfig:
     postgres:
       maxOpenConns: 100

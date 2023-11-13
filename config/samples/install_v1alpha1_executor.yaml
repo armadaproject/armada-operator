@@ -11,8 +11,8 @@ metadata:
   namespace: default
 spec:
   image:
-    repository: gresearchdev/armada-executor
-    tag: v0.3.44
+    repository: gresearch/armada-executor
+    tag: 0.3.103
   applicationConfig:
     apiConnection:
       armadaUrl: armada.demo.armadaproject.io:443
