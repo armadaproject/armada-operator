@@ -2,7 +2,7 @@
 
 Armada Jobs are a superset of a Kubernetes PodSpec with additional Armada-specific fields.
 ```yaml
-queue: queue-kubecon-demo
+queue: queue-a
 jobSetId: job-set-1
 jobs:
   - priority: 0
