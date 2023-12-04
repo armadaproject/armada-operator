@@ -17,21 +17,21 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"time"
+    "time"
 
-	"k8s.io/utils/ptr"
+    "k8s.io/utils/ptr"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+    corev1 "k8s.io/api/core/v1"
+    "k8s.io/apimachinery/pkg/api/resource"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
+    return ctrl.NewWebhookManagedBy(mgr).
+        For(r).
+        Complete()
 }
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -42,33 +42,36 @@ var _ webhook.Defaulter = &Binoculars{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Binoculars) Default() {
-	executorlog.Info("default", "name", r.Name)
+    executorlog.Info("default", "name", r.Name)
 
-	// image
-	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearch/armada-binoculars"
-	}
+    // image
+    if r.Spec.Image.Repository == "" {
+        r.Spec.Image.Repository = "gresearch/armada-binoculars"
+    }
 
-	if r.Spec.Replicas == nil {
-		r.Spec.Replicas = ptr.To[int32](1)
-	}
+    if r.Spec.Replicas == nil {
+        r.Spec.Replicas = ptr.To[int32](1)
+    }
 
-	// resources
-	if r.Spec.Resources == nil {
-		r.Spec.Resources = &corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				"cpu":    resource.MustParse("300m"),
-				"memory": resource.MustParse("1Gi"),
-			},
-			Requests: corev1.ResourceList{
-				"cpu":    resource.MustParse("200m"),
-				"memory": resource.MustParse("512Mi"),
-			},
-		}
-	}
+    // resources
+    if r.Spec.Resources == nil {
+        r.Spec.Resources = &corev1.ResourceRequirements{
+            Limits: corev1.ResourceList{
+                "cpu":    resource.MustParse("300m"),
+                "memory": resource.MustParse("1Gi"),
+            },
+            Requests: corev1.ResourceList{
+                "cpu":    resource.MustParse("200m"),
+                "memory": resource.MustParse("512Mi"),
+            },
+        }
+    }
 
-	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == nil {
-		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
-	}
+    // prometheus
+    if r.Spec.Prometheus != nil && r.Spec.Prometheus.Enabled {
+        if r.Spec.Prometheus.ScrapeInterval == nil {
+            r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+        }
+    }
+
 }
