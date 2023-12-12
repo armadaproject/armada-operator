@@ -14,11 +14,11 @@ jobs:
   validate:
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.repository_owner == 'armadaproject'
     name: "Validate revision"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: "Checkout"
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v4"
         with:
           fetch-depth: 0
 
@@ -40,19 +40,20 @@ jobs:
   release:
     name: Release
     needs: validate
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-latest"
     environment: armada-dockerhub
 
     steps:
       - name: "Checkout"
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v4"
         with:
           fetch-depth: 0
 
-      - name: Setup Golang with Cache
-        uses: magnetikonline/action-golang-cache@v4
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
         with:
-          go-version: "1.20"
+          cache-prefix: go-build
 
       - name: Set up Docker Buildx
         id: buildx
@@ -65,17 +66,15 @@ jobs:
           password: "${{ secrets.DOCKERHUB_PASS }}"
 
       - name: "Run GoReleaser"
-        uses: "goreleaser/goreleaser-action@v4"
+        uses: "goreleaser/goreleaser-action@v5"
         with:
           distribution: "goreleaser"
-          version: v1.19.2
+          version: v1.21.1
           args: "-f ./.goreleaser.yaml release --snapshot --skip-sbom --skip-sign --clean"
         env:
           DOCKER_REPO: "gresearch"
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_BUILDX_BUILDER: "${{ steps.buildx.outputs.name }}"
-          DOCKER_BUILDX_CACHE_FROM: "type=gha"
-          DOCKER_BUILDX_CACHE_TO: "type=gha,mode=max"
 
       - name: Run Docker push script
         run: ./scripts/docker-push.sh -t '${{ github.event.workflow_run.head_sha }}'

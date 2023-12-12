@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,6 +27,10 @@ type SchedulerIngesterSpec struct {
 
 	// Replicas is the number of replicated instances for SchedulerIngester
 	Replicas *int32 `json:"replicas,omitempty"`
+	// SecurityContext defines the security options the container should be run with
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// PodSecurityContext defines the security options the pod should be run with
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // SchedulerIngesterStatus defines the observed state of SchedulerIngester

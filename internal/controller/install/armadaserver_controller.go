@@ -149,17 +149,23 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if as.Spec.PulsarInit {
 		for idx := range components.Jobs {
-			if components.Jobs[idx] != nil {
-				if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
-					return ctrl.Result{}, err
-				}
-				ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
-				defer cancel()
+			err = func() error {
+				if components.Jobs[idx] != nil {
+					if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[idx], mutateFn); err != nil {
+						return err
+					}
+					ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
+					defer cancel()
 
-				err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
-				if err != nil {
-					return ctrl.Result{}, err
+					err := waitForJob(ctxTimeout, r.Client, components.Jobs[idx], migrationPollSleep)
+					if err != nil {
+						return err
+					}
 				}
+				return nil
+			}()
+			if err != nil {
+				return ctrl.Result{}, err
 			}
 		}
 	}
@@ -535,7 +541,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Dep
 						Name:            "armadaserver",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(as.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
@@ -569,8 +575,8 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Dep
 	}
 	if as.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *as.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *as.Spec.Resources)
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *as.Spec.Resources)
 
 	return &deployment, nil
 }
@@ -601,7 +607,7 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 
 	secretName := as.Name + "-service-tls"
 	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := as.Name
 	for _, val := range as.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
@@ -654,7 +660,7 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 
 	secretName := as.Name + "-service-tls"
 	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-	ingressRules := []networking.IngressRule{}
+	var ingressRules []networking.IngressRule
 	serviceName := as.Name
 	for _, val := range as.Spec.HostNames {
 		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{

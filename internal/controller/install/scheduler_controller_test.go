@@ -254,6 +254,7 @@ func TestSchedulerReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) 
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
@@ -310,6 +311,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
@@ -332,7 +334,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 		},
 	}
 	cronJob, err := createSchedulerCronJob(&schedulerInput)
-	expectedArgs := []string{"--pruneDatabase", "--config", "/config/application_config.yaml", "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
+	expectedArgs := []string{"--pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
 	expectedResources := *schedulerInput.Spec.Pruner.Resources
 
 	assert.NoError(t, err)
@@ -399,6 +401,7 @@ func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
@@ -441,6 +444,7 @@ func TestSchedulerReconciler_ReconcileDeletingScheduler(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 			Replicas:      ptr.To[int32](2),
@@ -576,7 +580,10 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cr := v1alpha1.Scheduler{}
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)

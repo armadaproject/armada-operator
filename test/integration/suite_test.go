@@ -18,6 +18,7 @@ package integration
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,10 +26,10 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/armadaproject/armada-operator/internal/controller/install"
 
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -78,9 +79,12 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:        []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "config", "webhook", "manifests.yaml")},
+		},
 		ErrorIfCRDPathMissing:    true,
-		AttachControlPlaneOutput: false,
+		AttachControlPlaneOutput: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			CleanUpAfterUse: true,
 		},
@@ -98,19 +102,25 @@ var _ = BeforeSuite(func() {
 
 	runtimeScheme = scheme.Scheme
 
-	err = installv1alpha1.AddToScheme(runtimeScheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = corev1.AddToScheme(runtimeScheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = monitoringv1.AddToScheme(runtimeScheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(installv1alpha1.AddToScheme(runtimeScheme)).NotTo(HaveOccurred())
+	Expect(monitoringv1.AddToScheme(runtimeScheme)).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: runtimeScheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: runtimeScheme})
+	webhookOpts := webhook.Options{
+		CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+		Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+		Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+		TLSOpts: []func(*tls.Config){func(config *tls.Config) {}},
+	}
+	mgrOpts := ctrl.Options{
+		Scheme:        runtimeScheme,
+		WebhookServer: webhook.NewServer(webhookOpts),
+	}
+	k8sManager, err := ctrl.NewManager(cfg, mgrOpts)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&install.BinocularsReconciler{
@@ -149,10 +159,19 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Webhooks
+	Expect((&installv1alpha1.ArmadaServer{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.Executor{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.EventIngester{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.Binoculars{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.Lookout{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.LookoutIngester{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.SchedulerIngester{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+	Expect((&installv1alpha1.Scheduler{}).SetupWebhookWithManager(k8sManager)).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+		Expect(k8sManager.Start(ctx)).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 })
 

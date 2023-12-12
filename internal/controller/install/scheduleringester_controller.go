@@ -114,7 +114,7 @@ func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
-	logger.Info("Successfully reconciled SchedulerIngester object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled SchedulerIngester object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -214,7 +214,7 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 						Name:            "scheduleringester",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(scheduleringester.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: scheduleringester.Spec.PortConfig.MetricsPort,
@@ -233,6 +233,7 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 	if scheduleringester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduleringester.Spec.Resources
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduleringester.Spec.Resources)
 
 	return &deployment, nil
 

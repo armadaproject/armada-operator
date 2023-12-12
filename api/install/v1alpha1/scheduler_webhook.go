@@ -61,6 +61,14 @@ func (r *Scheduler) Default() {
 		r.Spec.Migrate = ptr.To[bool](true)
 	}
 
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
+	}
+
 	// resources
 	if r.Spec.Resources == nil {
 		r.Spec.Resources = &corev1.ResourceRequirements{
@@ -76,7 +84,9 @@ func (r *Scheduler) Default() {
 	}
 
 	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == nil {
-		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+	if r.Spec.Prometheus != nil && r.Spec.Prometheus.Enabled {
+		if r.Spec.Prometheus.ScrapeInterval == nil {
+			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+		}
 	}
 }

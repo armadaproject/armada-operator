@@ -60,6 +60,14 @@ func (r *Executor) Default() {
 		r.Spec.Replicas = ptr.To[int32](1)
 	}
 
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
+	}
+
 	// resources
 	if r.Spec.Resources == nil {
 		r.Spec.Resources = &corev1.ResourceRequirements{

@@ -41,7 +41,10 @@ func TestImageString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := ImageString(tt.Image)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -76,7 +79,10 @@ func TestAllLabels(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := AllLabels(tt.appName, tt.input...)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -95,7 +101,10 @@ func TestGetConfigName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := GetConfigName(tt.name)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -112,7 +121,10 @@ func TestIdentityLabel(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := IdentityLabel(tt.name)
 			assert.Equal(t, actual["app"], tt.name)
 		})
@@ -133,7 +145,10 @@ func TestGenerateChecksumConfig(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := GenerateChecksumConfig(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -141,7 +156,6 @@ func TestGenerateChecksumConfig(t *testing.T) {
 }
 
 func Test_waitForJob(t *testing.T) {
-
 	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
 	tests := []struct {
 		name        string
@@ -230,7 +244,10 @@ func Test_waitForJob(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
 			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -282,7 +299,10 @@ func Test_isJobFinished(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			rslt := isJobFinished(tt.job)
 			assert.Equal(t, tt.wantResult, rslt)
 		})
@@ -332,7 +352,10 @@ func Test_createEnv(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := createEnv(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -370,7 +393,10 @@ func Test_createVolumes(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := createVolumes("secret-name", tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -385,7 +411,7 @@ func Test_createPulsarVolumes(t *testing.T) {
 	}{
 		{
 			name:     "with empty pulsar config expect empty array",
-			expected: []corev1.Volume{},
+			expected: nil,
 		},
 		{
 			name: "with authentication enabled, expect token volume",
@@ -463,7 +489,10 @@ func Test_createPulsarVolumes(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := createPulsarVolumes(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -501,7 +530,10 @@ func Test_createVolumeMount(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := createVolumeMounts("secret-name", tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -516,7 +548,7 @@ func Test_createPulsarVolumeMount(t *testing.T) {
 	}{
 		{
 			name:     "with empty pulsar config expect empty array",
-			expected: []corev1.VolumeMount{},
+			expected: nil,
 		},
 		{
 			name: "with authentication enabled, expect token volume",
@@ -542,7 +574,10 @@ func Test_createPulsarVolumeMount(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := createPulsarVolumeMounts(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
@@ -613,7 +648,10 @@ func TestDeepCopy(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			newCC := tt.cc.DeepCopy()
 			tt.expectations(t, tt.cc, *newCC)
 		})
@@ -643,7 +681,10 @@ func TestReconcileComponents(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tt.old.ReconcileComponents(&tt.new)
 			tt.expectations(t, tt.new)
 		})
@@ -672,7 +713,10 @@ func TestExtractPulsarConfig(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			output, err := ExtractPulsarConfig(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -703,7 +747,7 @@ func makeCommonComponents() CommonComponents {
 						Name:            "armadaserver",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           "gresearch/someimage",
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: 9001,
@@ -756,10 +800,13 @@ func TestAddGoMemLimit(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			resources := corev1.ResourceRequirements{}
-			if err := yaml.Unmarshal([]byte(tc.resourcesYaml), &resources); err != nil {
+			if err := yaml.Unmarshal([]byte(tt.resourcesYaml), &resources); err != nil {
 				t.Fatalf("error unmarshalling resources yaml: %v", err)
 			}
 
@@ -770,11 +817,11 @@ func TestAddGoMemLimit(t *testing.T) {
 			for _, envVar := range env {
 				if envVar.Name == "GOMEMLIMIT" {
 					goMemLimitFound = true
-					assert.Equal(t, tc.expectedGoMemLimit, envVar.Value)
+					assert.Equal(t, tt.expectedGoMemLimit, envVar.Value)
 				}
 			}
 
-			if !goMemLimitFound && tc.expectedGoMemLimit != "" {
+			if !goMemLimitFound && tt.expectedGoMemLimit != "" {
 				t.Errorf("expected GOMEMLIMIT to be set, but it was not found")
 			}
 		})

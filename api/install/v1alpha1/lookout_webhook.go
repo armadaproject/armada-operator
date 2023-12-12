@@ -40,7 +40,7 @@ func (r *Lookout) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookout,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookouts,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Lookout{}
 
@@ -50,7 +50,7 @@ func (r *Lookout) Default() {
 
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearch/armada-lookout"
+		r.Spec.Image.Repository = "gresearch/armada-lookout-v2"
 	}
 
 	if r.Spec.Replicas == nil {
@@ -59,6 +59,14 @@ func (r *Lookout) Default() {
 
 	if r.Spec.Migrate == nil {
 		r.Spec.Migrate = ptr.To[bool](true)
+	}
+
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
 	}
 
 	// resources
@@ -76,7 +84,9 @@ func (r *Lookout) Default() {
 	}
 
 	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == nil {
-		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+	if r.Spec.Prometheus != nil {
+		if r.Spec.Prometheus.ScrapeInterval == nil {
+			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+		}
 	}
 }

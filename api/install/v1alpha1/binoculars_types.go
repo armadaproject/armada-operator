@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -58,6 +59,10 @@ type BinocularsSpec struct {
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
 	ClusterIssuer string `json:"clusterIssuer"`
+	// SecurityContext defines the security options the container should be run with
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// PodSecurityContext defines the security options the pod should be run with
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // BinocularsStatus defines the observed state of binoculars
