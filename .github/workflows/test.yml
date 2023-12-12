@@ -72,9 +72,9 @@ jobs:
             echo -e >> $GITHUB_STEP_SUMMARY
             echo -e "### Git diff" >> $GITHUB_STEP_SUMMARY
 
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
             git --no-pager diff >> $GITHUB_STEP_SUMMARY
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
           else
             echo -e "Go modules are synchronized." >> $GITHUB_STEP_SUMMARY
             echo -e >> $GITHUB_STEP_SUMMARY
@@ -111,9 +111,9 @@ jobs:
             echo -e >> $GITHUB_STEP_SUMMARY
             echo -e "### Git diff" >> $GITHUB_STEP_SUMMARY
 
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
             git --no-pager diff >> $GITHUB_STEP_SUMMARY
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
           else
             echo -e "Kubernetes manifests are synchronized." >> $GITHUB_STEP_SUMMARY
             echo -e >> $GITHUB_STEP_SUMMARY
@@ -150,9 +150,9 @@ jobs:
             echo -e >> $GITHUB_STEP_SUMMARY
             echo -e "### Git diff" >> $GITHUB_STEP_SUMMARY
 
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
             git --no-pager diff >> $GITHUB_STEP_SUMMARY
-            echo -e "```" >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
           else
             echo -e "Generated code is synchronized." >> $GITHUB_STEP_SUMMARY
             echo -e >> $GITHUB_STEP_SUMMARY
