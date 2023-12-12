@@ -37,7 +37,7 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not return error when building schema")
 	}
-	cases := map[string]struct {
+	tests := map[string]struct {
 		binoculars    *v1alpha1.Binoculars
 		expectedError bool
 	}{
@@ -100,10 +100,13 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 		},
 	}
 
-	for name, tc := range cases {
+	for name, tt := range tests {
+		tt := tt
 		t.Run(name, func(t *testing.T) {
-			_, err := generateBinocularsInstallComponents(tc.binoculars, scheme)
-			if tc.expectedError {
+			t.Parallel()
+
+			_, err := generateBinocularsInstallComponents(tt.binoculars, scheme)
+			if tt.expectedError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
@@ -323,6 +326,7 @@ func TestBinocularsReconciler_ReconcileDeletingBinoculars(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",
@@ -399,6 +403,7 @@ func TestBinocularsReconciler_ReconcileInvalidApplicationConfig(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",

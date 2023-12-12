@@ -216,6 +216,7 @@ func TestExecutorReconciler_ReconcileDeletingExecutor(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
 			},
 		},
@@ -292,6 +293,7 @@ func TestExecutorReconciler_ReconcileErrorOnApplicationConfig(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 		},
 	}

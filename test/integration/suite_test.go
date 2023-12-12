@@ -19,14 +19,16 @@ package integration
 import (
 	"context"
 	"crypto/tls"
-	"github.com/armadaproject/armada-operator/internal/controller/install"
+	"os"
+	"path/filepath"
+	"testing"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"os"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"testing"
+
+	"github.com/armadaproject/armada-operator/internal/controller/install"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 

@@ -195,6 +195,7 @@ func TestLookoutIngesterReconciler_ReconcileDelete(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 		},
 	}
@@ -252,6 +253,7 @@ func TestLookoutIngesterReconciler_ErrorOnApplicationConfig(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 		},
 	}

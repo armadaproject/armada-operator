@@ -188,6 +188,7 @@ func TestSchedulerIngesterReconciler_ReconcileDelete(t *testing.T) {
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 		},
 	}
@@ -245,6 +246,7 @@ func TestSchedulerIngesterReconciler_ReconcileErrorOnApplicationConfig(t *testin
 					Tag:        "1.0.0",
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)},
+				Resources:         &corev1.ResourceRequirements{},
 			},
 		},
 	}

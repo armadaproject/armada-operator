@@ -40,7 +40,7 @@ func (r *Lookout) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookout,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookout,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookouts,verbs=create;update,versions=v1alpha1,name=mlookout.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Lookout{}
 
@@ -84,7 +84,9 @@ func (r *Lookout) Default() {
 	}
 
 	// prometheus
-	if r.Spec.Prometheus.ScrapeInterval == nil {
-		r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+	if r.Spec.Prometheus != nil {
+		if r.Spec.Prometheus.ScrapeInterval == nil {
+			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
+		}
 	}
 }
