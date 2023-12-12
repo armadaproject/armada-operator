@@ -50,7 +50,7 @@ func (r *Lookout) Default() {
 
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearch/armada-lookout"
+		r.Spec.Image.Repository = "gresearch/armada-lookout-v2"
 	}
 
 	if r.Spec.Replicas == nil {
@@ -59,6 +59,14 @@ func (r *Lookout) Default() {
 
 	if r.Spec.Migrate == nil {
 		r.Spec.Migrate = ptr.To[bool](true)
+	}
+
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
 	}
 
 	// resources

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +37,10 @@ type ArmadaServerSpec struct {
 	ClusterIssuer string `json:"clusterIssuer"`
 	// Run Pulsar Init Jobs On Startup
 	PulsarInit bool `json:"pulsarInit,omitempty"`
+	// SecurityContext defines the security options the container should be run with
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// PodSecurityContext defines the security options the pod should be run with
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // ArmadaServerStatus defines the observed state of ArmadaServer

@@ -215,32 +215,36 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	if err := controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(executor, secret, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	serviceAccount := builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
-		return nil, err
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := executor.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
 	}
-	deployment := r.createDeployment(executor, secret, serviceAccount)
-	if err := controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
-		return nil, err
+	deployment := r.createDeployment(executor, secret, serviceAccountName)
+	if err = controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), executor.Spec.PortConfig)
-	if err := controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	clusterRole := r.createClusterRole(executor)
-	serviceAccountName := executor.Spec.CustomServiceAccount
-	if serviceAccountName == "" {
-		serviceAccountName = serviceAccount.Name
+	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
+	if serviceAccountName != "" {
+		clusterRoleBindings = make([]*rbacv1.ClusterRoleBinding, 0, len(executor.Spec.AdditionalClusterRoleBindings)+1)
+		clusterRoleBindings = append(clusterRoleBindings, r.createClusterRoleBinding(executor, clusterRole, serviceAccountName))
+		clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 	}
-	clusterRoleBindings := make([]*rbacv1.ClusterRoleBinding, 0, len(executor.Spec.AdditionalClusterRoleBindings)+1)
-	clusterRoleBindings = append(clusterRoleBindings, r.createClusterRoleBinding(executor, clusterRole, serviceAccountName))
-	clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 
 	components := &CommonComponents{
 		Deployment:          deployment,
@@ -254,19 +258,18 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 
 	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
 		serviceMonitor := r.createServiceMonitor(executor)
-		if err := controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
+		if err = controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
 		components.ServiceMonitor = serviceMonitor
 
-		pr := createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
-		components.PrometheusRule = pr
+		components.PrometheusRule = createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
 	}
 
 	return components, nil
 }
 
-func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) *appsv1.Deployment {
+func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccountName string) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
@@ -309,7 +312,7 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		Name:            "executor",
 		ImagePullPolicy: "IfNotPresent",
 		Image:           ImageString(executor.Spec.Image),
-		Args:            []string{"--config", appConfigMount},
+		Args:            []string{appConfigFlag, appConfigFilepath},
 		Ports:           ports,
 		Env:             env,
 		VolumeMounts:    volumeMounts,
@@ -324,10 +327,6 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		},
 	}}
 	volumes = append(volumes, executor.Spec.AdditionalVolumes...)
-	serviceAccountName := executor.Spec.CustomServiceAccount
-	if serviceAccountName == "" {
-		serviceAccountName = serviceAccount.Name
-	}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -359,8 +358,9 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 	}
 	if executor.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *executor.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *executor.Spec.Resources)
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *executor.Spec.Resources)
+
 	return &deployment
 }
 

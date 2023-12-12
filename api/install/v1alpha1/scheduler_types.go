@@ -61,6 +61,10 @@ type SchedulerSpec struct {
 	Migrate *bool `json:"migrate,omitempty"`
 	// Pruning config for cron job
 	Pruner *PrunerConfig `json:"pruner,omitempty"`
+	// SecurityContext defines the security options the container should be run with
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// PodSecurityContext defines the security options the pod should be run with
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // PrunerConfig definees the pruner cronjob settings

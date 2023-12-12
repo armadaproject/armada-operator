@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,9 +46,35 @@ var _ webhook.Defaulter = &EventIngester{}
 func (r *EventIngester) Default() {
 	eventingesterlog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
+	// image
+	if r.Spec.Image.Repository == "" {
+		r.Spec.Image.Repository = "gresearch/armada-event-ingester"
+	}
+
 	if r.Spec.Replicas == nil {
 		r.Spec.Replicas = ptr.To[int32](1)
+	}
+
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
+	}
+
+	// resources
+	if r.Spec.Resources == nil {
+		r.Spec.Resources = &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				"cpu":    resource.MustParse("300m"),
+				"memory": resource.MustParse("1Gi"),
+			},
+			Requests: corev1.ResourceList{
+				"cpu":    resource.MustParse("200m"),
+				"memory": resource.MustParse("512Mi"),
+			},
+		}
 	}
 }
 

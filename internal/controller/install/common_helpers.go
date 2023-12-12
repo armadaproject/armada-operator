@@ -31,6 +31,8 @@ import (
 
 const (
 	defaultPrometheusInterval = 1 * time.Second
+	appConfigFlag             = appConfigFilepath
+	appConfigFilepath         = "/config/application_config.yaml"
 )
 
 // CommonComponents are the base components for all of the Armada services
@@ -95,7 +97,7 @@ type AppConfig struct {
 	Pulsar PulsarConfig
 }
 
-// DeepCopy will deep copy values from the receiver and return a new reference
+// DeepCopy will deep-copy values from the receiver and return a new reference
 func (cc *CommonComponents) DeepCopy() *CommonComponents {
 	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
 	for _, crb := range cc.ClusterRoleBindings {
@@ -131,66 +133,66 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 }
 
 // ReconcileComponents will copy values from newComponents to the receiver
-func (oldComponents *CommonComponents) ReconcileComponents(newComponents *CommonComponents) {
-	oldComponents.Secret.Data = newComponents.Secret.Data
-	oldComponents.Secret.Labels = newComponents.Secret.Labels
-	oldComponents.Secret.Annotations = newComponents.Secret.Annotations
-	oldComponents.Deployment.Spec = newComponents.Deployment.Spec
-	oldComponents.Deployment.Labels = newComponents.Deployment.Labels
-	oldComponents.Deployment.Annotations = newComponents.Deployment.Annotations
+func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents) {
+	cc.Secret.Data = newComponents.Secret.Data
+	cc.Secret.Labels = newComponents.Secret.Labels
+	cc.Secret.Annotations = newComponents.Secret.Annotations
+	cc.Deployment.Spec = newComponents.Deployment.Spec
+	cc.Deployment.Labels = newComponents.Deployment.Labels
+	cc.Deployment.Annotations = newComponents.Deployment.Annotations
 	if newComponents.Service != nil {
-		oldComponents.Service.Spec = newComponents.Service.Spec
-		oldComponents.Service.Labels = newComponents.Service.Labels
-		oldComponents.Service.Annotations = newComponents.Service.Annotations
+		cc.Service.Spec = newComponents.Service.Spec
+		cc.Service.Labels = newComponents.Service.Labels
+		cc.Service.Annotations = newComponents.Service.Annotations
 	} else {
-		oldComponents.Service = nil
+		cc.Service = nil
 	}
 
 	if newComponents.ClusterRole != nil {
-		oldComponents.ClusterRole.Rules = newComponents.ClusterRole.Rules
-		oldComponents.ClusterRole.Labels = newComponents.ClusterRole.Labels
-		oldComponents.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
+		cc.ClusterRole.Rules = newComponents.ClusterRole.Rules
+		cc.ClusterRole.Labels = newComponents.ClusterRole.Labels
+		cc.ClusterRole.Annotations = newComponents.ClusterRole.Annotations
 	} else {
-		oldComponents.ClusterRole = nil
+		cc.ClusterRole = nil
 	}
 
 	if newComponents.IngressGrpc != nil {
-		oldComponents.IngressGrpc.Spec = newComponents.IngressGrpc.Spec
-		oldComponents.IngressGrpc.Labels = newComponents.IngressGrpc.Labels
-		oldComponents.IngressGrpc.Annotations = newComponents.IngressGrpc.Annotations
+		cc.IngressGrpc.Spec = newComponents.IngressGrpc.Spec
+		cc.IngressGrpc.Labels = newComponents.IngressGrpc.Labels
+		cc.IngressGrpc.Annotations = newComponents.IngressGrpc.Annotations
 	} else {
-		oldComponents.IngressGrpc = nil
+		cc.IngressGrpc = nil
 	}
 
 	if newComponents.IngressHttp != nil {
-		oldComponents.IngressHttp.Spec = newComponents.IngressHttp.Spec
-		oldComponents.IngressHttp.Labels = newComponents.IngressHttp.Labels
-		oldComponents.IngressHttp.Annotations = newComponents.IngressHttp.Annotations
+		cc.IngressHttp.Spec = newComponents.IngressHttp.Spec
+		cc.IngressHttp.Labels = newComponents.IngressHttp.Labels
+		cc.IngressHttp.Annotations = newComponents.IngressHttp.Annotations
 	} else {
-		oldComponents.IngressHttp = nil
+		cc.IngressHttp = nil
 	}
 
 	if newComponents.PodDisruptionBudget != nil {
-		oldComponents.PodDisruptionBudget.Spec = newComponents.PodDisruptionBudget.Spec
-		oldComponents.PodDisruptionBudget.Labels = newComponents.PodDisruptionBudget.Labels
-		oldComponents.PodDisruptionBudget.Annotations = newComponents.PodDisruptionBudget.Annotations
+		cc.PodDisruptionBudget.Spec = newComponents.PodDisruptionBudget.Spec
+		cc.PodDisruptionBudget.Labels = newComponents.PodDisruptionBudget.Labels
+		cc.PodDisruptionBudget.Annotations = newComponents.PodDisruptionBudget.Annotations
 	} else {
-		oldComponents.PodDisruptionBudget = nil
+		cc.PodDisruptionBudget = nil
 	}
 
-	for i := range oldComponents.ClusterRoleBindings {
-		oldComponents.ClusterRoleBindings[i].RoleRef = newComponents.ClusterRoleBindings[i].RoleRef
-		oldComponents.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
-		oldComponents.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
-		oldComponents.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
+	for i := range cc.ClusterRoleBindings {
+		cc.ClusterRoleBindings[i].RoleRef = newComponents.ClusterRoleBindings[i].RoleRef
+		cc.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
+		cc.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
+		cc.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
 	}
-	for i := range oldComponents.PriorityClasses {
-		oldComponents.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
-		oldComponents.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
-		oldComponents.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
-		oldComponents.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
-		oldComponents.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
-		oldComponents.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
+	for i := range cc.PriorityClasses {
+		cc.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
+		cc.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
+		cc.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
+		cc.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
+		cc.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
+		cc.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
 	}
 }
 
@@ -348,7 +350,7 @@ func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.
 
 // createPulsarVolumeMounts creates the pulsar volumeMounts for token and/or cert
 func createPulsarVolumeMounts(pulsarConfig PulsarConfig) []corev1.VolumeMount {
-	volumeMounts := []corev1.VolumeMount{}
+	var volumeMounts []corev1.VolumeMount
 	if pulsarConfig.AuthenticationEnabled {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "pulsar-token",
@@ -368,7 +370,7 @@ func createPulsarVolumeMounts(pulsarConfig PulsarConfig) []corev1.VolumeMount {
 
 // createPulsarVolumes creates the pulsar volumes for token and/or cert
 func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
-	volumes := []corev1.Volume{}
+	var volumes []corev1.Volume
 	if pulsarConfig.AuthenticationEnabled {
 		secretName := "armada-pulsar-token-armada-admin"
 		if pulsarConfig.AuthenticationSecret != "" {

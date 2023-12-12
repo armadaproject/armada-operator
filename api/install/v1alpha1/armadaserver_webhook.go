@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +38,7 @@ func (r *ArmadaServer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armada-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=armada-server.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armadaserver,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armadaservers,verbs=create;update,versions=v1alpha1,name=armadaserver.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &ArmadaServer{}
 
@@ -44,14 +46,40 @@ var _ webhook.Defaulter = &ArmadaServer{}
 func (r *ArmadaServer) Default() {
 	armadaServerLog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
+	// image
+	if r.Spec.Image.Repository == "" {
+		r.Spec.Image.Repository = "gresearch/armada-server"
+	}
+
 	if r.Spec.Replicas == nil {
 		r.Spec.Replicas = ptr.To[int32](1)
+	}
+
+	// security context
+	if r.Spec.SecurityContext == nil {
+		r.Spec.SecurityContext = GetDefaultSecurityContext()
+	}
+	if r.Spec.PodSecurityContext == nil {
+		r.Spec.PodSecurityContext = GetDefaultPodSecurityContext()
+	}
+
+	// resources
+	if r.Spec.Resources == nil {
+		r.Spec.Resources = &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				"cpu":    resource.MustParse("300m"),
+				"memory": resource.MustParse("1Gi"),
+			},
+			Requests: corev1.ResourceList{
+				"cpu":    resource.MustParse("200m"),
+				"memory": resource.MustParse("512Mi"),
+			},
+		}
 	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-armada-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armada-servers,verbs=create;update,versions=v1alpha1,name=varmada-server.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-armadaserver,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armadaservers,verbs=create;update,versions=v1alpha1,name=varmadaserver.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &ArmadaServer{}
 

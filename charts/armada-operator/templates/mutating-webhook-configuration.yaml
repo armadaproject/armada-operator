@@ -13,9 +13,9 @@ webhooks:
     service:
       name: '{{ include "armada-operator.fullname" . }}-webhook-service'
       namespace: '{{ .Release.Namespace }}'
-      path: /mutate-install-armadaproject-io-v1alpha1-armada-server
+      path: /mutate-install-armadaproject-io-v1alpha1-armadaserver
   failurePolicy: Fail
-  name: armada-server.kb.io
+  name: armadaserver.kb.io
   rules:
   - apiGroups:
     - install.armadaproject.io
@@ -25,7 +25,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - armada-servers
+    - armadaservers
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -166,4 +166,24 @@ webhooks:
     - UPDATE
     resources:
     - scheduleringesters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "armada-operator.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-install-armadaproject-io-v1alpha1-armadaserver
+  failurePolicy: Fail
+  name: varmadaserver.kb.io
+  rules:
+  - apiGroups:
+    - install.armadaproject.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - armadaservers
   sideEffects: None

@@ -116,7 +116,7 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	logger.Info("Successfully reconciled LookoutIngester object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled LookoutIngester object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -196,7 +196,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 						Name:            "lookoutingester",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookoutIngester.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						// FIXME(Clif): Needs to change
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
@@ -215,7 +215,8 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 	}
 	if lookoutIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookoutIngester.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookoutIngester.Spec.Resources)
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookoutIngester.Spec.Resources)
+
 	return &deployment, nil
 }

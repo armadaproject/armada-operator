@@ -703,7 +703,7 @@ func makeCommonComponents() CommonComponents {
 						Name:            "armadaserver",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           "gresearch/someimage",
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
 							ContainerPort: 9001,

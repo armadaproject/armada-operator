@@ -332,7 +332,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 		},
 	}
 	cronJob, err := createSchedulerCronJob(&schedulerInput)
-	expectedArgs := []string{"--pruneDatabase", "--config", "/config/application_config.yaml", "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
+	expectedArgs := []string{"--pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
 	expectedResources := *schedulerInput.Spec.Pruner.Resources
 
 	assert.NoError(t, err)

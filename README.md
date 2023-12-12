@@ -56,7 +56,7 @@ you should have a fully functional install of Armada running.
 
 To stop the development cluster:
 ```bash
-make dev-teardown
+make delete-dev-cluster
 ```
 
 This will totally destroy your development Kind cluster. 
@@ -110,7 +110,7 @@ pass.
 
 Please test contributions thoroughly before requesting reviews. At a minimum:
 ```bash
-make test
+make test-unit
 make test-integration
 make lint
 ```

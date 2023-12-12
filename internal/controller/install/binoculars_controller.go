@@ -179,13 +179,13 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 	if components.IngressHttp != nil {
-		logger.Info("Upserting Rest Ingress object")
+		logger.Info("Upserting REST Ingress object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	logger.Info("Successfully reconciled Binoculars object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled Binoculars object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -193,41 +193,46 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	if err := controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(binoculars, secret, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	deployment, err := createBinocularsDeployment(binoculars)
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := binoculars.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(binoculars, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+	deployment, err := createBinocularsDeployment(binoculars, secret, serviceAccountName)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	if err := controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), binoculars.Spec.PortConfig)
-	if err := controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
-		return nil, err
-	}
-	serAct := builders.CreateServiceAccount(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(binoculars, serAct, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	ingress, err := createBinocularsIngressHttp(binoculars)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	if err := controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	ingressGrpc, err := createBinocularsIngressGrpc(binoculars)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	if err := controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
-		return nil, err
+	if err = controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	clusterRole := createBinocularsClusterRole(binoculars)
@@ -236,7 +241,7 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	return &CommonComponents{
 		Deployment:          deployment,
 		Service:             service,
-		ServiceAccount:      serAct,
+		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		ClusterRole:         clusterRole,
 		ClusterRoleBindings: []*rbacv1.ClusterRoleBinding{clusterRoleBinding},
@@ -246,14 +251,38 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 }
 
 // Function to build the deployment object for Binoculars.
-// This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) (*appsv1.Deployment, error) {
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
+// This should be changing from CRD to CRD.  Not sure if generalizing this helps much
+func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars, secret *corev1.Secret, serviceAccountName string) (*appsv1.Deployment, error) {
 	env := createEnv(binoculars.Spec.Environment)
 	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
-	volumeMounts := createVolumeMounts(GetConfigFilename(binoculars.Name), binoculars.Spec.AdditionalVolumeMounts)
+	volumeMounts := createVolumeMounts(GetConfigFilename(secret.Name), binoculars.Spec.AdditionalVolumeMounts)
+	ports := []corev1.ContainerPort{
+		{
+			Name:          "metrics",
+			ContainerPort: binoculars.Spec.PortConfig.MetricsPort,
+			Protocol:      "TCP",
+		},
+		{
+			Name:          "http",
+			ContainerPort: binoculars.Spec.PortConfig.HttpPort,
+			Protocol:      "TCP",
+		},
+		{
+			Name:          "grpc",
+			ContainerPort: binoculars.Spec.PortConfig.GrpcPort,
+			Protocol:      "TCP",
+		},
+	}
+	containers := []corev1.Container{{
+		Name:            "binoculars",
+		ImagePullPolicy: "IfNotPresent",
+		Image:           ImageString(binoculars.Spec.Image),
+		Args:            []string{appConfigFlag, appConfigFilepath},
+		Ports:           ports,
+		Env:             env,
+		VolumeMounts:    volumeMounts,
+		SecurityContext: binoculars.Spec.SecurityContext,
+	}}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},
 		Spec: appsv1.DeploymentSpec{
@@ -269,11 +298,9 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) (*appsv1
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(binoculars.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: binoculars.DeletionGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               binoculars.Spec.PodSecurityContext,
 					Affinity: &corev1.Affinity{
 						PodAffinity: &corev1.PodAffinity{
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
@@ -291,53 +318,36 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars) (*appsv1
 							}},
 						},
 					},
-					Containers: []corev1.Container{{
-						Name:            "binoculars",
-						ImagePullPolicy: "IfNotPresent",
-						Image:           ImageString(binoculars.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: binoculars.Spec.PortConfig.MetricsPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "http",
-								ContainerPort: binoculars.Spec.PortConfig.HttpPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "grpc",
-								ContainerPort: binoculars.Spec.PortConfig.GrpcPort,
-								Protocol:      "TCP",
-							},
-						},
-						Env:             env,
-						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
-					}},
-					Volumes: volumes,
+					Containers: containers,
+					Volumes:    volumes,
 				},
 			},
 		},
 	}
 	if binoculars.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *binoculars.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *binoculars.Spec.Resources)
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *binoculars.Spec.Resources)
+
 	return &deployment, nil
 }
 
 func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRole {
-	binocularRules := rbacv1.PolicyRule{
-		Verbs:     []string{"impersonate"},
-		APIGroups: []string{""},
-		Resources: []string{"users", "groups"},
+	binocularRules := []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"impersonate"},
+			APIGroups: []string{""},
+			Resources: []string{"users", "groups"},
+		},
+		{
+			Verbs:     []string{"get", "list", "watch", "patch"},
+			APIGroups: []string{""},
+			Resources: []string{"nodes"},
+		},
 	}
 	clusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name},
-		Rules:      []rbacv1.PolicyRule{binocularRules},
+		Rules:      binocularRules,
 	}
 	return &clusterRole
 }

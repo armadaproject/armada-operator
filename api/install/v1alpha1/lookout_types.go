@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -64,6 +65,10 @@ type LookoutSpec struct {
 	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
 	// DbPruningSchedule schedule to use for db pruning CronJob
 	DbPruningSchedule *string `json:"dbPruningSchedule,omitempty"`
+	// SecurityContext defines the security options the container should be run with
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+	// PodSecurityContext defines the security options the pod should be run with
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // LookoutStatus defines the observed state of lookout

@@ -180,7 +180,7 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	logger.Info("Successfully reconciled Scheduler object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled Scheduler object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -331,7 +331,7 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 						Name:            "scheduler",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(scheduler.Spec.Image),
-						Args:            []string{"run", "--config", "/config/application_config.yaml"},
+						Args:            []string{"run", appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
@@ -357,6 +357,8 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 	if scheduler.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduler.Spec.Resources
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduler.Spec.Resources)
+
 	return &deployment, nil
 }
 
@@ -508,8 +510,8 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1
 						Image:           ImageString(scheduler.Spec.Image),
 						Args: []string{
 							"migrateDatabase",
-							"--config",
-							"/config/application_config.yaml",
+							appConfigFlag,
+							appConfigFilepath,
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
@@ -558,8 +560,8 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 
 	prunerArgs := []string{
 		"--pruneDatabase",
-		"--config",
-		"/config/application_config.yaml",
+		appConfigFlag,
+		appConfigFilepath,
 	}
 	if scheduler.Spec.Pruner.Args.Timeout != "" {
 		prunerArgs = append(prunerArgs, "--timeout", scheduler.Spec.Pruner.Args.Timeout)

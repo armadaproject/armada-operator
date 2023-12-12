@@ -134,3 +134,23 @@ func ConvertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
 
 	return string(yamlConfig), nil
 }
+
+func GetDefaultSecurityContext() *corev1.SecurityContext {
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	allowPrivilegeEscalation := false
+	return &corev1.SecurityContext{
+		RunAsUser:                &runAsUser,
+		RunAsGroup:               &runAsGroup,
+		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+	}
+}
+
+func GetDefaultPodSecurityContext() *corev1.PodSecurityContext {
+	var runAsUser int64 = 1000
+	var runAsGroup int64 = 2000
+	return &corev1.PodSecurityContext{
+		RunAsUser:  &runAsUser,
+		RunAsGroup: &runAsGroup,
+	}
+}

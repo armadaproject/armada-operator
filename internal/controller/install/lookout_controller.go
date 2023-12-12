@@ -186,7 +186,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	logger.Info("Successfully reconciled Lookout object", "durationMilis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled Lookout object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -337,7 +337,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 						Name:            "lookout",
 						ImagePullPolicy: "IfNotPresent",
 						Image:           ImageString(lookout.Spec.Image),
-						Args:            []string{"--config", "/config/application_config.yaml"},
+						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
@@ -366,8 +366,9 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 	}
 	if lookout.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *lookout.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookout.Spec.Resources)
 	}
+	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *lookout.Spec.Resources)
+
 	return &deployment, nil
 }
 
@@ -518,8 +519,8 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 						Image:           ImageString(lookout.Spec.Image),
 						Args: []string{
 							"--migrateDatabase",
-							"--config",
-							"/config/application_config.yaml",
+							appConfigFlag,
+							appConfigFilepath,
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
@@ -632,8 +633,8 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 								Image:           ImageString(lookout.Spec.Image),
 								Args: []string{
 									"--pruneDatabase",
-									"--config",
-									"/config/application_config.yaml",
+									appConfigFlag,
+									appConfigFilepath,
 								},
 								Ports: []corev1.ContainerPort{{
 									Name:          "metrics",
