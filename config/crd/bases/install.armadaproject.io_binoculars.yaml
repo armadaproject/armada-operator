@@ -2365,7 +2365,6 @@ spec:
                 type: array
             required:
             - applicationConfig
-            - clusterIssuer
             - image
             - replicas
             type: object

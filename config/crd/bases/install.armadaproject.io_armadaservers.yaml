@@ -2368,7 +2368,6 @@ spec:
                 type: array
             required:
             - applicationConfig
-            - clusterIssuer
             - image
             type: object
           status:

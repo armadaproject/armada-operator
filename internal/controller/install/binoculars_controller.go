@@ -396,11 +396,15 @@ func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*netwo
 				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
 				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-				"certmanager.k8s.io/cluster-issuer":            binoculars.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":               binoculars.Spec.ClusterIssuer,
 			},
 		},
 	}
+
+	if binoculars.Spec.ClusterIssuer != "" {
+		grpcIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
+		grpcIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
+	}
+
 	if binoculars.Spec.Ingress.Annotations != nil {
 		for key, value := range binoculars.Spec.Ingress.Annotations {
 			grpcIngress.ObjectMeta.Annotations[key] = value
@@ -445,12 +449,15 @@ func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*netwo
 		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
-				"certmanager.k8s.io/cluster-issuer":          binoculars.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":             binoculars.Spec.ClusterIssuer,
 				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
 				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 			},
 		},
+	}
+
+	if binoculars.Spec.ClusterIssuer != "" {
+		restIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
+		restIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
 	}
 
 	if binoculars.Spec.Ingress.Annotations != nil {
