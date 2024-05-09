@@ -375,10 +375,13 @@ func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networki
 				"kubernetes.io/ingress.class":                  scheduler.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
 				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-				"certmanager.k8s.io/cluster-issuer":            scheduler.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":               scheduler.Spec.ClusterIssuer,
 			},
 		},
+	}
+
+	if scheduler.Spec.ClusterIssuer != "" {
+		ingressHttp.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = scheduler.Spec.ClusterIssuer
+		ingressHttp.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = scheduler.Spec.ClusterIssuer
 	}
 
 	if scheduler.Spec.Ingress.Annotations != nil {

@@ -34,7 +34,7 @@ type ArmadaServerSpec struct {
 	// An array of host names to build ingress rules for
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
-	ClusterIssuer string `json:"clusterIssuer"`
+	ClusterIssuer string `json:"clusterIssuer,omitempty"`
 	// Run Pulsar Init Jobs On Startup
 	PulsarInit bool `json:"pulsarInit,omitempty"`
 	// SecurityContext defines the security options the container should be run with

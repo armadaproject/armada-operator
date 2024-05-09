@@ -593,11 +593,15 @@ func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
 				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
 				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-				"certmanager.k8s.io/cluster-issuer":            as.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":               as.Spec.ClusterIssuer,
 			},
 		},
 	}
+
+	if as.Spec.ClusterIssuer != "" {
+		grpcIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = as.Spec.ClusterIssuer
+		grpcIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = as.Spec.ClusterIssuer
+	}
+
 	if as.Spec.Ingress.Annotations != nil {
 		for key, value := range as.Spec.Ingress.Annotations {
 			grpcIngress.ObjectMeta.Annotations[key] = value
@@ -643,12 +647,15 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 			Name: restIngressName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class":                as.Spec.Ingress.IngressClass,
-				"certmanager.k8s.io/cluster-issuer":          as.Spec.ClusterIssuer,
-				"cert-manager.io/cluster-issuer":             as.Spec.ClusterIssuer,
 				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
 				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 			},
 		},
+	}
+
+	if as.Spec.ClusterIssuer != "" {
+		restIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = as.Spec.ClusterIssuer
+		restIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = as.Spec.ClusterIssuer
 	}
 
 	if as.Spec.Ingress.Annotations != nil {
