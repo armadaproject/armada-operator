@@ -111,3 +111,12 @@ Run the following commands to create the `armada-default` PriorityClass:
 ```bash
 kubectl apply -f dev/quickstart/priority-class.yaml
 ```
+
+## Minimal setup
+
+Minimal setup for Armada which could only accept jobs would consist only of Armada Server and Executor deployed in the same cluster.
+
+Run the following command to install the minimal setup:
+```bash
+kubectl apply -f dev/quickstart/minimal-setup.yaml
+```
