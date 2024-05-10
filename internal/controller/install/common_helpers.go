@@ -31,7 +31,7 @@ import (
 
 const (
 	defaultPrometheusInterval = 1 * time.Second
-	appConfigFlag             = appConfigFilepath
+	appConfigFlag             = "--config"
 	appConfigFilepath         = "/config/application_config.yaml"
 )
 
