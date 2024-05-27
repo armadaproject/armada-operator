@@ -142,7 +142,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - scheduler
+    - schedulers
   sideEffects: None
 - admissionReviewVersions:
   - v1

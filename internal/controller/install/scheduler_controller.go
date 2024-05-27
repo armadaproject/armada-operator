@@ -245,8 +245,10 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(scheduler, ingressGrpc, scheme); err != nil {
-		return nil, err
+	if ingressGrpc != nil {
+		if err := controllerutil.SetOwnerReference(scheduler, ingressGrpc, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	return &CommonComponents{

@@ -1,21 +1,73 @@
 # armada-operator
-`armada-operator` is a small [go](https://go.dev/) project to automate the 
-installation (and eventually management) of a fully-functional 
-[Armada](https://github.com/armadaproject/armada) deployment
-to a [Kubernetes](https://kubernetes.io/) cluster using the Kubernetes 
-[operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
 
-## Description
-Armada is a multi-Kubernetes batch job scheduler. This operator aims to make
-Armada easy to deploy and, well, operate in a Kubernetes cluster. 
+[![GoReport Widget]][GoReport Status]
+[![Latest Release](https://img.shields.io/github/v/release/armadaproject/armada-operator?include_prereleases)](https://github.com/armadaproject/armada-operator/releases/latest)
 
-## Quickstart
+[GoReport Widget]: https://goreportcard.com/badge/github.com/armadaproject/armada-operator
+[GoReport Status]: https://goreportcard.com/report/github.com/armadaproject/armada-operator
 
-Want to start hacking right away?
+Armada Operator is a Kubernetes-native Operator for simpler installation of [Armada](https://armadaproject.io).
+This project introduces CRDs for Armada services and provides a controller to manage the lifecycle of these services.
 
-You’ll need a Kubernetes cluster to run the operator. You can use 
-[KIND](https://sigs.k8s.io/kind) to run a local cluster for testing, or you 
-can run against a remote cluster.  
+## How it works
+This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
+which provides a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster
+
+## Installation
+
+You’ll need a Kubernetes cluster to run the Armada Operator. You can use
+[KIND](https://sigs.k8s.io/kind) to run a local cluster for testing, or you
+can run against a remote cluster.
+
+To install the latest release of Armada Operator in your cluster, run the following commands:
+```bash
+# Add the G-Research Helm repository
+helm repo add gresearch https://gresearch.github.io/armada-operator
+# Install the Armada Operator
+helm install armada-operator gresearch/armada-operator --namespace armada-system --create-namespace
+```
+
+The Armada Operator will be installed in the `armada-system` namespace.
+
+### Installing Armada
+
+In order to install Armada, first you will need to install the Armada external dependencies:
+* [Pulsar](https://pulsar.apache.org/)
+* [Redis](https://redis.io/)
+* [Postgres](https://www.postgresql.org/)
+
+You can install the required Armada dependencies either manually or by running the following `make` target:
+```bash
+make install-armada-deps
+```
+
+**Note:** You will need to wait for all dependencies to be running before proceeding to the next step.
+
+Finally:
+```bash
+# Create armada namespace
+kubectl create namespace armada
+# Install Armada components
+kubectl apply -n armada -f dev/quickstart/armada-crds.yaml
+```
+
+Which will deploy samples of each CRD. Once every Armada service is deployed,
+you should have a fully functional installation of Armada.
+
+## Documentation
+
+For a step-by-step guide on how to install Armada using the Armada Operator and interact with the Armada API,
+please read the Quickstart guide in the [documentation](./dev/quickstart/README.md) and follow runbooks in the `dev/runbooks/` directory.
+
+For more info on Armada, please visit the [Armada website](https://armadaproject.io) and the GitHub repository [armadaproject/armada](https://github.com/armadaproject/armada)
+
+## Local development
+
+This section assumes you have a `kind` cluster named `armada` running on your machine (it will appear as `kind-armada` in your kubeconfig).
+
+Check out the Makefile for more commands to help you with your development or run `make help` for a list of available commands.
 
 **Note:** Your controller will automatically use the current context in your 
 kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
@@ -26,71 +78,40 @@ This section assumes you have [KIND](https://sigs.k8s.io/kind) installed.
 
 If you do not have a Kubernetes cluster to test against, you can start one using the following command:
 ```bash
-make create-dev-cluster
-```
-
-### Install using Helm
-
-First, add the `gresearch` public Helm registry:
-```bash
-helm repo add gresearch https://g-research.github.io/charts
-```
-
-After that, you can install the Armada Operator using Helm:
-```bash
-helm install armada-operator gresearch/armada-operator --namespace armada-system --create-namespace
+make kind-create-cluster
 ```
 
 ### Build & install from scratch
 
-Run the following command to install all Armada external dependencies (Apache Pulsar, Redis, PostgreSQL, NGINX, Prometheus)
+Run the following `make` command:
 ```bash
-make dev-setup
+make kind-deploy
+```
+This command will do the following:
+- Build the `armada-operator` binary for `linux/amd64`
+- Build the `armada-operator` Docker image
+- Load the Docker image into the `kind` cluster
+- Install each CRD supported by the `armada-operator` on the cluster
+- Install the `armada-operator` on the cluster using `kustomize`
+
+### Run locally
+
+In order to run the operator locally, you can use one of the following commands:
+```bash
+# Run the operator locally with webhooks enabled
+make run
+# Run the operator locally with webhooks disabled
+make run-no-webhook
 ```
 
-Then:
-```bash
-make dev-install-controller
-```
-Which will:
-- install each CRD supported by the armada-operator on the cluster
-- create a pod inside the kind cluster running the armada-operator controllers
-
-**Note:** You may need to wait for some services (like Pulsar) to finish 
-coming up to proceed to the next step. Check the status of 
-the cluster with `$ kubectl get -n armada pods`.
-
-Finally:
-```bash
-kubectl apply -n armada -f $(REPO_ROOT)/dev/quickstart/armada-crds.yaml
-```
-
-Which will deploy samples of each CRD. Once every Armada service is deployed,
-you should have a fully functional install of Armada running.
+### Stop the Development Cluster
 
 To stop the development cluster:
 ```bash
-make delete-dev-cluster
+make kind-delete-cluster
 ```
 
-This will totally destroy your development Kind cluster. 
-
-### Local development
-
-Before running the Operator, we first need to install the CRDs by running the following command:
-```bash
-make install
-```
-
-To run the operator locally, you can use the following command:
-```bash
-make run
-```
-
-To uninstall the Operator CRDs, you can use the following command:
-```bash
-make uninstall
-```
+This will totally destroy your development Kind cluster.
 
 ## Contributing
 
@@ -105,24 +126,21 @@ pass.
 
 Please test contributions thoroughly before requesting reviews. At a minimum:
 ```bash
-make test-unit
-make test-integration
+# Lint code using golangci-lint.
 make lint
+# Run unit tests.
+make test-unit
+# Run integration tests.
+make test-integration
 ```
 should all succeed without error. 
 
 Add and change appropriate unit and integration tests to ensure your changes 
 are covered by automated tests and appear to be correct.
 
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster
-
 ## License
 
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

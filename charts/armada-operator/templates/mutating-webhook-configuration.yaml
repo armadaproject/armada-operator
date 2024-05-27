@@ -105,7 +105,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - lookout
+    - lookouts
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -145,7 +145,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - scheduler
+    - schedulers
   sideEffects: None
 - admissionReviewVersions:
   - v1

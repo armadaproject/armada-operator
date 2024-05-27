@@ -8,3 +8,15 @@ kube-prometheus-stack:
     enabled: false
   alertmanager:
     enabled: false
+
+broker:
+  replicaCount: 1
+
+zookeeper:
+  replicaCount: 1
+
+bookkeeper:
+  replicaCount: 1
+
+proxy:
+  replicaCount: 1

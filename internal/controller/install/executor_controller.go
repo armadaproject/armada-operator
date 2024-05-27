@@ -229,7 +229,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		}
 		serviceAccountName = serviceAccount.Name
 	}
-	deployment := r.createDeployment(executor, secret, serviceAccountName)
+	deployment := r.createDeployment(executor, serviceAccountName)
 	if err = controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -269,11 +269,13 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	return components, nil
 }
 
-func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, secret *corev1.Secret, serviceAccountName string) *appsv1.Deployment {
+func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, serviceAccountName string) *appsv1.Deployment {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
-	appConfigMount := "/config/application_config.yaml"
+	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
+	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
+
 	allowPrivilegeEscalation := false
 	ports := []corev1.ContainerPort{{
 		Name:          "metrics",
@@ -299,15 +301,6 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		},
 	}
 	env = append(env, executor.Spec.Environment...)
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      volumeConfigKey,
-			ReadOnly:  true,
-			MountPath: appConfigMount,
-			SubPath:   GetConfigFilename(executor.Name),
-		},
-	}
-	volumeMounts = append(volumeMounts, executor.Spec.AdditionalVolumeMounts...)
 	containers := []corev1.Container{{
 		Name:            "executor",
 		ImagePullPolicy: "IfNotPresent",
@@ -318,15 +311,6 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 		VolumeMounts:    volumeMounts,
 		SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
 	}}
-	volumes := []corev1.Volume{{
-		Name: volumeConfigKey,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secret.Name,
-			},
-		},
-	}}
-	volumes = append(volumes, executor.Spec.AdditionalVolumes...)
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
 		Spec: appsv1.DeploymentSpec{

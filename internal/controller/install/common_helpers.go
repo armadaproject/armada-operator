@@ -29,10 +29,20 @@ import (
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 )
 
+type AppName string
+
 const (
-	defaultPrometheusInterval = 1 * time.Second
-	appConfigFlag             = appConfigFilepath
-	appConfigFilepath         = "/config/application_config.yaml"
+	defaultPrometheusInterval         = 1 * time.Second
+	appConfigFlag                     = "--config"
+	appConfigFilepath                 = "/config/application_config.yaml"
+	AppArmada                 AppName = "armada"
+	AppExecutor               AppName = "executor"
+	AppScheduler              AppName = "scheduler"
+	AppSchedulerIngester      AppName = "scheduleringester"
+	AppLookout                AppName = "lookout"
+	AppLookoutIngester        AppName = "lookoutingesterv2"
+	AppEventIngester          AppName = "eventingester"
+	AppBinoculars             AppName = "binoculars"
 )
 
 // CommonComponents are the base components for all of the Armada services
@@ -334,7 +344,7 @@ func createVolumes(configVolumeSecretName string, crdVolumes []corev1.Volume) []
 	return volumes
 }
 
-// createVolumeMounts creates the appconfig VolumeMount and appends the CRD AdditionalVolumeMounts
+// createVolumeMounts creates the app config VolumeMount and appends the CRD AdditionalVolumeMounts
 func createVolumeMounts(configVolumeSecretName string, crdVolumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{

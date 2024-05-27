@@ -12,7 +12,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     server: localhost:50051
     forceNoTls: true
@@ -34,7 +34,7 @@ spec:
         reprioritize_any_jobs: ["everyone"]
         watch_events: ["everyone"]
         watch_all_events: ["everyone"]
-        execute_jobs: ["everyone"]      
+        execute_jobs: ["everyone"]
     postgres:
       connection:
         host: postgresql.armada.svc.cluster.local
@@ -105,7 +105,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-event-ingester
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     redis:
       addrs:
@@ -144,7 +144,7 @@ spec:
   replicas: 2
   image:
     repository: gresearch/armada-lookout-v2
-    tag: 0.3.103
+    tag: 0.5.0
   resources:
     limits:
       memory: 1Gi
@@ -194,7 +194,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     postgres:
       maxOpenConns: 100
@@ -237,7 +237,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     postgres:
       maxOpenConns: 100
@@ -299,7 +299,7 @@ spec:
   replicas: 2
   image:
     repository: gresearch/armada-scheduler
-    tag: 0.3.103
+    tag: 0.5.0
   resources:
     limits:
       memory: 1Gi
