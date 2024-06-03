@@ -76,7 +76,6 @@ mock: mockgen ## Generate mock client for k8sclient
 .PHONY: generate-helm-chart
 generate-helm-chart: manifests kustomize helmify ## Generate Helm chart from Kustomize manifests
 	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir charts/armada-operator
-	./hack/fix-helmify.sh
 
 generate-crd-ref-docs: crd-ref-docs ## Generate CRD reference documentation
 	$(CRD_REF_DOCS) crd-ref-docs --source-path=./api --config=./hack/crd-ref-docs-config.yaml --renderer=markdown --output-path=./dev/crd
@@ -92,12 +91,12 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: lint
-lint: ## Run golangci-lint against code.
-	golangci-lint run
+lint: golangci-lint ## Run golangci-lint against code.
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix: ## Run golangci-lint against code and fix issues.
-	golangci-lint run --fix
+lint-fix: golangci-lint ## Run golangci-lint against code and fix issues.
+	$(GOLANGCI_LINT) run --fix
 
 ##@ Tests
 
@@ -182,11 +181,11 @@ kind-all: kind-create-cluster kind-deploy ## Create a kind cluster and deploy th
 
 .PHONY: kind-create-cluster
 kind-create-cluster: kind ## Create a kind cluster using config from hack/kind-config.yaml.
-	kind create cluster --config hack/kind-config.yaml --name $(KIND_CLUSTER_NAME)
+	$(KIND) create cluster --config hack/kind-config.yaml --name $(KIND_CLUSTER_NAME)
 
 .PHONY: kind-load-image
 kind-load-image: docker-build ## Load Operator Docker image into kind cluster.
-	kind load docker-image --name $(KIND_CLUSTER_NAME) ${IMAGE_TAG}
+	$(KIND) load docker-image --name $(KIND_CLUSTER_NAME) ${IMAGE_TAG}
 
 .PHONY: kind-deploy
 kind-deploy: kind-load-image install install-cert-manager wait-for-cert-manager ## Deploy operator in a kind cluster after building & loading the image
@@ -195,7 +194,7 @@ kind-deploy: kind-load-image install install-cert-manager wait-for-cert-manager 
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: ## Delete the local development cluster using kind.
-	kind delete cluster --name $(KIND_CLUSTER_NAME)
+	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
 
 .PHONY: install
 install: kustomize manifests ## Install Armada Operator CRDs.
@@ -313,6 +312,7 @@ KIND    ?= $(LOCALBIN_TOOLING)/kind
 HELMIFY ?= $(LOCALBIN_TOOLING)/helmify
 GORELEASER ?= $(LOCALBIN_TOOLING)/goreleaser
 CRD_REF_DOCS ?= $(LOCALBIN_TOOLING)/crd-ref-docs
+GOLANGCI_LINT ?= $(LOCALBIN_TOOLING)/golangci-lint
 
 KUSTOMIZE_VERSION ?= v5.4.2
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
@@ -367,6 +367,12 @@ CRD_REF_DOCS_VERSION ?= v0.0.12
 crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
 $(CRD_REF_DOCS): $(LOCALBIN_TOOLING)
 	test -s $(CRD_REF_DOCS) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
+
+GOLANGCI_LINT_VERSION ?= v1.59.0
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN_TOOLING)
+	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: helm
 HELM = ./bin/helm

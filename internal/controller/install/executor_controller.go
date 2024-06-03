@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/duration"
 
@@ -466,7 +468,7 @@ func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Exec
 				MatchLabels: selectorLabels,
 			},
 			AttachMetadata: &monitoringv1.AttachMetadata{
-				Node: false,
+				Node: ptr.To(false),
 			},
 			Endpoints: []monitoringv1.Endpoint{{
 				Port:     "metrics",

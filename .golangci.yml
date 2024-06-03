@@ -4,7 +4,6 @@ issues:
 
 output:
   print-issued-lines: true
-  format: github-actions
   sort-results: true
 
 linters:
@@ -20,9 +19,6 @@ linters:
     - staticcheck
 
 linters-settings:
-    goimports:
-        local-prefixes: github.com/armadaproject/armada-operator
+  goimports:
+    local-prefixes: github.com/armadaproject/armada-operator
 
-run:
-  skip-dirs:
-    - dev/helm-charts/pulsar-helm-chart

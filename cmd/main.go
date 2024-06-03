@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
