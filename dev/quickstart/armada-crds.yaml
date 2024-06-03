@@ -7,12 +7,10 @@ spec:
   pulsarInit: false
   ingress:
     ingressClass: "nginx"
-  clusterIssuer: "letsencrypt-dev"
-  hostNames: [server.demo.armadaproject.io]
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     auth:
       anonymousAuth: true
@@ -28,19 +26,31 @@ spec:
         watch_events: ["everyone"]
         watch_all_events: ["everyone"]
         execute_jobs: ["everyone"]
+    eventsApiRedis:
+      addrs:
+        - redis-ha.data.svc.cluster.local:6379
     postgres:
       connection:
         host: postgres-postgresql.data.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: lookout
         sslmode: disable
+    queryapi:
+      postgres:
+        connection:
+          host: postgres-postgresql.data.svc.cluster.local
+          port: 5432
+          user: postgres
+          password: psw
+          dbname: lookout
+          sslmode: disable
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
     redis:
       addrs:
-        - redis-redis-ha.data.svc.cluster.local:6379
+        - redis-ha.data.svc.cluster.local:6379
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Executor
@@ -50,10 +60,10 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
-    apiConnection:
-      armadaUrl: armada-server.armada.svc.cluster.local:50051
+    executorApiConnection:
+      armadaUrl: armada-scheduler.armada.svc.cluster.local:50051
       forceNoTls: true
 ---
 apiVersion: install.armadaproject.io/v1alpha1
@@ -65,11 +75,9 @@ spec:
   replicas: 1
   ingress:
     ingressClass: "nginx"
-  clusterIssuer: "letsencrypt-dev"
-  hostNames: [lookoutv2.demo.armadaproject.io]
   image:
     repository: gresearch/armada-lookout-v2
-    tag: 0.3.103
+    tag: 0.5.0
   prometheus:
     enabled: true
   applicationConfig:
@@ -77,14 +85,14 @@ spec:
     # for the full list of configuration options.
     apiPort: 8080
     corsAllowedOrigins:
-      - "https://ui.demo.armadaproject.io"
+      - "http://localhost"
     postgres:
       connection:
         host: postgres-postgresql.data.svc.cluster.local
         port: 5432
         user: postgres
         password: psw
-        dbname: lookoutv2
+        dbname: lookout
         sslmode: disable
 ---
 apiVersion: install.armadaproject.io/v1alpha1
@@ -95,7 +103,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     postgres:
       connection:
@@ -103,7 +111,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: lookoutv2
+        dbname: lookout
         sslmode: disable
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
@@ -117,14 +125,17 @@ spec:
   replicas: 1
   ingress:
     ingressClass: "nginx"
-  clusterIssuer: "letsencrypt-dev"
-  hostNames: [scheduler.demo.armadaproject.io]
   image:
     repository: gresearch/armada-scheduler
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
+    grpc:
+      port: 50051
     auth:
       anonymousAuth: true
+    armadaApi:
+      armadaUrl: armada-server.armada.svc.cluster.local:50051
+      forceNoTls: true
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
     postgres:
@@ -133,7 +144,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: scheduler
         sslmode: disable
 ---
 apiVersion: install.armadaproject.io/v1alpha1
@@ -145,7 +156,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     postgres:
       connection:
@@ -153,7 +164,7 @@ spec:
         port: 5432
         user: postgres
         password: psw
-        dbname: postgres
+        dbname: scheduler
         sslmode: disable
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
@@ -167,10 +178,10 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-event-ingester
-    tag: 0.3.103
+    tag: 0.5.0
   applicationConfig:
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
     redis:
       addrs:
-        - redis-redis-ha.data.svc.cluster.local:6379
+        - redis-ha.data.svc.cluster.local:6379

@@ -43,6 +43,21 @@ jobs:
       - name: Run integration tests
         run: make test-integration
 
+  kind-e2e-tests:
+    name: Kind e2e Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          cache-prefix: kind-e2e-tests
+
+      - name: Run kind e2e tests
+        run: ./scripts/e2e-test.sh
+
   go-mod-up-to-date:
     name: Golang Mod Up To Date
     runs-on: ubuntu-latest
@@ -155,6 +170,84 @@ jobs:
             echo -e '```' >> $GITHUB_STEP_SUMMARY
           else
             echo -e "Generated code is synchronized." >> $GITHUB_STEP_SUMMARY
+            echo -e >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit $changed
+
+  helm-chart-up-to-date:
+    name: Generated Helm Chart Up To Date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          disable-cache: "true"
+
+      - name: Check generated Helm chart
+        run: |
+          make generate-helm-chart
+
+          changed=$(git status -s -uno | wc -l)
+
+          echo -e "### Git status" >> $GITHUB_STEP_SUMMARY
+          if [[ "$changed" -gt 0 ]]; then
+            echo -e "Generated Helm chart is not synchronized. Please run 'make generate-helm-chart' and commit the changes." >> $GITHUB_STEP_SUMMARY
+
+            git status -s -uno >> $GITHUB_STEP_SUMMARY
+
+            echo -e >> $GITHUB_STEP_SUMMARY
+            echo -e "### Git diff" >> $GITHUB_STEP_SUMMARY
+
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
+            git --no-pager diff >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo -e "Generated Helm chart is synchronized." >> $GITHUB_STEP_SUMMARY
+            echo -e >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit $changed
+
+  crd-ref-docs-up-to-date:
+    name: Generated CRD Reference Docs Up To Date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          disable-cache: "true"
+
+      - name: Check generated CRD reference docs
+        run: |
+          make generate-crd-ref-docs
+
+          changed=$(git status -s -uno | wc -l)
+
+          echo -e "### Git status" >> $GITHUB_STEP_SUMMARY
+          if [[ "$changed" -gt 0 ]]; then
+            echo -e "Generated CRD reference docs are not synchronized. Please run 'make generate-crd-ref-docs' and commit the changes." >> $GITHUB_STEP_SUMMARY
+
+            git status -s -uno >> $GITHUB_STEP_SUMMARY
+
+            echo -e >> $GITHUB_STEP_SUMMARY
+            echo -e "### Git diff" >> $GITHUB_STEP_SUMMARY
+
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
+            git --no-pager diff >> $GITHUB_STEP_SUMMARY
+            echo -e '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo -e "Generated CRD reference docs is synchronized." >> $GITHUB_STEP_SUMMARY
             echo -e >> $GITHUB_STEP_SUMMARY
           fi
 

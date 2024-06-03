@@ -251,8 +251,10 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(lookout, ingressHttp, scheme); err != nil {
-		return nil, err
+	if ingressHttp != nil {
+		if err := controllerutil.SetOwnerReference(lookout, ingressHttp, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	return &CommonComponents{

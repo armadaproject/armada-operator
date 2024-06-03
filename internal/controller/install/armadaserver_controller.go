@@ -245,16 +245,20 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(as, ingressGrpc, scheme); err != nil {
-		return nil, err
+	if ingressGrpc != nil {
+		if err := controllerutil.SetOwnerReference(as, ingressGrpc, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	ingressHttp, err := createIngressHttp(as)
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(as, ingressHttp, scheme); err != nil {
-		return nil, err
+	if ingressHttp != nil {
+		if err := controllerutil.SetOwnerReference(as, ingressHttp, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), as.Spec.PortConfig)

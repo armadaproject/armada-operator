@@ -40,7 +40,7 @@ func (r *Scheduler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-scheduler,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=scheduler,verbs=create;update,versions=v1alpha1,name=mscheduler.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-scheduler,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=schedulers,verbs=create;update,versions=v1alpha1,name=mscheduler.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Scheduler{}
 

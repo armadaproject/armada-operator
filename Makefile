@@ -1,36 +1,42 @@
-# VERSION defines the project version for the bundle.
-# Update this value when you upgrade the version of your project.
-# To re-generate a bundle for another specific version without changing the standard setup, you can:
-# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
-# - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+# Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN): ## Create local bin directory if necessary.
+	mkdir -p $(LOCALBIN)
+# LOCALBIN_TOOLING refers to the directory where tooling binaries are installed.
+LOCALBIN_TOOLING ?= $(LOCALBIN)/tooling
+$(LOCALBIN_TOOLING): ## Create local bin directory for tooling if necessary.
+	mkdir -p $(LOCALBIN_TOOLING)
+# LOCALBIN_APP refers to the directory where application binaries are installed.
+LOCALBIN_APP ?= $(LOCALBIN)/app
+$(LOCALBIN_APP): ## Create local bin directory for app if necessary.
+	mkdir -p $(LOCALBIN_APP)
 
-# IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
-# This variable is used to construct full image tags for bundle and catalog images.
-#
-# For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# armadaproject.io/armada-operator-bundle:$VERSION and armadaproject.io/armada-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= armadaproject.io/armada-operator
-
-# Image URL to use all building/pushing image targets
-IMG ?= armada-operator:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.24.2
+ENVTEST_K8S_VERSION = 1.29
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+# VERSION defines the latest semver of the operator.
+VERSION ?= $(shell git describe --tags --abbrev=0)
+
+# PLATFORMS defines the target platforms for the operator image.
+PLATFORMS ?= linux/amd64,linux/arm64
+# IMAGE_REGISTRY defines the registry where the operator image will be pushed.
+IMAGE_REGISTRY ?= gresearch
+# IMAGE_NAME defines the name of the operator image.
+IMAGE_NAME := armada-operator
+# IMAGE_REPO defines the image repository and name where the operator image will be pushed.
+IMAGE_REPO ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME)
+# GIT_TAG defines the git tag of the operator image.
+GIT_TAG ?= $(shell git describe --tags --dirty --always)
+# IMAGE_TAG defines the name and tag of the operator image.
+IMAGE_TAG ?= $(IMAGE_REPO):$(GIT_TAG)
+
+# KIND_CLUSTER_NAME defines the name of the kind cluster to be created.
+KIND_CLUSTER_NAME=armada
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
-
-ARCH=$(shell go env GOARCH)
-KIND_DEV_CLUSTER_NAME=armada-operator-dev-env
 
 .PHONY: all
 all: build
@@ -50,7 +56,7 @@ all: build
 
 .PHONY: help
 help: ## Display this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Codegen
 
@@ -63,7 +69,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: mock
-mock: mockgen
+mock: mockgen ## Generate mock client for k8sclient
 	$(RM) test/k8sclient/mock_client.go
 	mockgen -destination=test/k8sclient/mock_client.go -package=k8sclient "github.com/armadaproject/armada-operator/test/k8sclient" Client
 
@@ -71,6 +77,9 @@ mock: mockgen
 generate-helm-chart: manifests kustomize helmify ## Generate Helm chart from Kustomize manifests
 	$(KUSTOMIZE) build config/default | $(HELMIFY) -crd-dir charts/armada-operator
 	./hack/fix-helmify.sh
+
+generate-crd-ref-docs: crd-ref-docs ## Generate CRD reference documentation
+	$(CRD_REF_DOCS) crd-ref-docs --source-path=./api --config=./hack/crd-ref-docs-config.yaml --renderer=markdown --output-path=./dev/crd
 
 ##@ Linting
 
@@ -83,21 +92,21 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: lint
-lint:
+lint: ## Run golangci-lint against code.
 	golangci-lint run
 
 .PHONY: lint-fix
-lint-fix:
+lint-fix: ## Run golangci-lint against code and fix issues.
 	golangci-lint run --fix
 
 ##@ Tests
 
 .PHONY: test-unit
-test-unit: manifests generate fmt vet gotestsum ## Run unit tests.
+test-unit: manifests generate gotestsum ## Run unit tests.
 	$(GOTESTSUM) -- ./internal/controller/... -coverprofile operator.out
 
 .PHONY: test-integration
-test-integration: manifests generate fmt vet gotestsum envtest ## Run integration tests.
+test-integration: manifests generate gotestsum envtest ## Run integration tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GOTESTSUM) -- ./test/... ./api/...
 
 # Integration test without Ginkgo colorized output and control chars, for logging purposes
@@ -108,55 +117,59 @@ test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run inte
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+build: generate ## Build armada operator binary.
+	go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
 
-.PHONY: go-releaser-build
-go-releaser-build: goreleaser ## Build using GoReleaser
-	$(GORELEASER) build --clean
+.PHONY: build-linux-amd64
+build-linux-amd64: generate ## Build armada operator binary for linux/amd64.
+	GOOS=linux GOARCH=amd64 go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
 
-.PHONY: go-releaser-snapshot
-go-releaser-snapshot: goreleaser ## Build a snapshot release using GoReleaser
+.PHONY: goreleaser-build
+goreleaser-build: goreleaser ## Build using GoReleaser
+	$(GORELEASER) build --skip validate --clean
+
+.PHONY: goreleaser-snapshot
+goreleaser-snapshot: goreleaser ## Build a snapshot release using GoReleaser
 	$(GORELEASER) release --skip-publish --skip-sign --skip-sbom --clean --snapshot
 
-.PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+##@ Run
 
-run-no-webhook: manifests generate fmt vet ## Run a controller from your host without webhooks.
+.PHONY: run
+run: manifests generate install dev-setup-webhook-tls ## Run operator locally with admission webhooks
+	WEBHOOK_CERT_DIR=$(WEBHOOK_TLS_OUT_DIR) go run ./cmd/main.go
+
+.PHONY: run-no-webhook
+run-no-webhook: manifests generate install ## Run operator locally without admission webhooks
 	ENABLE_WEBHOOKS=false go run ./cmd/main.go
 
-# If you wish built the manager image targeting other platforms you can use the --platform flag.
-# (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
-# More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+WEBHOOK_TLS_OUT_DIR=/tmp/k8s-webhook-server/serving-certs
+.PHONY: dev-setup-webhook-tls
+dev-setup-webhook-tls: ## Generate TLS certificates for webhook server
+	mkdir -p $(WEBHOOK_TLS_OUT_DIR)
+	openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -config hack/tls/webhooks_csr.conf -out $(WEBHOOK_TLS_OUT_DIR)/tls.crt -keyout $(WEBHOOK_TLS_OUT_DIR)/tls.key
+
+.PHONY: dev-remove-webhook-tls
+dev-remove-webhook-tls: ## Remove TLS certificates for webhook server
+	rm $(WEBHOOK_TLS_OUT_DIR)/tls.{crt,key}
+
+##@ Package
+
 .PHONY: docker-build
-docker-build: ## Build Operator Docker image
-	docker build -t ${IMG} .
+docker-build: build-linux-amd64 ## Build Armada Operator Docker image using buildx.
+	docker buildx build 		\
+		--file Dockerfile 		\
+		--tag ${IMAGE_TAG} 		\
+		--output type=docker	\
+		$(LOCALBIN_APP)
 
 .PHONY: docker-push
-docker-push: ## Push Operator Docker image
-	docker push ${IMG}
-
-.PHONY: load-image-kind
-load-image-kind: ## Load Operator Docker image into kind cluster
-	kind load docker-image --name $(KIND_DEV_CLUSTER_NAME) ${IMG}
-
-# PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
-# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
-# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
-# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> than the export will fail)
-# To properly provided solutions that supports more than one platform you should use this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: docker-buildx
-docker-buildx: test ## Build and push Operator Docker image with cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- docker buildx create --name project-v3-builder
-	docker buildx use project-v3-builder
-	- docker buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross
-	- docker buildx rm project-v3-builder
-	rm Dockerfile.cross
+docker-push: build-linux-amd64 ## Push Armada Operator Docker image using buildx.
+	docker buildx build 		\
+		--file Dockerfile 		\
+		--platform=$(PLATFORMS) \
+		--tag ${IMAGE_TAG} 		\
+		--push 					\
+		$(LOCALBIN_APP)
 
 ##@ Deployment
 
@@ -164,174 +177,201 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
-.PHONY: create-dev-cluster
-create-dev-cluster: ## Create a local development cluster using kind
-	kind create cluster --name $(KIND_DEV_CLUSTER_NAME) --config hack/kind-config.yaml
-	kubectl create namespace armada
-	kubectl create namespace data
+.PHONY: kind-all
+kind-all: kind-create-cluster kind-deploy ## Create a kind cluster and deploy the operator.
 
-.PHONY: kind-create
-kind-create: kind ## Create a local development cluster using kind using config from hack/kind-config.yaml
-	kind create cluster --config hack/kind-config.yaml
+.PHONY: kind-create-cluster
+kind-create-cluster: kind ## Create a kind cluster using config from hack/kind-config.yaml.
+	kind create cluster --config hack/kind-config.yaml --name $(KIND_CLUSTER_NAME)
 
-.PHONY: delete-dev-cluster
-delete-dev-cluster: ## Delete the local development cluster using kind
-	kind delete cluster --name $(KIND_DEV_CLUSTER_NAME)
+.PHONY: kind-load-image
+kind-load-image: docker-build ## Load Operator Docker image into kind cluster.
+	kind load docker-image --name $(KIND_CLUSTER_NAME) ${IMAGE_TAG}
+
+.PHONY: kind-deploy
+kind-deploy: kind-load-image install install-cert-manager wait-for-cert-manager ## Deploy operator in a kind cluster after building & loading the image
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_TAG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: kind-delete-cluster
+kind-delete-cluster: ## Delete the local development cluster using kind.
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: kustomize manifests ## Install Armada Operator CRDs.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+uninstall: kustomize manifests ## Uninstall Armada Operator CRDs.
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+deploy: manifests kustomize ## Deploy Armada Operator using Kustomize.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_TAG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-.PHONY: deploy-to-kind
-deploy-to-kind: dev-setup docker-build load-image deploy ## Deploy controller to the local development cluster using kind
+helm-install: helm ## Install latest released Armada Operator using Helm from gresearch Helm registry.
+	$(HELM) upgrade --install armada-operator gresearch/armada-operator --create-namespace --namespace armada-system
+
+helm-install-local: kind-load-image helm ## Build latest Armada Operator and install using Helm. Should only be used for local development in kind cluster.
+	$(HELM) upgrade --install armada-operator charts/armada-operator --create-namespace --namespace armada-system --set controllerManager.manager.image.tag=$(GIT_TAG)
+
+helm-uninstall: helm ## Uninstall operator using Helm.
+	$(HELM) uninstall armada-operator --namespace armada-operator
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+undeploy: ## Delete Armada Operator Kubernetes resources.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
-
-.PHONY: dev-install-controller
-dev-install-controller: go-release-build load-image deploy
-
-.PHONY: dev-run
-dev-run: dev-setup install run
-
-WEBHOOK_TLS_OUT_DIR=/tmp/k8s-webhook-server/serving-certs
-.PHONY: dev-setup-webhook-tls
-dev-setup-webhook-tls: ## Generate TLS certificates for webhook server
-	mkdir -p $(WEBHOOK_TLS_OUT_DIR)
-	openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -config dev/tls/webhooks_csr.conf -out $(WEBHOOK_TLS_OUT_DIR)/tls.crt -keyout $(WEBHOOK_TLS_OUT_DIR)/tls.key
-
-dev-remove-webhook-tls: ## Remove TLS certificates for webhook server
-	rm $(WEBHOOK_TLS_OUT_DIR)/tls.{crt,key}
 
 ##@ External Dependencies
 
-## Kubernetes Dependencies
-CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.6.3/cert-manager.yaml"
+.PHONY: install-armada-deps
+install-armada-deps: helm-repos helm-install-kube-prometheus-stack helm-install-postgres helm-install-pulsar helm-install-redis ## Install required Armada dependencies (Prometheus, PostgreSQL, Pulsar, Redis).
+
+CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml"
 .PHONY: install-cert-manager
-install-cert-manager: ## Install cert-manager
+install-cert-manager: ## Install cert-manager.
 	kubectl apply -f ${CERT_MANAGER_MANIFEST}
 
+.PHONY: wait-for-cert-manager
+wait-for-cert-manager: ## Wait for cert-manager to be ready.
+	kubectl wait --for=condition=Available --timeout=600s -n cert-manager deployments --all
+
+install-and-wait-cert-manager: install-cert-manager wait-for-cert-manager ## Install and wait for cert-manager to be ready.
+
 .PHONY: uninstall-cert-manager
-uninstall-cert-manager: ## Uninstall cert-manager
+uninstall-cert-manager: ## Uninstall cert-manager.
 	kubectl delete -f ${CERT_MANAGER_MANIFEST}
 
 INGRESS_MANIFEST ?= "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml"
 .PHONY: install-ingress-controller
-install-ingress-controller: ## Install ingress controller
+install-ingress-controller: ## Install ingress controller.
 	kubectl apply -f ${INGRESS_MANIFEST}
 .PHONY: uninstall-ingress-controller
 
-uninstall-ingress-controller: ## Uninstall ingress controller
+uninstall-ingress-controller: ## Uninstall ingress controller.
 	kubectl delete -f ${INGRESS_MANIFEST}
 
 .PHONY: helm-repos
-helm-repos: helm ## Add helm repos
+helm-repos: helm ## Add helm repos for external dependencies.
+	$(HELM) repo add jetstack https://charts.jetstack.io
 	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
 	$(HELM) repo add apache https://pulsar.apache.org/charts
 	$(HELM) repo add dandydev https://dandydeveloper.github.io/charts
 	$(HELM) repo update
 
-.PHONY: install-pulsar
-install-pulsar: helm-repos ## Install pulsar
-	$(HELM) install pulsar apache/pulsar -f dev/quickstart/pulsar.values.yaml --namespace data
+CERT_MANAGER_VERSION ?= v1.14.5
+.PHONY: helm-install-cert-manager
+helm-install-cert-manager:
+	$(HELM) upgrade --install cert-manager jetstack/cert-manager \
+	  --create-namespace 				 			   \
+	  --namespace cert-manager 			 			   \
+	  --version $(CERT_MANAGER_VERSION)  			   \
+	  --set installCRDs=true
+
+.PHONY: helm-install-pulsar
+helm-install-pulsar: helm-repos ## Install Apache Pulsar using Helm.
+	$(HELM) upgrade --install pulsar apache/pulsar --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
+
+.PHONY: helm-uninstall-pulsar
+helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
+	$(HELM) uninstall pulsar --namespace data
 
 .PHONY: helm-install-postgres
-helm-install-postgres: helm-repos ## Install postgres
-	helm install postgres bitnami/postgresql -f dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
+	helm upgrade --install postgres bitnami/postgresql --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+
+.PHONY: helm-uninstall-postgres
+helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
+	$(HELM) uninstall postgres --namespace data
 
 .PHONY: helm-install-redis
-helm-install-redis: helm-repos ## Install redis
-	$(HELM) install redis dandydev/redis-ha -f dev/quickstart/redis.values.yaml --create-namespace --namespace data
+helm-install-redis: helm-repos ## Install Redis using Helm.
+	$(HELM) upgrade --install redis-ha dandydev/redis-ha --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
-PROMETHEUS_OPERATOR_VERSION=v0.62.0
-.PHONY: dev-install-prometheus-operator
-dev-install-prometheus-operator: ## Install prometheus operator
-	curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${PROMETHEUS_OPERATOR_VERSION}/bundle.yaml | sed -e 's/namespace: default/namespace: armada/g' | kubectl create -n armada -f -
-	sleep 10
-	kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n armada --timeout=180s
-	kubectl apply -n armada -f ./config/samples/prometheus.yaml
+.PHONY: helm-uninstall-redis
+helm-uninstall-redis: ## Uninstall Redis using Helm.
+	$(HELM) uninstall redis --namespace data
 
-# Setup dependencies for a local development environment
-.PHONY: dev-setup
-dev-setup: dev-install-prometheus-operator install-pulsar \
-    helm-install-redis helm-install-postgres 		      \
-    install-cert-manager install-ingress-controller dev-setup-webhook-tls
+.PHONY: helm-install-kube-prometheus-stack
+helm-install-kube-prometheus-stack: helm-repos ## Install kube-prometheus-stack using Helm.
+	$(HELM) upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
+
+.PHONY: helm-uninstall-kube-prometheus-stack
+helm-uninstall-kube-prometheus-stack: ## Uninstall kube-prometheus-stack using Helm.
+	$(HELM) uninstall kube-prometheus-stack --namespace monitoring
 
 ##@ Build Dependencies
 
-## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN): ## Create local bin directory if necessary.
-	mkdir -p $(LOCALBIN)
-
 ## Tool Binaries
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-ENVTEST ?= $(LOCALBIN)/setup-envtest
-GOTESTSUM ?= $(LOCALBIN)/gotestsum
-MOCKGEN ?= $(LOCALBIN)/mockgen
-KIND    ?= $(LOCALBIN)/kind
-HELMIFY ?= $(LOCALBIN)/helmify
-GORELEASER ?= $(LOCALBIN)/goreleaser
-## Tool Versions
-KUSTOMIZE_VERSION ?= v4.5.7
-CONTROLLER_TOOLS_VERSION ?= v0.13.0
+KUSTOMIZE ?= $(LOCALBIN_TOOLING)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN_TOOLING)/controller-gen
+ENVTEST ?= $(LOCALBIN_TOOLING)/setup-envtest
+GOTESTSUM ?= $(LOCALBIN_TOOLING)/gotestsum
+MOCKGEN ?= $(LOCALBIN_TOOLING)/mockgen
+KIND    ?= $(LOCALBIN_TOOLING)/kind
+HELMIFY ?= $(LOCALBIN_TOOLING)/helmify
+GORELEASER ?= $(LOCALBIN_TOOLING)/goreleaser
+CRD_REF_DOCS ?= $(LOCALBIN_TOOLING)/crd-ref-docs
 
+KUSTOMIZE_VERSION ?= v5.4.2
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
-	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+$(KUSTOMIZE): $(LOCALBIN_TOOLING)
+	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN_TOOLING); }
 
+CONTROLLER_TOOLS_VERSION ?= v0.15.0
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+$(ENVTEST): $(LOCALBIN_TOOLING)
+	test -s $(ENVTEST) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+GOTESTSUM_VERSION ?= v1.11.0
 .PHONY: gotestsum
 gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
-$(GOTESTSUM): $(LOCALBIN)
-	test -s $(LOCALBIN)/gotestsum || GOBIN=$(LOCALBIN) go install gotest.tools/gotestsum@v1.11.0
+$(GOTESTSUM): $(LOCALBIN_TOOLING)
+	test -s $(GOTESTSUM) || GOBIN=$(LOCALBIN_TOOLING) go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
 
+MOCKGEN_VERSION ?= v1.6.0
 .PHONY: mockgen
 mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
-$(MOCKGEN): $(LOCALBIN)
-	test -s $(LOCALBIN)/mockgen || GOBIN=$(LOCALBIN) go install github.com/golang/mock/mockgen@v1.6.0
+$(MOCKGEN): $(LOCALBIN_TOOLING)
+	test -s $(MOCKGEN) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golang/mock/mockgen@$(MOCKGEN_VERSION)
 
+KIND_VERSION ?= v0.23.0
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary.
-$(KIND): $(LOCALBIN)
-	test -s $(LOCALBIN)/kind || GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@v0.14.0
+$(KIND): $(LOCALBIN_TOOLING)
+	test -s $(KIND) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
+HELMIFY_VERSION ?= v0.4.13
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
-$(HELMIFY): $(LOCALBIN)
-	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@v0.4.6
+$(HELMIFY): $(LOCALBIN_TOOLING)
+	test -s $(HELMIFY) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/arttor/helmify/cmd/helmify@$(HELMIFY_VERSION)
 
+GORELEASER_VERSION ?= v1.26.2
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download GoReleaser locally if necessary.
-$(GORELEASER): $(LOCALBIN)
-	test -s $(LOCALBIN)/goreleaser || GOBIN=$(LOCALBIN) go install github.com/goreleaser/goreleaser@v1.21.2
+$(GORELEASER): $(LOCALBIN_TOOLING)
+	test -s $(GORELEASER) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
+
+CRD_REF_DOCS_VERSION ?= v0.0.12
+.PHONY: crd-ref-docs
+crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
+$(CRD_REF_DOCS): $(LOCALBIN_TOOLING)
+	test -s $(CRD_REF_DOCS) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
 
 .PHONY: helm
 HELM = ./bin/helm
 OS=$(shell go env GOOS)
-HELM_VERSION=helm-v3.11.0-$(OS)-$(ARCH)
+HELM_VERSION=helm-v3.15.0-$(OS)-$(ARCH)
 HELM_ARCHIVE=$(HELM_VERSION).tar.gz
 
 helm: ## Download helm locally if necessary.

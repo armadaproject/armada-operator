@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -83,6 +84,10 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	webhookOptions := webhook.Options{
+		CertDir: os.Getenv("WEBHOOK_CERT_DIR"),
+	}
+	webhookServer := webhook.NewServer(webhookOptions)
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
@@ -90,6 +95,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b00891aa.armadaproject.io",
 		Logger:                 setupLog,
+		WebhookServer:          webhookServer,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
