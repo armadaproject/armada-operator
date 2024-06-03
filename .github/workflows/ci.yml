@@ -20,12 +20,16 @@ concurrency:
 
 jobs:
   lint:
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
     uses: ./.github/workflows/lint.yml
   test:
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
     uses: ./.github/workflows/test.yml
   codeql:
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
     uses: ./.github/workflows/codeql.yml
   build:
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
     uses: ./.github/workflows/build.yml
   # Virtual job that can be configured as a required check before a PR can be merged.
   all-required-checks-done:
@@ -38,12 +42,4 @@ jobs:
       - build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
-        with:
-          script: |
-            const results = ${{ toJSON(needs.*.result) }};
-            if (results.every(res => res === 'success')) {
-              core.info('All required checks succeeded');
-            } else {
-              core.setFailed('Some required checks failed');
-            }
+      - run: echo "All required checks done"

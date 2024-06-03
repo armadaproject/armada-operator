@@ -12,7 +12,7 @@ inputs:
   go-version:
     description: "Version of Go. Default 1.21"
     required: false
-    default: "1.21"
+    default: "1.22"
 outputs:
   go-version:
     description: "The installed Go version"
@@ -21,7 +21,7 @@ runs:
   using: "composite"
   steps:
     - id: setup-go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.go-version }}
         check-latest: true

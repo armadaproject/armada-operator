@@ -779,7 +779,7 @@ func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.D
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
 				Name:     objectMetaName,
-				Interval: monitoringv1.Duration(durationString),
+				Interval: ptr.To(monitoringv1.Duration(durationString)),
 				Rules: []monitoringv1.Rule{
 					{
 						Record: "armada:queue:size",
