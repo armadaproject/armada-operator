@@ -358,8 +358,8 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 
 	if scheduler.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduler.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduler.Spec.Resources)
 	}
-	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduler.Spec.Resources)
 
 	return &deployment, nil
 }
