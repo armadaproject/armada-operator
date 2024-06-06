@@ -63,6 +63,21 @@ please read the Quickstart guide in the [documentation](./dev/quickstart/README.
 
 For more info on Armada, please visit the [Armada website](https://armadaproject.io) and the GitHub repository [armadaproject/armada](https://github.com/armadaproject/armada)
 
+For understanding the minimal configuration required to deploy Armada services, please refer to the [armada-crds.yaml](./dev/quickstart/armada-crds.yaml) file.
+
+For advanced usage, please refer to the Armada CRD reference docs in `dev/crd/` directory.
+
+Each Armada Operator CRD supports a field `.spec.applicationConfig` which injects configuration into the Armada component.
+Here is a list of support Armada component configurations:
+* [Armada Server](https://pkg.go.dev/github.com/armadaproject/armada/internal/armada/configuration#ArmadaConfig)
+* [Armada Executor](https://pkg.go.dev/github.com/armadaproject/armada/internal/executor/configuration#ApplicationConfiguration)
+* [Armada Scheduler](https://pkg.go.dev/github.com/armadaproject/armada/internal/scheduler/configuration#Configuration)
+* [Armada Scheduler Ingester](https://pkg.go.dev/github.com/armadaproject/armada/internal/scheduleringester#Configuration)
+* [Armada Lookout](https://pkg.go.dev/github.com/armadaproject/armada/internal/lookoutv2/configuration#LookoutV2Config)
+* [Armada Lookout Ingester](https://pkg.go.dev/github.com/armadaproject/armada/internal/lookoutingesterv2/configuration#LookoutIngesterV2Configuration)
+* [Armada Event Ingester](https://pkg.go.dev/github.com/armadaproject/armada/internal/eventingester/configuration#EventIngesterConfiguration)
+* [Armada Binoculars](https://pkg.go.dev/github.com/armadaproject/armada/internal/binoculars/configuration#BinocularsConfig)
+
 ## Local development
 
 This section assumes you have a `kind` cluster named `armada` running on your machine (it will appear as `kind-armada` in your kubeconfig).
