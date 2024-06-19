@@ -100,7 +100,7 @@ As we are using the Armada Operator to deploy Armada components, we will install
 
 Run the following commands to install Armada components:
 ```bash
-kubectl apply -f dev/quickstart/armada-crds.yaml --namespace armada
+kubectl apply -f dev/quickstart/armada-crs.yaml --namespace armada
 ```
 
 ## Testing Armada
