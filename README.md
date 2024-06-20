@@ -17,6 +17,35 @@ which provides a reconcile function responsible for synchronizing resources unti
 
 ## Installation
 
+### Prerequisites
+
+In order to start, make sure you have the following installed:
+* [kubectl](https://kubernetes.io/docs/tasks/tools/)
+* [helm](https://helm.sh/docs/intro/install/)
+* [Go v1.21+](https://golang.org/doc/install) - required for the Quickstart `make kind-all` target
+
+### Quickstart
+
+To start immediately with Armada and the Operator, you can run the following `make` target:
+```bash
+make kind-all
+```
+
+This will run the following `make` targets:
+1. `kind-create-cluster` - Creates a kind cluster using the configuration from hack/kind-config.yaml.
+2. `install-and-wait-cert-manager` - Installs cert-manager and waits for it to be ready.
+3. `helm-repos` - Adds necessary Helm repositories for external dependencies.
+4. `helm-install` - Installs the latest released Armada Operator using Helm from the gresearch Helm registry.
+5. `install-armada-deps` - Installs required Armada dependencies such as Prometheus, PostgreSQL, Pulsar, and Redis using Helm.
+6. `wait-for-armada-deps` - Waits for all Armada dependencies to be ready.
+7. `create-armada-namespace` - Creates the Armada namespace `armada`
+8. `apply-armada-crs` - Applies the Custom Resource definitions (CRs) of all Armada components using kubectl.
+9. `create-armadactl-config` - Creates the armadactl configuration (`~/.armadactl.yaml) file pointing to `localhost:30002` as per the quickstart guide.
+10. `apply-default-priority-class` - Applies the default priority class required by Armada for all jobs.
+11. `get-armadactl` - Downloads the armadactl binary for interacting with the Armada API.
+
+### Manual setup
+
 You’ll need a Kubernetes cluster to run the Armada Operator. You can use
 [KIND](https://sigs.k8s.io/kind) to run a local cluster for testing, or you
 can run against a remote cluster.
@@ -24,7 +53,7 @@ can run against a remote cluster.
 To install the latest release of Armada Operator in your cluster, run the following commands:
 ```bash
 # Add the G-Research Helm repository
-helm repo add gresearch https://gresearch.github.io/armada-operator
+helm repo add gresearch https://g-research.github.io/charts
 # Install the Armada Operator
 helm install armada-operator gresearch/armada-operator --namespace armada-system --create-namespace
 ```
@@ -34,6 +63,7 @@ The Armada Operator will be installed in the `armada-system` namespace.
 ### Installing Armada
 
 In order to install Armada, first you will need to install the Armada external dependencies:
+* [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
 * [Pulsar](https://pulsar.apache.org/)
 * [Redis](https://redis.io/)
 * [Postgres](https://www.postgresql.org/)
@@ -45,16 +75,61 @@ make install-armada-deps
 
 **Note:** You will need to wait for all dependencies to be running before proceeding to the next step.
 
-Finally:
+After that run the following command to install Armada components using the CRs provided in `dev/quickstart/armada-crs.yaml`
 ```bash
 # Create armada namespace
 kubectl create namespace armada
 # Install Armada components
-kubectl apply -n armada -f dev/quickstart/armada-crds.yaml
+kubectl apply -n armada -f dev/quickstart/armada-crs.yaml
 ```
 
-Which will deploy samples of each CRD. Once every Armada service is deployed,
+**Note:** `dev/quickstart/armada-crs.yaml` uses **NodePort** Services for exposing Armada components (Lookout UI @ `30000`, Armada gRPC API @ `30001` and Armada REST API @ `30002`).
+This example is created to be used with the `kind` config defined at `hack/kind-config.yaml` for demonstration purposes only and should not be used in production.
+
+Which will deploy CRs for each Armada component. Once every Armada service is deployed,
 you should have a fully functional installation of Armada.
+
+Armada requires a default PriorityClass to be set for all jobs. You can apply the default PriorityClass by running the following command:
+```bash
+kubectl apply -f dev/quickstart/priority-class.yaml
+```
+
+### Installing armadactl
+
+To install `armadactl`, run the following `make` target:
+```bash
+make get-armadactl
+```
+
+Or download it from the [GitHub Release](https://github.com/armadaproject/armada/releases/latest) page for your platform.
+
+Create a configuration file for `armadactl` by running the following command:
+```bash
+make create-armadactl-config
+```
+
+Or create a configuration file manually in `~/.armadactl.yaml` with the following content:
+```yaml
+currentContext: main
+contexts:
+  main:
+    # URL of the Armada gRPC API
+    armadaUrl: localhost:30002 # This uses the NodePort configured in the Quickstart guide
+```
+
+## Usage
+
+Create a `queue` called `example` by running:
+```bash
+armadactl create queue example
+```
+
+Submit a job to the `example` queue by running:
+```bash
+armadactl submit dev/quickstart/example-job.yaml
+```
+
+Check the status of your job in the Lookout UI by visiting `http://localhost:30000` (assuming Armada was installed via the Quickstart guide and it is exposed via a NodePort service) in your browser.
 
 ## Documentation
 

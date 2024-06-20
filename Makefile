@@ -33,6 +33,9 @@ IMAGE_TAG ?= $(IMAGE_REPO):$(GIT_TAG)
 # KIND_CLUSTER_NAME defines the name of the kind cluster to be created.
 KIND_CLUSTER_NAME=armada
 
+# ARCH defines the system architecture.
+ARCH=$(shell go env GOARCH)
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -57,6 +60,36 @@ all: build
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ Armada
+
+.PHONY: create-armadactl-config
+create-armadactl-config: ## Create armadactl config file which points to localhost:30002 (based on quickstart for this project)
+	@mkdir -p ~/.armadactl
+	@echo "currentContext: main" > ~/.armadactl.yaml
+	@echo "contexts:" >> ~/.armadactl.yaml
+	@echo "  main:" >> ~/.armadactl.yaml
+	@echo "    armadaUrl: localhost:30002" >> ~/.armadactl.yaml
+
+.PHONY: create-armada-namespace
+create-armada-namespace: ## Create Armada namespace
+	kubectl create namespace armada || true
+
+.PHONY: apply-default-priority-class
+apply-default-priority-class: ## Apply default priority class required by Armada for all jobs
+	kubectl apply --filename dev/quickstart/priority-class.yaml
+
+.PHONY: create-example-queue
+create-example-queue: ## Create example queue in Armada using armadactl
+	armadactl create queue example
+
+.PHONY: submit-example-job
+submit-example-job: ## Submit example job to Armada using armadactl
+	armadactl submit dev/quickstart/example-job.yaml
+
+.PHONY: get-armadactl
+get-armadactl: ## Get armadactl binary
+	curl https://raw.githubusercontent.com/armadaproject/armada/master/scripts/get-armadactl.sh | bash
 
 ##@ Codegen
 
@@ -176,8 +209,10 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
-.PHONY: kind-all
-kind-all: kind-create-cluster kind-deploy ## Create a kind cluster and deploy the operator.
+kind-all: kind-create-cluster install-and-wait-cert-manager helm-repos helm-install install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything
+
+.PHONY: kind-all-dev
+kind-all-dev: kind-create-cluster kind-deploy helm-repos install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything with Operator built from scratch
 
 .PHONY: kind-create-cluster
 kind-create-cluster: kind ## Create a kind cluster using config from hack/kind-config.yaml.
@@ -188,7 +223,7 @@ kind-load-image: docker-build ## Load Operator Docker image into kind cluster.
 	$(KIND) load docker-image --name $(KIND_CLUSTER_NAME) ${IMAGE_TAG}
 
 .PHONY: kind-deploy
-kind-deploy: kind-load-image install install-cert-manager wait-for-cert-manager ## Deploy operator in a kind cluster after building & loading the image
+kind-deploy: kind-load-image install install-and-wait-cert-manager ## Deploy operator in a kind cluster after building & loading the image
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_TAG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
@@ -209,23 +244,38 @@ deploy: manifests kustomize ## Deploy Armada Operator using Kustomize.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_TAG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-helm-install: helm ## Install latest released Armada Operator using Helm from gresearch Helm registry.
-	$(HELM) upgrade --install armada-operator gresearch/armada-operator --create-namespace --namespace armada-system
+helm-install: ## Install latest released Armada Operator using Helm from gresearch Helm registry.
+	helm upgrade --install armada-operator gresearch/armada-operator --create-namespace --namespace armada-system
 
-helm-install-local: kind-load-image helm ## Build latest Armada Operator and install using Helm. Should only be used for local development in kind cluster.
-	$(HELM) upgrade --install armada-operator charts/armada-operator --create-namespace --namespace armada-system --set controllerManager.manager.image.tag=$(GIT_TAG)
+helm-install-local: kind-load-image ## Build latest Armada Operator and install using Helm. Should only be used for local development in kind cluster.
+	helm upgrade --install armada-operator charts/armada-operator --create-namespace --namespace armada-system --set controllerManager.manager.image.tag=$(GIT_TAG)
 
-helm-uninstall: helm ## Uninstall operator using Helm.
-	$(HELM) uninstall armada-operator --namespace armada-operator
+helm-uninstall: ## Uninstall operator using Helm.
+	helm uninstall armada-operator --namespace armada-operator
 
 .PHONY: undeploy
 undeploy: ## Delete Armada Operator Kubernetes resources.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
+.PHONY: apply-armada-crs
+apply-armada-crs: ## Apply CRs of all Armada components using kubectl
+	kubectl apply -f dev/quickstart/armada-crs.yaml
+
+.PHONY: delete-armada-crs
+delete-armada-crs: ## Delete CRs of all Armada components using kubectl
+	kubectl delete -f dev/quickstart/armada-crs.yaml
+
 ##@ External Dependencies
 
 .PHONY: install-armada-deps
 install-armada-deps: helm-repos helm-install-kube-prometheus-stack helm-install-postgres helm-install-pulsar helm-install-redis ## Install required Armada dependencies (Prometheus, PostgreSQL, Pulsar, Redis).
+
+.PHONY: wait-for-armada-deps
+wait-for-armada-deps: ## Wait for all Armada dependencies to be ready
+	hack/wait-for-deps.sh
+
+.PHONY: uninstall-armada-deps
+uninstall-armada-deps: helm-uninstall-kube-prometheus-stack helm-uninstall-postgres helm-uninstall-pulsar helm-uninstall-redis ## Uninstall required Armada dependencies (Prometheus, PostgreSQL, Pulsar, Redis).
 
 CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml"
 .PHONY: install-cert-manager
@@ -252,17 +302,19 @@ uninstall-ingress-controller: ## Uninstall ingress controller.
 	kubectl delete -f ${INGRESS_MANIFEST}
 
 .PHONY: helm-repos
-helm-repos: helm ## Add helm repos for external dependencies.
-	$(HELM) repo add jetstack https://charts.jetstack.io
-	$(HELM) repo add bitnami https://charts.bitnami.com/bitnami
-	$(HELM) repo add apache https://pulsar.apache.org/charts
-	$(HELM) repo add dandydev https://dandydeveloper.github.io/charts
-	$(HELM) repo update
+helm-repos: ## Add helm repos for external dependencies.
+	helm repo add jetstack https://charts.jetstack.io
+	helm repo add bitnami https://charts.bitnami.com/bitnami
+	helm repo add apache https://pulsar.apache.org/charts
+	helm repo add dandydev https://dandydeveloper.github.io/charts
+	helm repo add gresearch https://g-research.github.io/charts
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo update
 
 CERT_MANAGER_VERSION ?= v1.14.5
 .PHONY: helm-install-cert-manager
 helm-install-cert-manager:
-	$(HELM) upgrade --install cert-manager jetstack/cert-manager \
+	helm upgrade --install cert-manager jetstack/cert-manager \
 	  --create-namespace 				 			   \
 	  --namespace cert-manager 			 			   \
 	  --version $(CERT_MANAGER_VERSION)  			   \
@@ -270,11 +322,11 @@ helm-install-cert-manager:
 
 .PHONY: helm-install-pulsar
 helm-install-pulsar: helm-repos ## Install Apache Pulsar using Helm.
-	$(HELM) upgrade --install pulsar apache/pulsar --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
+	helm upgrade --install pulsar apache/pulsar --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-pulsar
 helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
-	$(HELM) uninstall pulsar --namespace data
+	helm uninstall pulsar --namespace data
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
@@ -282,23 +334,23 @@ helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
 
 .PHONY: helm-uninstall-postgres
 helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
-	$(HELM) uninstall postgres --namespace data
+	helm uninstall postgres --namespace data
 
 .PHONY: helm-install-redis
 helm-install-redis: helm-repos ## Install Redis using Helm.
-	$(HELM) upgrade --install redis-ha dandydev/redis-ha --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
+	helm upgrade --install redis-ha dandydev/redis-ha --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-redis
 helm-uninstall-redis: ## Uninstall Redis using Helm.
-	$(HELM) uninstall redis --namespace data
+	helm uninstall redis --namespace data
 
 .PHONY: helm-install-kube-prometheus-stack
 helm-install-kube-prometheus-stack: helm-repos ## Install kube-prometheus-stack using Helm.
-	$(HELM) upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
+	helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
 
 .PHONY: helm-uninstall-kube-prometheus-stack
 helm-uninstall-kube-prometheus-stack: ## Uninstall kube-prometheus-stack using Helm.
-	$(HELM) uninstall kube-prometheus-stack --namespace monitoring
+	helm uninstall kube-prometheus-stack --namespace monitoring
 
 ##@ Build Dependencies
 
@@ -373,29 +425,3 @@ GOLANGCI_LINT_VERSION ?= v1.59.0
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN_TOOLING)
 	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
-
-.PHONY: helm
-HELM = ./bin/helm
-OS=$(shell go env GOOS)
-HELM_VERSION=helm-v3.15.0-$(OS)-$(ARCH)
-HELM_ARCHIVE=$(HELM_VERSION).tar.gz
-
-helm: ## Download helm locally if necessary.
-ifeq (,$(wildcard $(HELM)))
-ifeq (,$(shell which helm 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(HELM)) ;\
-	mkdir -p ./download ;\
-    cd download ;\
-	echo $(OS) $(ARCH) $(HELM_VERSION) $(HELM_ARCHIVE) ;\
-	curl -sSLo ./$(HELM_ARCHIVE) https://get.helm.sh/$(HELM_ARCHIVE) ;\
-	tar -zxvf ./$(HELM_ARCHIVE) ;\
-    cd .. ;\
-	ln -s ./download/$(OS)-$(ARCH)/helm $(HELM) ;\
-	chmod +x $(HELM) ;\
-	}
-else
-HELM = $(shell which helm)
-endif
-endif

@@ -10,8 +10,10 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-server
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
+    httpNodePort: 30001
+    grpcNodePort: 30002
     auth:
       anonymousAuth: true
       permissionGroupMapping:
@@ -60,7 +62,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-executor
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
     executorApiConnection:
       armadaUrl: armada-scheduler.armada.svc.cluster.local:50051
@@ -77,10 +79,11 @@ spec:
     ingressClass: "nginx"
   image:
     repository: gresearch/armada-lookout-v2
-    tag: 0.5.0
+    tag: 0.8.2
   prometheus:
     enabled: true
   applicationConfig:
+    httpNodePort: 30000
     # See https://github.com/armadaproject/armada/blob/master/config/lookoutv2/config.yaml
     # for the full list of configuration options.
     apiPort: 8080
@@ -103,7 +106,7 @@ metadata:
 spec:
   image:
     repository: gresearch/armada-lookout-ingester-v2
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
     postgres:
       connection:
@@ -127,7 +130,7 @@ spec:
     ingressClass: "nginx"
   image:
     repository: gresearch/armada-scheduler
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
     grpc:
       port: 50051
@@ -156,7 +159,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-scheduler-ingester
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
     postgres:
       connection:
@@ -178,7 +181,7 @@ spec:
   replicas: 1
   image:
     repository: gresearch/armada-event-ingester
-    tag: 0.5.0
+    tag: 0.8.2
   applicationConfig:
     pulsar:
       URL: pulsar://pulsar-broker.data.svc.cluster.local:6650
