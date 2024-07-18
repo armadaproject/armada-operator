@@ -313,6 +313,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            lookout.Name,
 					TerminationGracePeriodSeconds: lookout.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

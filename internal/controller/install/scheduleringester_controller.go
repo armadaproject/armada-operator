@@ -188,6 +188,7 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduleringester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            scheduleringester.Name,
 					TerminationGracePeriodSeconds: scheduleringester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

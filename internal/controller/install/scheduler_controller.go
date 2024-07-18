@@ -307,6 +307,7 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler) (*appsv1.De
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            scheduler.Name,
 					TerminationGracePeriodSeconds: scheduler.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

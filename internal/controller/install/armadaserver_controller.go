@@ -519,6 +519,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Dep
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            as.Name,
 					TerminationGracePeriodSeconds: as.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

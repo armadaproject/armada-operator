@@ -188,6 +188,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(eventIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            eventIngester.Name,
 					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

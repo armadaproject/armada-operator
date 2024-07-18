@@ -187,6 +187,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookoutIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            lookoutIngester.Name,
 					TerminationGracePeriodSeconds: lookoutIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,
