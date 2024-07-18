@@ -232,8 +232,8 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 	}
 	if scheduleringester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduleringester.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduleringester.Spec.Resources)
 	}
-	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduleringester.Spec.Resources)
 
 	return &deployment, nil
 

@@ -233,8 +233,8 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 	}
 	if eventIngester.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *eventIngester.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *eventIngester.Spec.Resources)
 	}
-	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *eventIngester.Spec.Resources)
 
 	return &deployment, nil
 
