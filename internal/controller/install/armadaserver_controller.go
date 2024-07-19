@@ -233,7 +233,17 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	deployment, err := createArmadaServerDeployment(as)
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := as.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(as, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+
+	deployment, err := createArmadaServerDeployment(as, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +273,6 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), as.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
-		return nil, err
-	}
-
-	svcAcct := builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(as, svcAcct, scheme); err != nil {
 		return nil, err
 	}
 
@@ -304,7 +309,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		IngressGrpc:         ingressGrpc,
 		IngressHttp:         ingressHttp,
 		Service:             service,
-		ServiceAccount:      svcAcct,
+		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		PodDisruptionBudget: pdb,
 		PrometheusRule:      pr,
@@ -483,7 +488,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	return []*batchv1.Job{&pulsarWaitJob, &initPulsarJob}, nil
 }
 
-func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Deployment, error) {
+func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer, serviceAccountName string) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
@@ -519,7 +524,7 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer) (*appsv1.Dep
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            as.Name,
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: as.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

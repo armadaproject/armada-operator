@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -126,26 +128,33 @@ func (r *SchedulerIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(scheduleringester *installv1alpha1.SchedulerIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
-	secret, err := builders.CreateSecret(scheduleringester.Spec.ApplicationConfig, scheduleringester.Name, scheduleringester.Namespace, GetConfigFilename(scheduleringester.Name))
+func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedulerIngester *installv1alpha1.SchedulerIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
+	secret, err := builders.CreateSecret(schedulerIngester.Spec.ApplicationConfig, schedulerIngester.Name, schedulerIngester.Namespace, GetConfigFilename(schedulerIngester.Name))
 	if err != nil {
 		return nil, err
 	}
-	if err := controllerutil.SetOwnerReference(scheduleringester, secret, scheme); err != nil {
-		return nil, err
-	}
-	deployment, err := r.createDeployment(scheduleringester)
-	if err != nil {
-		return nil, err
-	}
-	if err := controllerutil.SetOwnerReference(scheduleringester, deployment, scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(schedulerIngester, secret, scheme); err != nil {
 		return nil, err
 	}
 
-	serviceAccount := builders.CreateServiceAccount(scheduleringester.Name, scheduleringester.Namespace, AllLabels(scheduleringester.Name, scheduleringester.Labels), scheduleringester.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(scheduleringester, serviceAccount, scheme); err != nil {
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := schedulerIngester.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(schedulerIngester.Name, schedulerIngester.Namespace, AllLabels(schedulerIngester.Name, schedulerIngester.Labels), schedulerIngester.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(schedulerIngester, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+
+	deployment, err := r.createDeployment(schedulerIngester, serviceAccountName)
+	if err != nil {
 		return nil, err
 	}
+	if err := controllerutil.SetOwnerReference(schedulerIngester, deployment, scheme); err != nil {
+		return nil, err
+	}
+
 	return &CommonComponents{
 		Deployment:     deployment,
 		ServiceAccount: serviceAccount,
@@ -153,7 +162,7 @@ func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedu
 	}, nil
 }
 
-func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *installv1alpha1.SchedulerIngester) (*appsv1.Deployment, error) {
+func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *installv1alpha1.SchedulerIngester, serviceAccountName string) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
@@ -188,7 +197,7 @@ func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *instal
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduleringester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            scheduleringester.Name,
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: scheduleringester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

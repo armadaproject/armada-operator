@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -70,7 +72,7 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	lookoutIngester.Spec.PortConfig = pc
 
-	components, err := r.generateInstallComponents(&lookoutIngester)
+	components, err := r.generateInstallComponents(&lookoutIngester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -128,7 +130,7 @@ func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester) (*CommonComponents, error) {
+func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookoutIngester.Spec.ApplicationConfig, lookoutIngester.Name, lookoutIngester.Namespace, GetConfigFilename(lookoutIngester.Name))
 	if err != nil {
 		return nil, err
@@ -136,15 +138,22 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	if err := controllerutil.SetOwnerReference(lookoutIngester, secret, r.Scheme); err != nil {
 		return nil, err
 	}
-	deployment, err := r.createDeployment(lookoutIngester)
+
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := lookoutIngester.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(lookoutIngester.Name, lookoutIngester.Namespace, AllLabels(lookoutIngester.Name, lookoutIngester.Labels), lookoutIngester.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(lookoutIngester, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+
+	deployment, err := r.createDeployment(lookoutIngester, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookoutIngester, deployment, r.Scheme); err != nil {
-		return nil, err
-	}
-	serviceAccount := builders.CreateServiceAccount(lookoutIngester.Name, lookoutIngester.Namespace, AllLabels(lookoutIngester.Name, lookoutIngester.Labels), lookoutIngester.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(lookoutIngester, serviceAccount, r.Scheme); err != nil {
 		return nil, err
 	}
 
@@ -156,7 +165,7 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 }
 
 // TODO: Flesh this out for lookoutingester
-func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester) (*appsv1.Deployment, error) {
+func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, serviceAccountName string) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
@@ -187,7 +196,7 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookoutIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            lookoutIngester.Name,
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: lookoutIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

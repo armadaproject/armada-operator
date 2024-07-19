@@ -17,6 +17,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -203,7 +205,18 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment, err := createLookoutDeployment(lookout)
+
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := lookout.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+
+	deployment, err := createLookoutDeployment(lookout, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -213,10 +226,6 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 
 	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), lookout.Spec.PortConfig)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
-		return nil, err
-	}
-	serviceAccount := builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
 		return nil, err
 	}
 
@@ -290,7 +299,7 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 
 // Function to build the deployment object for Lookout.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployment, error) {
+func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountName string) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
@@ -313,7 +322,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout) (*appsv1.Deployme
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            lookout.Name,
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: lookout.DeletionGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,

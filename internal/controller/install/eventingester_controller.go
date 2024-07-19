@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -134,7 +136,18 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	if err := controllerutil.SetOwnerReference(eventIngester, secret, scheme); err != nil {
 		return nil, err
 	}
-	deployment, err := r.createDeployment(eventIngester)
+
+	var serviceAccount *corev1.ServiceAccount
+	serviceAccountName := eventIngester.Spec.CustomServiceAccount
+	if serviceAccountName == "" {
+		serviceAccount = builders.CreateServiceAccount(eventIngester.Name, eventIngester.Namespace, AllLabels(eventIngester.Name, eventIngester.Labels), eventIngester.Spec.ServiceAccount)
+		if err = controllerutil.SetOwnerReference(eventIngester, serviceAccount, scheme); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		serviceAccountName = serviceAccount.Name
+	}
+
+	deployment, err := r.createDeployment(eventIngester, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +155,6 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 		return nil, err
 	}
 
-	serviceAccount := builders.CreateServiceAccount(eventIngester.Name, eventIngester.Namespace, AllLabels(eventIngester.Name, eventIngester.Labels), eventIngester.Spec.ServiceAccount)
-	if err := controllerutil.SetOwnerReference(eventIngester, serviceAccount, scheme); err != nil {
-		return nil, err
-	}
 	return &CommonComponents{
 		Deployment:     deployment,
 		ServiceAccount: serviceAccount,
@@ -153,7 +162,7 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	}, nil
 }
 
-func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester) (*appsv1.Deployment, error) {
+func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester, serviceAccountName string) (*appsv1.Deployment, error) {
 	var runAsUser int64 = 1000
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
@@ -188,7 +197,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(eventIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            eventIngester.Name,
+					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  &runAsUser,
