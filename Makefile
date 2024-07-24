@@ -89,7 +89,9 @@ submit-example-job: ## Submit example job to Armada using armadactl
 
 .PHONY: get-armadactl
 get-armadactl: ## Get armadactl binary
-	curl https://raw.githubusercontent.com/armadaproject/armada/master/scripts/get-armadactl.sh | bash
+	curl -o $(LOCALBIN_APP)/get-armadactl.sh https://raw.githubusercontent.com/armadaproject/armada/master/scripts/get-armadactl.sh
+	bash -c "cd bin/app && bash get-armadactl.sh"
+	rm bin/app/get-armadactl.sh
 
 ##@ Codegen
 
