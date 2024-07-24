@@ -585,8 +585,8 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer, serviceAccou
 	}
 	if as.Spec.Resources != nil {
 		deployment.Spec.Template.Spec.Containers[0].Resources = *as.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *as.Spec.Resources)
 	}
-	deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *as.Spec.Resources)
 
 	return &deployment, nil
 }
