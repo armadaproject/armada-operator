@@ -23,6 +23,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	defaultHTTPPort    = 8080
+	defaultGRPCPort    = 50051
+	defaultMetricsPort = 9000
+)
+
 type Image struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern:="^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$"
@@ -73,6 +79,7 @@ type PortConfig struct {
 	MetricsPort  int32 `json:"metricsPort"`
 }
 
+// CommonSpecBase is the common configuration for all services.
 // NOTE(Clif): You must label this with `json:""` when using it as an embedded
 // struct in order for controller-gen to use the promoted fields as expected.
 type CommonSpecBase struct {
@@ -114,9 +121,9 @@ func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
 	}
 	// defaults
 	portConfig := PortConfig{
-		HttpPort:    8080,
-		GrpcPort:    50051,
-		MetricsPort: 9000,
+		HttpPort:    defaultHTTPPort,
+		GrpcPort:    defaultGRPCPort,
+		MetricsPort: defaultMetricsPort,
 	}
 	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
 	if err != nil {

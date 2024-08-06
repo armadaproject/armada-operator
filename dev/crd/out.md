@@ -289,6 +289,7 @@ _Appears in:_
 
 
 
+CommonSpecBase is the common configuration for all services.
 NOTE(Clif): You must label this with `json:""` when using it as an embedded
 struct in order for controller-gen to use the promoted fields as expected.
 

@@ -34,20 +34,12 @@ import (
 type AppName string
 
 const (
-	defaultPrometheusInterval         = 1 * time.Second
-	appConfigFlag                     = "--config"
-	appConfigFilepath                 = "/config/application_config.yaml"
-	AppArmada                 AppName = "armada"
-	AppExecutor               AppName = "executor"
-	AppScheduler              AppName = "scheduler"
-	AppSchedulerIngester      AppName = "scheduleringester"
-	AppLookout                AppName = "lookout"
-	AppLookoutIngester        AppName = "lookoutingesterv2"
-	AppEventIngester          AppName = "eventingester"
-	AppBinoculars             AppName = "binoculars"
+	defaultPrometheusInterval = 1 * time.Second
+	appConfigFlag             = "--config"
+	appConfigFilepath         = "/config/application_config.yaml"
 )
 
-// CommonComponents are the base components for all of the Armada services
+// CommonComponents are the base components for all Armada services
 type CommonComponents struct {
 	Deployment          *appsv1.Deployment
 	IngressGrpc         *networkingv1.Ingress
