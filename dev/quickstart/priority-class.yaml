@@ -2,6 +2,6 @@ apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: armada-default
-value: 1000000
+value: 1000
 globalDefault: false
 description: "This priority class should be as a default for Armada jobs."

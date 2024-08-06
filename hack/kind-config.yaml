@@ -2,22 +2,17 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
   extraPortMappings:
+  # Lookout UI
   - containerPort: 30000
     hostPort: 30000
     protocol: TCP
+  # Armada Server REST API
   - containerPort: 30001
     hostPort: 30001
     protocol: TCP
+  # Armada Server gRPC API
   - containerPort: 30002
     hostPort: 30002
     protocol: TCP
-  # Add two worker nodes
-- role: worker
 - role: worker

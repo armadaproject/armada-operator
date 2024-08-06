@@ -1,7 +1,7 @@
 #!/bin/bash
 
 STATEFULSETS=(
-    "postgres-postgresql"
+    "postgresql"
     "pulsar-bookie"
     "pulsar-broker"
     "pulsar-proxy"

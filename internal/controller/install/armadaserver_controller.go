@@ -82,6 +82,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	as.Spec.PortConfig = pc
+
 	var components *CommonComponents
 	components, err = generateArmadaServerInstallComponents(&as, r.Scheme)
 	if err != nil {
@@ -192,7 +193,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if components.IngressHttp != nil {
-		logger.Info("Upserting ArmadaServer IngressHttp object")
+		logger.Info("Upserting ArmadaServer REST Ingress object")
 		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
 			return ctrl.Result{}, err
 		}

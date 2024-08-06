@@ -4,7 +4,7 @@ jobs:
   - namespace: default
     priority: 0
     podSpec:
-      priorityClassName: armada-default
+      priorityClassName: armada-preemptible
       terminationGracePeriodSeconds: 0
       restartPolicy: Never
       containers:
@@ -18,7 +18,7 @@ jobs:
           resources:
             limits:
               memory: 128Mi
-              cpu: 2
+              cpu: 0.5
             requests:
               memory: 128Mi
-              cpu: 2
+              cpu: 0.5
