@@ -138,7 +138,7 @@ please read the Quickstart guide in the [documentation](./dev/quickstart/README.
 
 For more info on Armada, please visit the [Armada website](https://armadaproject.io) and the GitHub repository [armadaproject/armada](https://github.com/armadaproject/armada)
 
-For understanding the minimal configuration required to deploy Armada services, please refer to the [armada-crds.yaml](./dev/quickstart/armada-crds.yaml) file.
+For understanding the minimal configuration required to deploy Armada services, please refer to the [armada-crs.yaml](./dev/quickstart/armada-crs.yaml) file.
 
 For advanced usage, please refer to the Armada CRD reference docs in `dev/crd/` directory.
 
