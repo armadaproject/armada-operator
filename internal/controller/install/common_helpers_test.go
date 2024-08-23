@@ -759,6 +759,27 @@ func makeCommonComponents() CommonComponents {
 		},
 	}
 
+	automountServiceAccountToken := true
+	serviceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "some-name",
+			Namespace:   "some-namespace",
+			Labels:      map[string]string{"some-label-key": "some-label-value"},
+			Annotations: map[string]string{"some-annotation-key": "some-annotation-value"},
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: "some-image-pull-secret",
+			},
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name: "some-secret",
+			},
+		},
+		AutomountServiceAccountToken: &automountServiceAccountToken,
+	}
+
 	pc := schedulingv1.PriorityClass{
 		Value: 1000,
 	}
@@ -768,6 +789,7 @@ func makeCommonComponents() CommonComponents {
 	}
 	return CommonComponents{
 		Deployment:      &deployment,
+		ServiceAccount:  &serviceAccount,
 		PriorityClasses: []*schedulingv1.PriorityClass{&pc},
 		Secret:          &secret,
 	}
