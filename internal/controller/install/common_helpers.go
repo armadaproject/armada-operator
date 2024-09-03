@@ -152,6 +152,16 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 		cc.Service = nil
 	}
 
+	if newComponents.ServiceAccount != nil {
+		cc.ServiceAccount.Labels = newComponents.ServiceAccount.Labels
+		cc.ServiceAccount.Annotations = newComponents.ServiceAccount.Annotations
+		cc.ServiceAccount.ImagePullSecrets = newComponents.ServiceAccount.ImagePullSecrets
+		cc.ServiceAccount.Secrets = newComponents.ServiceAccount.Secrets
+		cc.ServiceAccount.AutomountServiceAccountToken = newComponents.ServiceAccount.AutomountServiceAccountToken
+	} else {
+		cc.ServiceAccount = nil
+	}
+
 	if newComponents.ClusterRole != nil {
 		cc.ClusterRole.Rules = newComponents.ClusterRole.Rules
 		cc.ClusterRole.Labels = newComponents.ClusterRole.Labels
