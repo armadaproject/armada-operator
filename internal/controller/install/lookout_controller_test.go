@@ -532,7 +532,7 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := createLookoutMigrationJob(&cr)
+			rslt, err := createLookoutMigrationJob(&cr, "")
 
 			if tt.wantErr {
 				assert.Error(t, err)

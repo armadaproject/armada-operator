@@ -754,7 +754,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := createSchedulerMigrationJob(&cr)
+			rslt, err := createSchedulerMigrationJob(&cr, "")
 
 			if tt.wantErr {
 				assert.Error(t, err)

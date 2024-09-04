@@ -237,7 +237,7 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
-	job, err := createLookoutMigrationJob(lookout)
+	job, err := createLookoutMigrationJob(lookout, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,7 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ing
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
-func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, error) {
+func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
@@ -483,6 +483,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout) (*batchv1.Job, 
 					Labels:    AllLabels(lookout.Name, lookout.Labels),
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            serviceAccountName,
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{

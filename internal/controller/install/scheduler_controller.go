@@ -231,7 +231,7 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 		}
 	}
 
-	job, err := createSchedulerMigrationJob(scheduler)
+	job, err := createSchedulerMigrationJob(scheduler, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +431,7 @@ func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networki
 }
 
 // createSchedulerMigrationJob returns a batch Job or an error if the app config is not correct
-func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Job, error) {
+func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.Job, error) {
 	runAsUser := int64(1000)
 	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
@@ -474,6 +474,7 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler) (*batchv1
 					Labels:    AllLabels(scheduler.Name, scheduler.Labels),
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            serviceAccountName,
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					SecurityContext: &corev1.PodSecurityContext{
