@@ -713,6 +713,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 				assert.Equal(t, "postgres3000", job.Spec.Template.Spec.InitContainers[0].Env[0].Value)
 				assert.Equal(t, "PGPORT", job.Spec.Template.Spec.InitContainers[0].Env[1].Name)
 				assert.Equal(t, "4000", job.Spec.Template.Spec.InitContainers[0].Env[1].Value)
+				assert.Equal(t, "sa", job.Spec.Template.Spec.ServiceAccountName)
 			},
 			wantErr: false,
 		},
@@ -730,6 +731,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 				assert.Equal(t, "", job.Spec.Template.Spec.InitContainers[0].Env[0].Value)
 				assert.Equal(t, "PGPORT", job.Spec.Template.Spec.InitContainers[0].Env[1].Name)
 				assert.Equal(t, "", job.Spec.Template.Spec.InitContainers[0].Env[1].Value)
+				assert.Equal(t, "sa", job.Spec.Template.Spec.ServiceAccountName)
 			},
 			wantErr: false,
 		},
@@ -754,7 +756,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := createSchedulerMigrationJob(&cr, "")
+			rslt, err := createSchedulerMigrationJob(&cr, "sa")
 
 			if tt.wantErr {
 				assert.Error(t, err)
