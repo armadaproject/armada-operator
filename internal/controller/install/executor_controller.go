@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/go-logr/logr"
@@ -76,17 +78,14 @@ type ExecutorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	started := time.Now()
-	logger.Info("Reconciling Executor object")
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
 
-	logger.Info("Fetching Executor object from cache")
+	started := time.Now()
+
+	logger.Info("Reconciling object")
+
 	var executor installv1alpha1.Executor
-	if err := r.Client.Get(ctx, req.NamespacedName, &executor); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("Executor not found in cache, ending reconcile")
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &executor, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
@@ -101,42 +100,12 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	deletionTimestamp := executor.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&executor, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Executor object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&executor, operatorFinalizer)
-			if err := r.Update(ctx, &executor); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Executor object is being deleted", "finalizer", operatorFinalizer)
-		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&executor, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Executor cluster-scoped components", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components, logger); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Executor object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&executor, operatorFinalizer)
-			if err := r.Update(ctx, &executor); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	cleanupF := func(ctx context.Context) error {
+		return r.deleteExternalResources(ctx, components, logger)
+	}
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &executor, operatorFinalizer, cleanupF, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
 	}
 
 	componentsCopy := components.DeepCopy()
@@ -146,70 +115,47 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Executor ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.ClusterRole != nil {
-		logger.Info("Upserting Executor ClusterRole object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ClusterRole, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	for _, crb := range components.ClusterRoleBindings {
-		logger.Info("Upserting additional Executor ClusterRoleBinding object", "name", crb.Name)
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, crb, mutateFn); err != nil {
+		if err := upsertObjectIfNeeded(ctx, r.Client, crb, executor.Kind, mutateFn, logger); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting Executor Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting Executor Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Service != nil {
-		logger.Info("Upserting Executor Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Service, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	for _, pc := range components.PriorityClasses {
-		logger.Info("Upserting additional Executor PriorityClass object", "name", pc.Name)
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, pc, mutateFn); err != nil {
+		if err := upsertObjectIfNeeded(ctx, r.Client, pc, executor.Kind, mutateFn, logger); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if components.PrometheusRule != nil {
-		logger.Info("Upserting Executor PrometheusRule object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.PrometheusRule, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.ServiceMonitor != nil {
-		logger.Info("Upserting Executor ServiceMonitor object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceMonitor, executor.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully reconciled Executor object", "durationMillis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -265,7 +211,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		}
 		components.ServiceMonitor = serviceMonitor
 
-		components.PrometheusRule = createPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
+		components.PrometheusRule = createExecutorPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
 	}
 
 	return components, nil
@@ -506,6 +452,42 @@ func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, compon
 	}
 
 	return nil
+}
+
+// createExecutorPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
+func createExecutorPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
+	if scrapeInterval == nil {
+		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
+	}
+	restRequestHistogram := `histogram_quantile(0.95, ` +
+		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + name + `"}[2m])) by (endpoint, verb, url, le))`
+	logRate := "sum(rate(log_messages[2m])) by (level)"
+	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	objectMetaName := "armada-" + name + "-metrics"
+	return &monitoringv1.PrometheusRule{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    AllLabels(name, labels...),
+		},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{{
+				Name:     objectMetaName,
+				Interval: ptr.To(monitoringv1.Duration(durationString)),
+				Rules: []monitoringv1.Rule{
+					{
+						Record: "armada:" + name + ":rest:request:histogram95",
+						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
+					},
+					{
+						Record: "armada:" + name + ":log:rate",
+						Expr:   intstr.IntOrString{StrVal: logRate},
+					},
+				},
+			}},
+		},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

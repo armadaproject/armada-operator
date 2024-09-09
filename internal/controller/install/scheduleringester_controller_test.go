@@ -57,11 +57,18 @@ func TestSchedulerIngesterReconciler_Reconcile(t *testing.T) {
 	ownerReference := []metav1.OwnerReference{owner}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// SchedulerIngester
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.SchedulerIngester{})).
 		Return(nil).
 		SetArg(2, expectedSchedulerIngester)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.SchedulerIngester{})).
+		Return(nil)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -233,10 +240,9 @@ func TestSchedulerIngesterReconciler_ReconcileErrorOnApplicationConfig(t *testin
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "default",
-			Name:              "SchedulerIngester",
-			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{operatorFinalizer},
+			Namespace:  "default",
+			Name:       "SchedulerIngester",
+			Finalizers: []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.SchedulerIngesterSpec{
 			CommonSpecBase: installv1alpha1.CommonSpecBase{

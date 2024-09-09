@@ -30,7 +30,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,12 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
-)
-
-// migrationTimeout is how long we'll wait for the Lookout db migration job
-const (
-	migrationTimeout   = time.Second * 120
-	migrationPollSleep = time.Second * 5
 )
 
 // LookoutReconciler reconciles a Lookout object
@@ -63,17 +56,18 @@ type LookoutReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	started := time.Now()
-	logger.Info("Reconciling Lookout object")
 
-	logger.Info("Fetching Lookout object from cache")
+	started := time.Now()
+
+	logger.Info("Reconciling object")
 
 	var lookout installv1alpha1.Lookout
-	if err := r.Client.Get(ctx, req.NamespacedName, &lookout); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("Lookout not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &lookout, req.NamespacedName, logger); err != nil || miss {
+		return ctrl.Result{}, err
+	}
+
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &lookout, operatorFinalizer, nil, logger)
+	if err != nil || finish {
 		return ctrl.Result{}, err
 	}
 
@@ -89,37 +83,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// examine DeletionTimestamp to determine if object is under deletion
-	deletionTimestamp := lookout.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Lookout object is being deleted", "finalizer", operatorFinalizer)
-		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&lookout, operatorFinalizer) {
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&lookout, operatorFinalizer)
-			if err := r.Update(ctx, &lookout); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
-	}
-
 	componentsCopy := components.DeepCopy()
 
 	mutateFn := func() error {
@@ -127,68 +90,52 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Lookout ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting Lookout Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Jobs != nil && len(components.Jobs) > 0 {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[0], mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
-		defer cancel()
-		err := waitForJob(ctxTimeout, r.Client, components.Jobs[0], migrationPollSleep)
+	for _, job := range components.Jobs {
+		err = func(job *batchv1.Job) error {
+			if err := upsertObjectIfNeeded(ctx, r.Client, job, lookout.Kind, mutateFn, logger); err != nil {
+				return err
+			}
+
+			if err := waitForJob(ctx, r.Client, job, jobPollInterval, jobTimeout); err != nil {
+				return err
+			}
+
+			return nil
+		}(job)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting Lookout Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Service != nil {
-		logger.Info("Upserting Lookout Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Service, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.IngressHttp != nil {
-		logger.Info("Upserting Lookout Ingress Rest object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressHttp, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.PrometheusRule != nil {
-		logger.Info("Upserting Lookout PrometheusRule object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.PrometheusRule, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.CronJob, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.ServiceMonitor != nil {
-		logger.Info("Upserting Lookout ServiceMonitor object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceMonitor, lookout.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully reconciled Lookout object", "durationMillis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled resource", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }
@@ -246,8 +193,8 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	}
 
 	var cronJob *batchv1.CronJob
-	if lookout.Spec.DbPruningEnabled != nil && *lookout.Spec.DbPruningEnabled {
-		cronJob, err := createLookoutCronJob(lookout)
+	if enabled := lookout.Spec.DbPruningEnabled; enabled != nil && *enabled {
+		cronJob, err = createLookoutCronJob(lookout)
 		if err != nil {
 			return nil, err
 		}

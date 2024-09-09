@@ -31,7 +31,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,60 +64,27 @@ type SchedulerReconciler struct {
 func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
 	started := time.Now()
-	logger.Info("Reconciling Scheduler object")
-
-	logger.Info("Fetching Scheduler object from cache")
+	logger.Info("Reconciling object")
 
 	var scheduler installv1alpha1.Scheduler
-	if err := r.Client.Get(ctx, req.NamespacedName, &scheduler); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("Scheduler not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &scheduler, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(scheduler.Spec.ApplicationConfig)
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &scheduler, operatorFinalizer, nil, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
+	}
+
+	scheduler.Spec.PortConfig, err = installv1alpha1.BuildPortConfig(scheduler.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	scheduler.Spec.PortConfig = pc
 
 	var components *CommonComponents
 	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// examine DeletionTimestamp to determine if object is under deletion
-	deletionTimestamp := scheduler.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&scheduler, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Scheduler object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&scheduler, operatorFinalizer)
-			if err := r.Update(ctx, &scheduler); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Scheduler object is being deleted", "finalizer", operatorFinalizer)
-		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&scheduler, operatorFinalizer) {
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Scheduler object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&scheduler, operatorFinalizer)
-			if err := r.Update(ctx, &scheduler); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
 	}
 
 	componentsCopy := components.DeepCopy()
@@ -128,58 +94,38 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Scheduler ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(components.Jobs) > 0 {
+		if err := upsertObjectIfNeeded(ctx, r.Client, components.Jobs[0], scheduler.Kind, mutateFn, logger); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if err := waitForJob(ctx, r.Client, components.Jobs[0], jobPollInterval, jobTimeout); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting Scheduler Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Jobs != nil && len(components.Jobs) > 0 {
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Jobs[0], mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-		ctxTimeout, cancel := context.WithTimeout(ctx, migrationTimeout)
-		defer cancel()
-		err := waitForJob(ctxTimeout, r.Client, components.Jobs[0], migrationPollSleep)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Service, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting Scheduler Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressGrpc, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Service != nil {
-		logger.Info("Upserting Scheduler Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.IngressGrpc != nil {
-		logger.Info("Upserting Scheduler Ingress Grpc object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if components.ServiceMonitor != nil {
-		logger.Info("Upserting Scheduler ServiceMonitor object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceMonitor, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceMonitor, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Successfully reconciled Scheduler object", "durationMillis", time.Since(started).Milliseconds())

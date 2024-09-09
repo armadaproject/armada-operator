@@ -14,7 +14,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Armada Operator", func() {
+var _ = Describe("Lookout Controller", func() {
 	When("User applies Lookout YAML using kubectl", func() {
 		It("Kubernetes should create Lookout Kubernetes resources", func() {
 			By("Calling the Lookout Controller Reconcile function", func() {

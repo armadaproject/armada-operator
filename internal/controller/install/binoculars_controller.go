@@ -61,17 +61,13 @@ type BinocularsReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+
 	started := time.Now()
+
 	logger.Info("Reconciling Binoculars object")
 
-	logger.Info("Fetching Binoculars object from cache")
-
 	var binoculars installv1alpha1.Binoculars
-	if err := r.Client.Get(ctx, req.NamespacedName, &binoculars); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("Binoculars not found in cache, ending reconcile...", "namespace", req.Namespace, "name", req.Name)
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &binoculars, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
@@ -87,41 +83,12 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	deletionTimestamp := binoculars.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&binoculars, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Binoculars object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&binoculars, operatorFinalizer)
-			if err := r.Update(ctx, &binoculars); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Binoculars object is being deleted", "finalizer", operatorFinalizer)
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&binoculars, operatorFinalizer) {
-			// our finalizer is present, so lets handle any external dependency
-			logger.Info("Running cleanup function for Binoculars object", "finalizer", operatorFinalizer)
-			if err := r.deleteExternalResources(ctx, components); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
-				return ctrl.Result{}, err
-			}
-
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Binoculars object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&binoculars, operatorFinalizer)
-			if err := r.Update(ctx, &binoculars); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	cleanupF := func(ctx context.Context) error {
+		return r.deleteExternalResources(ctx, components)
+	}
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &binoculars, operatorFinalizer, cleanupF, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
 	}
 
 	componentsCopy := components.DeepCopy()
@@ -131,58 +98,40 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting Binoculars ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ClusterRole, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(components.ClusterRoleBindings) > 0 {
+		for _, crb := range components.ClusterRoleBindings {
+			if err := upsertObjectIfNeeded(ctx, r.Client, crb, binoculars.Kind, mutateFn, logger); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
-	if components.ClusterRole != nil {
-		logger.Info("Upserting Binoculars ClusterRole object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRole, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.ClusterRoleBindings != nil && len(components.ClusterRoleBindings) > 0 {
-		logger.Info("Upserting Binoculars ClusterRoleBinding object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ClusterRoleBindings[0], mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting Binoculars Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Service, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting Binoculars Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressGrpc, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Service != nil {
-		logger.Info("Upserting Binoculars Service object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Service, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	if components.IngressGrpc != nil {
-		logger.Info("Upserting GRPC Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressGrpc, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	if components.IngressHttp != nil {
-		logger.Info("Upserting REST Ingress object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.IngressHttp, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressHttp, binoculars.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Successfully reconciled Binoculars object", "durationMillis", time.Since(started).Milliseconds())
