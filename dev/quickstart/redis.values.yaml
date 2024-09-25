@@ -1,1 +1,2 @@
-replicas: 1
+replicas: 2
+hardAntiAffinity: false

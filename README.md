@@ -131,6 +131,32 @@ armadactl submit dev/quickstart/example-job.yaml
 
 Check the status of your job in the Lookout UI by visiting `http://localhost:30000` (assuming Armada was installed via the Quickstart guide and it is exposed via a NodePort service) in your browser.
 
+## Migrations
+
+### Migrating to v0.11 and beyond
+
+Since v0.11, Armada Scheduler requires `permissionGroupsMapping` also to be configured.
+
+Make sure the `applicationConfig` field in the Armada Scheduler CRD includes the `permissionGroupsMapping` field.
+
+Quickstart example which allows anonymous auth:
+```yaml
+auth:
+  anonymousAuth: true
+  permissionGroupMapping:
+    submit_jobs: ["everyone"]
+    submit_any_jobs: ["everyone"]
+    create_queue: ["everyone"]
+    delete_queue: ["everyone"]
+    cancel_jobs: ["everyone"]
+    cancel_any_jobs: ["everyone"]
+    reprioritize_jobs: ["everyone"]
+    reprioritize_any_jobs: ["everyone"]
+    watch_events: ["everyone"]
+    watch_all_events: ["everyone"]
+    execute_jobs: ["everyone"]
+```
+
 ## Documentation
 
 For a step-by-step guide on how to install Armada using the Armada Operator and interact with the Armada API,
