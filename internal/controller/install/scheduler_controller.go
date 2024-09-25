@@ -298,8 +298,14 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler, serviceAcco
 	var runAsGroup int64 = 2000
 	allowPrivilegeEscalation := false
 	env := createEnv(scheduler.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(scheduler.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
 	volumes := createVolumes(scheduler.Name, scheduler.Spec.AdditionalVolumes)
+	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
+	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: scheduler.Name, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels)},
