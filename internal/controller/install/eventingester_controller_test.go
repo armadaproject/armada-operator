@@ -57,11 +57,18 @@ func TestEventIngesterReconciler_Reconcile(t *testing.T) {
 	ownerReference := []metav1.OwnerReference{owner}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// EventIngester
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.EventIngester{})).
 		Return(nil).
 		SetArg(2, expectedEventIngester)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.EventIngester{})).
+		Return(nil)
 
 	expectedSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

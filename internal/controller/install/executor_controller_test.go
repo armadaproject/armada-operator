@@ -59,11 +59,13 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
 		Return(nil).
 		SetArg(2, expectedExecutor)
-	// Executor finalizer
+
+	// Finalizer
 	mockK8sClient.
 		EXPECT().
 		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Executor{})).
 		Return(nil)
+
 	// ServiceAccount
 	mockK8sClient.
 		EXPECT().
@@ -73,6 +75,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
 		Return(nil)
+
 	// ClusterRole
 	mockK8sClient.
 		EXPECT().
@@ -82,6 +85,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRole{})).
 		Return(nil)
+
 	// ClusterRoleBinding
 	mockK8sClient.
 		EXPECT().
@@ -91,6 +95,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&rbacv1.ClusterRoleBinding{})).
 		Return(nil)
+
 	// Secret
 	mockK8sClient.
 		EXPECT().
@@ -100,6 +105,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 		Return(nil)
+
 	// Deployment
 	mockK8sClient.
 		EXPECT().
@@ -109,6 +115,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
 		Return(nil)
+
 	// Service
 	mockK8sClient.
 		EXPECT().
@@ -118,6 +125,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil)
+
 	// PrometheusRule
 	mockK8sClient.
 		EXPECT().
@@ -127,6 +135,7 @@ func TestExecutorReconciler_ReconcileNewExecutor(t *testing.T) {
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
+
 	// ServiceMonitor
 	mockK8sClient.
 		EXPECT().

@@ -82,6 +82,7 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 	}
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Scheduler
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Scheduler{})).
@@ -241,10 +242,9 @@ func TestSchedulerReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) 
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "default",
-			Name:              "scheduler",
-			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{operatorFinalizer},
+			Namespace:  "default",
+			Name:       "scheduler",
+			Finalizers: []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.SchedulerSpec{
 			CommonSpecBase: installv1alpha1.CommonSpecBase{

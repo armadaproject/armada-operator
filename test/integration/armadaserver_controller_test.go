@@ -14,7 +14,7 @@ import (
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 )
 
-var _ = Describe("Armada Operator", func() {
+var _ = Describe("Armada Server Controller", func() {
 	When("User applies a new ArmadaServer YAML using kubectl", func() {
 		It("Kubernetes should create ArmadaServer Kubernetes resources", func() {
 			By("Calling the ArmadaServer Controller Reconcile function", func() {

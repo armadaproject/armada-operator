@@ -24,7 +24,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -55,37 +54,30 @@ type SchedulerIngesterReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+
 	started := time.Now()
-	logger.Info("Reconciling SchedulerIngester object")
 
-	logger.Info("Fetching SchedulerIngester object from cache")
-	var scheduleringester installv1alpha1.SchedulerIngester
-	if err := r.Client.Get(ctx, req.NamespacedName, &scheduleringester); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("SchedulerIngester not found in cache, ending reconcile")
-			return ctrl.Result{}, nil
-		}
+	logger.Info("Reconciling object")
+
+	var schedulerIngester installv1alpha1.SchedulerIngester
+	if miss, err := getObject(ctx, r.Client, &schedulerIngester, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(scheduleringester.Spec.ApplicationConfig)
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &schedulerIngester, operatorFinalizer, nil, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
+	}
+
+	pc, err := installv1alpha1.BuildPortConfig(schedulerIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	scheduleringester.Spec.PortConfig = pc
+	schedulerIngester.Spec.PortConfig = pc
 
-	components, err := r.generateSchedulerIngesterComponents(&scheduleringester, r.Scheme)
+	components, err := r.generateSchedulerIngesterComponents(&schedulerIngester, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	deletionTimestamp := scheduleringester.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("SchedulerIngester is being deleted")
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
 	}
 
 	componentsCopy := components.DeepCopy()
@@ -95,28 +87,19 @@ func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting SchedulerIngester ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, schedulerIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting SchedulerIngester Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, schedulerIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting SchedulerIngester Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, schedulerIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully reconciled SchedulerIngester object", "durationMillis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }

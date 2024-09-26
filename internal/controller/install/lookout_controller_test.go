@@ -73,12 +73,8 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		},
 	}
 
-	lookout, err := generateLookoutInstallComponents(&expectedLookout, scheme)
-	if err != nil {
-		t.Fatal("We should not fail on generating lookout")
-	}
-
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Lookout
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
@@ -99,8 +95,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
-		Return(nil).
-		SetArg(1, *lookout.ServiceAccount)
+		Return(nil)
 
 	mockK8sClient.
 		EXPECT().
@@ -109,16 +104,34 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
-		Return(nil).
-		SetArg(1, *lookout.Secret)
+		Return(nil)
 
 	expectedJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
-	lookout.Jobs[0].Status = batchv1.JobStatus{
-		Conditions: []batchv1.JobCondition{{
-			Type:   batchv1.JobComplete,
-			Status: corev1.ConditionTrue,
-		}},
+	expectedMigrationJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "lookout-migration",
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "lookout-migration",
+							Image: "testrepo:1.0.0",
+						},
+					},
+				},
+			},
+		},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			}},
+		},
 	}
+
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
@@ -126,13 +139,12 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
-		Return(nil).
-		SetArg(1, *lookout.Jobs[0])
+		Return(nil)
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(nil).
-		SetArg(2, *lookout.Jobs[0])
+		SetArg(2, *expectedMigrationJob)
 
 	mockK8sClient.
 		EXPECT().
@@ -141,8 +153,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
-		Return(nil).
-		SetArg(1, *lookout.Deployment)
+		Return(nil)
 
 	mockK8sClient.
 		EXPECT().
@@ -151,8 +162,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
-		Return(nil).
-		SetArg(1, *lookout.Service)
+		Return(nil)
 
 	// IngressHttp
 	expectedIngressName := expectedNamespacedName
@@ -164,8 +174,7 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
-		Return(nil).
-		SetArg(1, *lookout.IngressHttp)
+		Return(nil)
 
 	// ServiceMonitor
 	mockK8sClient.
@@ -175,6 +184,18 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
+
+	// CronJob
+	expectedCronJobName := expectedNamespacedName
+	expectedCronJobName.Name = expectedCronJobName.Name + "-db-pruner"
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedCronJobName, gomock.AssignableToTypeOf(&batchv1.CronJob{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
 		Return(nil)
 
 	r := LookoutReconciler{
@@ -238,10 +259,9 @@ func TestLookoutReconciler_ReconcileErrorDueToApplicationConfig(t *testing.T) {
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "default",
-			Name:              "lookout",
-			DeletionTimestamp: &metav1.Time{Time: time.Now()},
-			Finalizers:        []string{operatorFinalizer},
+			Namespace:  "default",
+			Name:       "lookout",
+			Finalizers: []string{operatorFinalizer},
 		},
 		Spec: v1alpha1.LookoutSpec{
 			CommonSpecBase: installv1alpha1.CommonSpecBase{

@@ -161,14 +161,19 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		t.Fatal("We should not fail on generating binoculars")
 	}
 
+	// Binoculars
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Binoculars{})).
 		Return(nil).
 		SetArg(2, expectedBinoculars)
-	// Binoculars finalizer
-	mockK8sClient.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).Return(nil)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Binoculars{})).
+		Return(nil)
 
 	mockK8sClient.
 		EXPECT().

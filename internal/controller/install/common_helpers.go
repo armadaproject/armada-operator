@@ -5,11 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"time"
 
-	"k8s.io/utils/ptr"
+	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/pkg/errors"
+	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -20,10 +25,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -31,12 +33,17 @@ import (
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 )
 
-type AppName string
-
 const (
+	// jobTimeout specifies the maximum time to wait for a job to complete.
+	jobTimeout = time.Second * 120
+	// jobPollInterval specifies the interval to poll for job completion.
+	jobPollInterval = time.Second * 5
+	// defaultPrometheusInterval is the default interval for Prometheus scraping.
 	defaultPrometheusInterval = 1 * time.Second
-	appConfigFlag             = "--config"
-	appConfigFilepath         = "/config/application_config.yaml"
+	// appConfigFlag is the flag to specify the application config file in the container.
+	appConfigFlag = "--config"
+	// appConfigFilepath is the path to the application config file in the container.
+	appConfigFilepath = "/config/application_config.yaml"
 )
 
 // CommonComponents are the base components for all Armada services
@@ -100,6 +107,9 @@ type Image struct {
 type AppConfig struct {
 	Pulsar PulsarConfig
 }
+
+// CleanupFunc is a function that will clean up additional resources which are not deleted by owner references.
+type CleanupFunc func(context.Context) error
 
 // DeepCopy will deep-copy values from the receiver and return a new reference
 func (cc *CommonComponents) DeepCopy() *CommonComponents {
@@ -280,23 +290,20 @@ func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
 	return asConfig.Pulsar, nil
 }
 
-// waitForJob will wait for some resolution of the job. Provide context with timeout if needed.
-func waitForJob(ctx context.Context, cl client.Client, job *batchv1.Job, sleepTime time.Duration) (err error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return errors.New("context timeout while waiting for job")
-		default:
+// waitForJob waits for the Job to reach a terminal state (complete or failed).
+func waitForJob(ctx context.Context, c client.Client, job *batchv1.Job, pollInterval, timeout time.Duration) error {
+	return wait.PollUntilContextTimeout(
+		ctx,
+		pollInterval,
+		timeout,
+		false,
+		func(ctx context.Context) (bool, error) {
 			key := client.ObjectKeyFromObject(job)
-			if err = cl.Get(ctx, key, job); err != nil {
-				return err
+			if err := c.Get(ctx, key, job); err != nil {
+				return false, err
 			}
-			if isJobFinished(job) {
-				return nil
-			}
-		}
-		time.Sleep(sleepTime)
-	}
+			return isJobFinished(job), nil
+		})
 }
 
 // isJobFinished will assess if the job is finished (complete of failed).
@@ -424,42 +431,7 @@ func createPulsarVolumes(pulsarConfig PulsarConfig) []corev1.Volume {
 	return volumes
 }
 
-// createPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
-	if scrapeInterval == nil {
-		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
-	}
-	restRequestHistogram := `histogram_quantile(0.95, ` +
-		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + name + `"}[2m])) by (endpoint, verb, url, le))`
-	logRate := "sum(rate(log_messages[2m])) by (level)"
-	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
-	objectMetaName := "armada-" + name + "-metrics"
-	return &monitoringv1.PrometheusRule{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    AllLabels(name, labels...),
-		},
-		Spec: monitoringv1.PrometheusRuleSpec{
-			Groups: []monitoringv1.RuleGroup{{
-				Name:     objectMetaName,
-				Interval: ptr.To(monitoringv1.Duration(durationString)),
-				Rules: []monitoringv1.Rule{
-					{
-						Record: "armada:" + name + ":rest:request:histogram95",
-						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
-					},
-					{
-						Record: "armada:" + name + ":log:rate",
-						Expr:   intstr.IntOrString{StrVal: logRate},
-					},
-				},
-			}},
-		},
-	}
-}
-
+// addGoMemLimit will add the GOMEMLIMIT environment variable if the memory limit is set.
 func addGoMemLimit(env []corev1.EnvVar, resources corev1.ResourceRequirements) []corev1.EnvVar {
 	if resources.Limits.Memory() != nil && resources.Limits.Memory().Value() != 0 {
 		val := resources.Limits.Memory().Value()
@@ -467,4 +439,136 @@ func addGoMemLimit(env []corev1.EnvVar, resources corev1.ResourceRequirements) [
 		env = append(env, goMemLimit)
 	}
 	return env
+}
+
+// checkAndHandleObjectDeletion handles the deletion of the resource by adding/removing the finalizer.
+// If the resource is being deleted, it will remove the finalizer.
+// If the resource is not being deleted, it will add the finalizer.
+// If finish is true, the reconciliation should finish early.
+func checkAndHandleObjectDeletion(
+	ctx context.Context,
+	r client.Client,
+	object client.Object,
+	finalizer string,
+	cleanupF CleanupFunc,
+	logger logr.Logger,
+) (finish bool, err error) {
+	logger = logger.WithValues("finalizer", finalizer)
+	deletionTimestamp := object.GetDeletionTimestamp()
+	if deletionTimestamp.IsZero() {
+		// The object is not being deleted as deletionTimestamp.
+		// In this case, we should add the finalizer if it is not already present.
+		if err := addFinalizerIfNeeded(ctx, r, object, finalizer, logger); err != nil {
+			return true, err
+		}
+	} else {
+		// The object is being deleted so we should run the cleanup function if needed and remove the finalizer.
+		return handleObjectDeletion(ctx, r, object, finalizer, cleanupF, logger)
+	}
+	// The object is not being deleted, continue reconciliation
+	return false, nil
+}
+
+// addFinalizerIfNeeded will add the finalizer to the object if it is not already present.
+func addFinalizerIfNeeded(
+	ctx context.Context,
+	client client.Client,
+	object client.Object,
+	finalizer string,
+	logger logr.Logger,
+) error {
+	if !controllerutil.ContainsFinalizer(object, finalizer) {
+		logger.Info("Attaching cleanup finalizer because object does not have a deletion timestamp set")
+		controllerutil.AddFinalizer(object, finalizer)
+		return client.Update(ctx, object)
+	}
+	return nil
+}
+
+func handleObjectDeletion(
+	ctx context.Context,
+	client client.Client,
+	object client.Object,
+	finalizer string,
+	cleanupF CleanupFunc,
+	logger logr.Logger,
+) (finish bool, err error) {
+	deletionTimestamp := object.GetDeletionTimestamp()
+	logger.Info(
+		"Object is being deleted as it has a non-zero deletion timestamp set",
+		"deletionTimestamp", deletionTimestamp,
+	)
+	logger.Info(
+		"Namespace-scoped objects will be deleted by Kubernetes based on their OwnerReference",
+		"deletionTimestamp", deletionTimestamp,
+	)
+	// The object is being deleted
+	if controllerutil.ContainsFinalizer(object, finalizer) {
+		// Run additional cleanup function if it is provided
+		if cleanupF != nil {
+			if err := cleanupF(ctx); err != nil {
+				return true, err
+			}
+		}
+		// Remove our finalizer from the list and update it.
+		logger.Info("Removing cleanup finalizer from object")
+		controllerutil.RemoveFinalizer(object, finalizer)
+		if err := client.Update(ctx, object); err != nil {
+			return true, err
+		}
+	}
+
+	// Stop reconciliation as the item is being deleted
+	return true, nil
+}
+
+// upsertObjectIfNeeded will create or update the object with the mutateFn if the resource is not nil.
+func upsertObjectIfNeeded(
+	ctx context.Context,
+	client client.Client,
+	object client.Object,
+	componentName string,
+	mutateFn controllerutil.MutateFn,
+	logger logr.Logger,
+) error {
+	if !isNil(object) {
+		logger.Info(fmt.Sprintf("Upserting %s %s object", componentName, object.GetObjectKind()))
+		if _, err := controllerutil.CreateOrUpdate(ctx, client, object, mutateFn); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Helper function to determine if the object is nil even if it's a pointer to a nil value
+func isNil(i any) bool {
+	iv := reflect.ValueOf(i)
+	if !iv.IsValid() {
+		return true
+	}
+	switch iv.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Func, reflect.Interface:
+		return iv.IsNil()
+	default:
+		return false
+	}
+}
+
+// getObject will get the object from Kubernetes and return if it is missing or an error.
+func getObject(
+	ctx context.Context,
+	client client.Client,
+	object client.Object,
+	namespacedName types.NamespacedName,
+	logger logr.Logger,
+) (miss bool, err error) {
+	logger.Info("Fetching object from cache")
+	if err := client.Get(ctx, namespacedName, object); err != nil {
+		if k8serrors.IsNotFound(err) {
+			logger.Info("Object not found in cache, ending reconcile...")
+			return true, nil
+		}
+		return true, err
+	}
+	return false, nil
 }

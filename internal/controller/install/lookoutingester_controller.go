@@ -18,14 +18,12 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,20 +50,21 @@ type LookoutIngesterReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	started := time.Now()
-	logger.Info("Reconciling LookoutIngester object")
 
-	logger.Info("Fetching LookoutIngester object from cache")
+	started := time.Now()
+
+	logger.Info("Reconciling object")
+
 	var lookoutIngester installv1alpha1.LookoutIngester
-	if err := r.Client.Get(ctx, req.NamespacedName, &lookoutIngester); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("LookoutIngester not found in cache, ending reconcile")
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &lookoutIngester, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
-	logger.Info(fmt.Sprintf("LookoutIngester Name %s", lookoutIngester.Name))
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &lookoutIngester, operatorFinalizer, nil, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
+	}
+
 	pc, err := installv1alpha1.BuildPortConfig(lookoutIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -77,19 +76,6 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	deletionTimestamp := lookoutIngester.ObjectMeta.DeletionTimestamp
-
-	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("LookoutIngester is being deleted")
-
-		// FIXME: Seems like something actually has to happen here?
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
-
-	}
-
 	componentsCopy := components.DeepCopy()
 
 	mutateFn := func() error {
@@ -97,28 +83,19 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return nil
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting LookoutIngester Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, lookoutIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting LookoutIngester ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, lookoutIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting LookoutIngester Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, lookoutIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully reconciled LookoutIngester object", "durationMillis", time.Since(started).Milliseconds())
+	logger.Info("Successfully reconciled object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
 }

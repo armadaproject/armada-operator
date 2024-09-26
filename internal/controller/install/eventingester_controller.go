@@ -24,7 +24,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -55,16 +54,13 @@ type EventIngesterReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	started := time.Now()
-	logger.Info("Reconciling EventIngester object")
 
-	logger.Info("Fetching EventIngester object from cache")
+	started := time.Now()
+
+	logger.Info("Reconciling object")
+
 	var eventIngester installv1alpha1.EventIngester
-	if err := r.Client.Get(ctx, req.NamespacedName, &eventIngester); err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("EventIngester not found in cache, ending reconcile")
-			return ctrl.Result{}, nil
-		}
+	if miss, err := getObject(ctx, r.Client, &eventIngester, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
@@ -79,13 +75,9 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	deletionTimestamp := eventIngester.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if !deletionTimestamp.IsZero() {
-		logger.Info("EventIngester is being deleted")
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &eventIngester, operatorFinalizer, nil, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
 	}
 
 	componentsCopy := components.DeepCopy()
@@ -95,25 +87,16 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return nil
 	}
 
-	if components.ServiceAccount != nil {
-		logger.Info("Upserting EventIngester ServiceAccount object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.ServiceAccount, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceAccount, eventIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Secret != nil {
-		logger.Info("Upserting EventIngester Secret object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Secret, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Secret, eventIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if components.Deployment != nil {
-		logger.Info("Upserting EventIngester Deployment object")
-		if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, components.Deployment, mutateFn); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.Deployment, eventIngester.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("Successfully reconciled EventIngester object", "durationMillis", time.Since(started).Milliseconds())
