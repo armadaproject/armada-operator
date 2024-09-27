@@ -205,13 +205,15 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	}
 
 	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
-		serviceMonitor := r.createServiceMonitor(executor)
-		if err = controllerutil.SetOwnerReference(executor, serviceMonitor, scheme); err != nil {
+		components.ServiceMonitor = r.createServiceMonitor(executor)
+		if err = controllerutil.SetOwnerReference(executor, components.ServiceMonitor, scheme); err != nil {
 			return nil, err
 		}
-		components.ServiceMonitor = serviceMonitor
 
-		components.PrometheusRule = createExecutorPrometheusRule(executor.Name, executor.Namespace, executor.Spec.Prometheus.ScrapeInterval, executor.Spec.Labels, executor.Spec.Prometheus.Labels)
+		components.PrometheusRule = createExecutorPrometheusRule(executor)
+		if err = controllerutil.SetOwnerReference(executor, components.PrometheusRule, scheme); err != nil {
+			return nil, err
+		}
 	}
 
 	return components, nil
@@ -455,21 +457,25 @@ func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, compon
 }
 
 // createExecutorPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createExecutorPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
-	if scrapeInterval == nil {
-		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
-	}
+func createExecutorPrometheusRule(executor *installv1alpha1.Executor) *monitoringv1.PrometheusRule {
+	// Update the restRequestHistogram expression to align with Helm
 	restRequestHistogram := `histogram_quantile(0.95, ` +
-		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + name + `"}[2m])) by (endpoint, verb, url, le))`
+		`sum(rate(rest_client_request_duration_seconds_bucket{service="` + executor.Name + `"}[2m])) by (endpoint, verb, url, le))`
 	logRate := "sum(rate(log_messages[2m])) by (level)"
+
+	// Set the group name and duration string to match the Helm template
+	scrapeInterval := &metav1.Duration{Duration: defaultPrometheusInterval}
+	if interval := executor.Spec.Prometheus.ScrapeInterval; interval != nil {
+		scrapeInterval = &metav1.Duration{Duration: interval.Duration}
+	}
 	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
-	objectMetaName := "armada-" + name + "-metrics"
+	objectMetaName := "armada-" + executor.Name + "-metrics"
+
 	return &monitoringv1.PrometheusRule{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    AllLabels(name, labels...),
+			Name:      executor.Name,
+			Namespace: executor.Namespace,
+			Labels:    AllLabels(executor.Name, executor.Labels, executor.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
@@ -477,11 +483,11 @@ func createExecutorPrometheusRule(name, namespace string, scrapeInterval *metav1
 				Interval: ptr.To(monitoringv1.Duration(durationString)),
 				Rules: []monitoringv1.Rule{
 					{
-						Record: "armada:" + name + ":rest:request:histogram95",
+						Record: "armada:executor:rest:request:histogram95",
 						Expr:   intstr.IntOrString{StrVal: restRequestHistogram},
 					},
 					{
-						Record: "armada:" + name + ":log:rate",
+						Record: "armada:executor:log:rate",
 						Expr:   intstr.IntOrString{StrVal: logRate},
 					},
 				},

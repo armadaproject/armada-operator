@@ -181,6 +181,15 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
 		Return(nil)
 
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
 	r := SchedulerReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
@@ -438,6 +447,15 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
+
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
 		Return(nil)
 
 	r := SchedulerReconciler{

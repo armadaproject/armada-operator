@@ -212,21 +212,21 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	pdb := createPodDisruptionBudget(as)
+	pdb := createServerPodDisruptionBudget(as)
 	if err := controllerutil.SetOwnerReference(as, pdb, scheme); err != nil {
 		return nil, err
 	}
 
-	var pr *monitoringv1.PrometheusRule
-	var sm *monitoringv1.ServiceMonitor
+	var prometheusRule *monitoringv1.PrometheusRule
+	var serviceMonitor *monitoringv1.ServiceMonitor
 	if as.Spec.Prometheus != nil && as.Spec.Prometheus.Enabled {
-		pr = createServerPrometheusRule(as.Name, as.Namespace, as.Spec.Prometheus.ScrapeInterval, as.Spec.Labels, as.Spec.Prometheus.Labels)
-		if err := controllerutil.SetOwnerReference(as, pr, scheme); err != nil {
+		prometheusRule = createServerPrometheusRule(as)
+		if err := controllerutil.SetOwnerReference(as, prometheusRule, scheme); err != nil {
 			return nil, err
 		}
 
-		sm = createServiceMonitor(as)
-		if err := controllerutil.SetOwnerReference(as, sm, scheme); err != nil {
+		serviceMonitor = createServerServiceMonitor(as)
+		if err := controllerutil.SetOwnerReference(as, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
 	}
@@ -252,8 +252,8 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		PodDisruptionBudget: pdb,
-		PrometheusRule:      pr,
-		ServiceMonitor:      sm,
+		PrometheusRule:      prometheusRule,
+		ServiceMonitor:      serviceMonitor,
 		Jobs:                jobs,
 	}, nil
 
@@ -642,7 +642,7 @@ func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress,
 	return restIngress, nil
 }
 
-func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {
+func createServerPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {
 	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{Name: as.Name, Namespace: as.Namespace},
 		Spec:       policyv1.PodDisruptionBudgetSpec{},
@@ -650,7 +650,7 @@ func createPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDi
 	}
 }
 
-func createServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
+func createServerServiceMonitor(as *installv1alpha1.ArmadaServer) *monitoringv1.ServiceMonitor {
 	var prometheusLabels map[string]string
 	if as.Spec.Prometheus != nil {
 		prometheusLabels = as.Spec.Prometheus.Labels
@@ -693,19 +693,15 @@ func (r *ArmadaServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // createServerPrometheusRule will provide a prometheus monitoring rule for the name and scrapeInterval
-func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.Duration, labels ...map[string]string) *monitoringv1.PrometheusRule {
-	if scrapeInterval == nil {
-		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
-	}
-	queueSize := `avg(sum(armada_queue_size) by (queueName, pod)) by (queueName) > 0`
+func createServerPrometheusRule(server *installv1alpha1.ArmadaServer) *monitoringv1.PrometheusRule {
+	queueSize := `max(sum(armada_queue_size) by (queueName, pod)) by (queueName) > 0`
 	queuePriority := `avg(sum(armada_queue_priority) by (pool, queueName, pod)) by (pool, queueName)`
 	queueIdeal := `(sum(armada:queue:resource:queued{resourceType="cpu"} > bool 0) by (queueName, pool) * (1 / armada:queue:priority))
-			       / ignoring(queueName) group_left
-		       sum(sum(armada:queue:resource:queued{resourceType="cpu"} > bool 0) by (queueName, pool) * (1 / armada:queue:priority)) by (pool)
-		       * 100`
-	queueResourceQueued := `avg(armada_queue_resource_queued) by (pool, queueName, resourceType)`
-	queueResourceAllocated := `avg(armada_queue_resource_allocated) by (pool, cluster, queueName, resourceType, nodeType)`
-	queueResourceUsed := `avg(armada_queue_resource_used) by (pool, cluster, queueName, resourceType, nodeType)`
+               / ignoring(queueName) group_left sum(sum(armada:queue:resource:queued{resourceType="cpu"} > bool 0) by (queueName, pool) * (1 / armada:queue:priority)) by (pool) * 100`
+
+	queueResourceQueued := `max(sum(armada_queue_resource_queued) by (pod, pool, queueName, resourceType)) by (pool, queueName, resourceType)`
+	queueResourceAllocated := `max(sum(armada_queue_resource_allocated) by (pod, pool, cluster, queueName, resourceType, nodeType)) by (pool, cluster, queueName, resourceType, nodeType)`
+	queueResourceUsed := `max(sum(armada_queue_resource_used) by (pod, pool, cluster, queueName, resourceType, nodeType)) by (pool, cluster, queueName, resourceType, nodeType)`
 	serverHist := `histogram_quantile(0.95, sum(rate(grpc_server_handling_seconds_bucket{grpc_type!="server_stream"}[2m])) by (grpc_method,grpc_service, le))`
 	serverRequestRate := `sum(rate(grpc_server_handled_total[2m])) by (grpc_method,grpc_service)`
 	logRate := `sum(rate(log_messages[2m])) by (level)`
@@ -713,14 +709,18 @@ func createServerPrometheusRule(name, namespace string, scrapeInterval *metav1.D
 	resourceCapacity := `avg(armada_cluster_capacity) by (pool, cluster, resourceType, nodeType)`
 	queuePodPhaseCount := `max(armada_queue_leased_pod_count) by (pool, cluster, queueName, phase, nodeType)`
 
+	scrapeInterval := &metav1.Duration{Duration: defaultPrometheusInterval}
+	if interval := server.Spec.Prometheus.ScrapeInterval; interval != nil {
+		scrapeInterval = &metav1.Duration{Duration: interval.Duration}
+	}
 	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
-	objectMetaName := "armada-" + name + "-metrics"
+	objectMetaName := "armada-" + server.Name + "-metrics"
 	return &monitoringv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    AllLabels(name, labels...),
+			Name:      server.Name,
+			Namespace: server.Namespace,
+			Labels:    AllLabels(server.Name, server.Labels, server.Spec.Prometheus.Labels),
 		},
 		Spec: monitoringv1.PrometheusRuleSpec{
 			Groups: []monitoringv1.RuleGroup{{
