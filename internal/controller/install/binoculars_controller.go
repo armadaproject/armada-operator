@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -71,14 +69,13 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(binoculars.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(binoculars.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	binoculars.Spec.PortConfig = pc
 
 	var components *CommonComponents
-	components, err = generateBinocularsInstallComponents(&binoculars, r.Scheme)
+	components, err = generateBinocularsInstallComponents(&binoculars, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -139,7 +136,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme) (*CommonComponents, error) {
+func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars, scheme *runtime.Scheme, config *builders.CommonApplicationConfig) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(binoculars.Spec.ApplicationConfig, binoculars.Name, binoculars.Namespace, GetConfigFilename(binoculars.Name))
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -150,84 +147,92 @@ func generateBinocularsInstallComponents(binoculars *installv1alpha1.Binoculars,
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := binoculars.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(
+			binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), binoculars.Spec.ServiceAccount,
+		)
 		if err = controllerutil.SetOwnerReference(binoculars, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
-	deployment, err := createBinocularsDeployment(binoculars, secret, serviceAccountName)
+	deployment, err := createBinocularsDeployment(binoculars, secret, serviceAccountName, config)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	if err = controllerutil.SetOwnerReference(binoculars, deployment, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	service := builders.Service(binoculars.Name, binoculars.Namespace, AllLabels(binoculars.Name, binoculars.Labels), IdentityLabel(binoculars.Name), binoculars.Spec.PortConfig)
+	service := builders.Service(
+		binoculars.Name,
+		binoculars.Namespace,
+		AllLabels(binoculars.Name, binoculars.Labels),
+		IdentityLabel(binoculars.Name),
+		config,
+		builders.ServiceEnableApplicationPortsOnly,
+	)
 	if err = controllerutil.SetOwnerReference(binoculars, service, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	ingress, err := createBinocularsIngressHttp(binoculars)
+	profilingService, ingressProfiling, err := newProfilingComponents(
+		binoculars,
+		scheme,
+		config,
+		binoculars.Spec.ProfilingIngressConfig,
+	)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if err = controllerutil.SetOwnerReference(binoculars, ingress, scheme); err != nil {
-		return nil, errors.WithStack(err)
-	}
 
-	ingressGrpc, err := createBinocularsIngressGrpc(binoculars)
+	ingressHTTP, err := createBinocularsIngressHttp(binoculars, config)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if err = controllerutil.SetOwnerReference(binoculars, ingressGrpc, scheme); err != nil {
+	if err = controllerutil.SetOwnerReference(binoculars, ingressHTTP, scheme); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ingressGRPC, err := createBinocularsIngressGrpc(binoculars, config)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err = controllerutil.SetOwnerReference(binoculars, ingressGRPC, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	clusterRole := createBinocularsClusterRole(binoculars)
-	clusterRoleBinding := generateBinocularsClusterRoleBinding(*binoculars)
+	clusterRoleBinding := generateBinocularsClusterRoleBinding(binoculars)
 
 	return &CommonComponents{
 		Deployment:          deployment,
 		Service:             service,
+		ServiceProfiling:    profilingService,
 		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		ClusterRole:         clusterRole,
 		ClusterRoleBindings: []*rbacv1.ClusterRoleBinding{clusterRoleBinding},
-		IngressGrpc:         ingressGrpc,
-		IngressHttp:         ingress,
+		IngressGrpc:         ingressGRPC,
+		IngressHttp:         ingressHTTP,
+		IngressProfiling:    ingressProfiling,
 	}, nil
 }
 
 // Function to build the deployment object for Binoculars.
 // This should be changing from CRD to CRD.  Not sure if generalizing this helps much
-func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars, secret *corev1.Secret, serviceAccountName string) (*appsv1.Deployment, error) {
+func createBinocularsDeployment(
+	binoculars *installv1alpha1.Binoculars,
+	secret *corev1.Secret,
+	serviceAccountName string,
+	commonConfig *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
 	env := createEnv(binoculars.Spec.Environment)
 	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(secret.Name), binoculars.Spec.AdditionalVolumeMounts)
-	ports := []corev1.ContainerPort{
-		{
-			Name:          "metrics",
-			ContainerPort: binoculars.Spec.PortConfig.MetricsPort,
-			Protocol:      "TCP",
-		},
-		{
-			Name:          "http",
-			ContainerPort: binoculars.Spec.PortConfig.HttpPort,
-			Protocol:      "TCP",
-		},
-		{
-			Name:          "grpc",
-			ContainerPort: binoculars.Spec.PortConfig.GrpcPort,
-			Protocol:      "TCP",
-		},
-	}
 	containers := []corev1.Container{{
 		Name:            "binoculars",
-		ImagePullPolicy: "IfNotPresent",
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           ImageString(binoculars.Spec.Image),
 		Args:            []string{appConfigFlag, appConfigFilepath},
-		Ports:           ports,
+		Ports:           newContainerPortsAll(commonConfig),
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: binoculars.Spec.SecurityContext,
@@ -250,25 +255,9 @@ func createBinocularsDeployment(binoculars *installv1alpha1.Binoculars, secret *
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: binoculars.DeletionGracePeriodSeconds,
 					SecurityContext:               binoculars.Spec.PodSecurityContext,
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{binoculars.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
-					Containers: containers,
-					Volumes:    volumes,
+					Affinity:                      defaultAffinity(binoculars.Name, 100),
+					Containers:                    containers,
+					Volumes:                       volumes,
 				},
 			},
 		},
@@ -301,7 +290,7 @@ func createBinocularsClusterRole(binoculars *installv1alpha1.Binoculars) *rbacv1
 	return &clusterRole
 }
 
-func generateBinocularsClusterRoleBinding(binoculars installv1alpha1.Binoculars) *rbacv1.ClusterRoleBinding {
+func generateBinocularsClusterRoleBinding(binoculars *installv1alpha1.Binoculars) *rbacv1.ClusterRoleBinding {
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   binoculars.Name,
@@ -331,116 +320,45 @@ func (r *BinocularsReconciler) deleteExternalResources(ctx context.Context, comp
 	return nil
 }
 
-func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+func createBinocularsIngressGrpc(binoculars *installv1alpha1.Binoculars, config *builders.CommonApplicationConfig) (*networking.Ingress, error) {
 	if len(binoculars.Spec.HostNames) == 0 {
-		// when no hostnames provided, no ingress can be configured
+		// when no hostnames, no ingress can be configured
 		return nil, nil
 	}
-
-	grpcIngressName := binoculars.Name + "-grpc"
-
-	grpcIngress := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: grpcIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                  binoculars.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
-				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-			},
-		},
+	name := binoculars.Name + "-grpc"
+	labels := AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/ssl-redirect": "true",
 	}
-
-	if binoculars.Spec.ClusterIssuer != "" {
-		grpcIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
-		grpcIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
-	}
-
-	if binoculars.Spec.Ingress.Annotations != nil {
-		for key, value := range binoculars.Spec.Ingress.Annotations {
-			grpcIngress.ObjectMeta.Annotations[key] = value
-		}
-	}
-	grpcIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(binoculars.Spec.Ingress, baseAnnotations, BackendProtocolGRPC, config.GRPC.Enabled)
 
 	secretName := binoculars.Name + "-service-tls"
-	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
-	serviceName := "armada" + "-" + binoculars.Name
-	for _, val := range binoculars.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/",
-					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: binoculars.Spec.PortConfig.GrpcPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	grpcIngress.Spec.Rules = ingressRules
-
-	return grpcIngress, nil
+	serviceName := binoculars.Name
+	servicePort := config.HTTPPort
+	path := "/"
+	ingress, err := builders.Ingress(name, binoculars.Namespace, labels, annotations, binoculars.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
-func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars) (*networking.Ingress, error) {
+func createBinocularsIngressHttp(binoculars *installv1alpha1.Binoculars, config *builders.CommonApplicationConfig) (*networking.Ingress, error) {
 	if len(binoculars.Spec.HostNames) == 0 {
-		// when no hostnames provided, no ingress can be configured
+		// when no hostnames, no ingress can be configured
 		return nil, nil
 	}
-	restIngressName := binoculars.Name + "-rest"
-	restIngress := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: restIngressName, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                binoculars.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
-			},
-		},
+	name := binoculars.Name + "-rest"
+	labels := AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+		"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 	}
-
-	if binoculars.Spec.ClusterIssuer != "" {
-		restIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
-		restIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = binoculars.Spec.ClusterIssuer
-	}
-
-	if binoculars.Spec.Ingress.Annotations != nil {
-		for key, value := range binoculars.Spec.Ingress.Annotations {
-			restIngress.ObjectMeta.Annotations[key] = value
-		}
-	}
-	restIngress.ObjectMeta.Labels = AllLabels(binoculars.Name, binoculars.Spec.Labels, binoculars.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(binoculars.Spec.Ingress, baseAnnotations, BackendProtocolHTTP, config.GRPC.Enabled)
 
 	secretName := binoculars.Name + "-service-tls"
-	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: binoculars.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
 	serviceName := binoculars.Name
-	for _, val := range binoculars.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/api(/|$)(.*)",
-					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: binoculars.Spec.PortConfig.HttpPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	restIngress.Spec.Rules = ingressRules
-
-	return restIngress, nil
+	servicePort := config.HTTPPort
+	path := "/api(/|$)(.*)"
+	ingress, err := builders.Ingress(name, binoculars.Namespace, labels, annotations, binoculars.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
 // SetupWithManager sets up the controller with the Manager.

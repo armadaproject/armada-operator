@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/builders"
+
 	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -76,7 +78,11 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		},
 	}
 
-	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme)
+	commonConfig, err := builders.ParseCommonApplicationConfig(expectedScheduler.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
 	if err != nil {
 		t.Fatal("We should not fail on generating scheduler")
 	}
@@ -345,7 +351,11 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 		},
 	}
 
-	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme)
+	commonConfig, err := builders.ParseCommonApplicationConfig(expectedScheduler.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
 	if err != nil {
 		t.Fatal("We should not fail on generating scheduler")
 	}
@@ -517,7 +527,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 			},
 		},
 	}
-	cronJob, err := createSchedulerCronJob(&schedulerInput)
+	cronJob, err := newSchedulerCronJob(&schedulerInput)
 	expectedArgs := []string{"--pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
 	expectedResources := *schedulerInput.Spec.Pruner.Resources
 
@@ -529,8 +539,12 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 func TestSchedulerReconciler_createSchedulerIngressGrpc_EmptyHosts(t *testing.T) {
 	t.Parallel()
 
-	schedulerInput := v1alpha1.Scheduler{}
-	ingress, err := createSchedulerIngressGrpc(&schedulerInput)
+	input := v1alpha1.Scheduler{}
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := newSchedulerIngressGRPC(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
@@ -539,7 +553,7 @@ func TestSchedulerReconciler_createSchedulerIngressGrpc_EmptyHosts(t *testing.T)
 func TestSchedulerReconciler_createSchedulerIngressGrpc(t *testing.T) {
 	t.Parallel()
 
-	schedulerInput := v1alpha1.Scheduler{
+	input := v1alpha1.Scheduler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Scheduler",
 			APIVersion: "install.armadaproject.io/v1alpha1",
@@ -557,7 +571,11 @@ func TestSchedulerReconciler_createSchedulerIngressGrpc(t *testing.T) {
 			HostNames: []string{"localhost"},
 		},
 	}
-	ingress, err := createSchedulerIngressGrpc(&schedulerInput)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := newSchedulerIngressGRPC(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
@@ -594,7 +612,7 @@ func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 			},
 		},
 	}
-	_, err := createSchedulerCronJob(&expectedScheduler)
+	_, err := newSchedulerCronJob(&expectedScheduler)
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
 }
@@ -774,7 +792,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := createSchedulerMigrationJob(&cr, "sa")
+			rslt, err := newSchedulerMigrationJob(&cr, "sa")
 
 			if tt.wantErr {
 				assert.Error(t, err)

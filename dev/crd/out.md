@@ -186,7 +186,8 @@ _Appears in:_
 | `CommonSpecBase` _[CommonSpecBase](#commonspecbase)_ |  |  |  |
 | `replicas` _integer_ | Replicas is the number of replicated instances for ArmadaServer |  |  |
 | `nodeSelector` _object (keys:string, values:string)_ | NodeSelector restricts the ArmadaServer pod to run on nodes matching the configured selectors |  |  |
-| `ingress` _[IngressConfig](#ingressconfig)_ | Ingress defines labels and annotations for the Ingress controller of ArmadaServer |  |  |
+| `ingress` _[IngressConfig](#ingressconfig)_ | Ingress defines configuration for the Ingress resource |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 | `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
 | `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 | `pulsarInit` _boolean_ | Run Pulsar Init Jobs On Startup |  |  |
@@ -266,6 +267,7 @@ _Appears in:_
 | `replicas` _integer_ | Replicas is the number of replicated instances for Binoculars |  |  |
 | `nodeSelector` _object (keys:string, values:string)_ | NodeSelector restricts the pod to run on nodes matching the configured selectors |  |  |
 | `ingress` _[IngressConfig](#ingressconfig)_ | Ingress for this component. Used to inject labels/annotations into ingress |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 | `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
 | `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
@@ -319,7 +321,6 @@ _Appears in:_
 | `environment` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#envvar-v1-core) array_ | Extra environment variables that get added to deployment |  |  |
 | `additionalVolumes` _[Volume](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#volume-v1-core) array_ | Additional volumes that are mounted into deployments |  |  |
 | `additionalVolumeMounts` _[VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#volumemount-v1-core) array_ | Additional volume mounts that are added as volumes |  |  |
-| `portConfig` _[PortConfig](#portconfig)_ | PortConfig is automatically populated with defaults and overlaid by values in ApplicationConfig. |  |  |
 
 
 #### EventIngester
@@ -382,6 +383,7 @@ _Appears in:_
 | `nodeSelector` _object (keys:string, values:string)_ | NodeSelector restricts the Executor pod to run on nodes matching the configured selectors |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 
 
 #### EventIngesterStatus
@@ -459,6 +461,7 @@ _Appears in:_
 | `priorityClasses` _[PriorityClass](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#priorityclass-v1-scheduling) array_ | List of PriorityClasses which will be created |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 
 
 #### ExecutorStatus
@@ -502,7 +505,11 @@ _Appears in:_
 _Appears in:_
 - [ArmadaServerSpec](#armadaserverspec)
 - [BinocularsSpec](#binocularsspec)
+- [EventIngesterSpec](#eventingesterspec)
+- [ExecutorSpec](#executorspec)
+- [LookoutIngesterSpec](#lookoutingesterspec)
 - [LookoutSpec](#lookoutspec)
+- [SchedulerIngesterSpec](#scheduleringesterspec)
 - [SchedulerSpec](#schedulerspec)
 
 | Field | Description | Default | Validation |
@@ -510,7 +517,8 @@ _Appears in:_
 | `labels` _object (keys:string, values:string)_ | Labels is the map of labels which wil be added to all objects |  |  |
 | `annotations` _object (keys:string, values:string)_ | Annotations is a map of annotations which will be added to all ingress rules |  |  |
 | `ingressClass` _string_ | The type of ingress that is used |  |  |
-| `nameOverride` _string_ | Overide name for ingress |  |  |
+| `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
+| `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 
 
 #### Lookout
@@ -594,6 +602,7 @@ _Appears in:_
 | `replicas` _integer_ | Replicas is the number of replicated instances for LookoutIngester |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 
 
 #### LookoutIngesterStatus
@@ -653,6 +662,7 @@ _Appears in:_
 | `dbPruningSchedule` _string_ | DbPruningSchedule schedule to use for db pruning CronJob |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 
 
 #### LookoutStatus
@@ -666,26 +676,6 @@ LookoutStatus defines the observed state of lookout
 _Appears in:_
 - [Lookout](#lookout)
 
-
-
-#### PortConfig
-
-
-
-
-
-
-
-_Appears in:_
-- [CommonSpecBase](#commonspecbase)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `httpPort` _integer_ |  |  |  |
-| `httpNodePort` _integer_ |  |  |  |
-| `grpcPort` _integer_ |  |  |  |
-| `grpcNodePort` _integer_ |  |  |  |
-| `metricsPort` _integer_ |  |  |  |
 
 
 #### PrometheusConfig
@@ -824,6 +814,7 @@ _Appears in:_
 | `replicas` _integer_ | Replicas is the number of replicated instances for SchedulerIngester |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 
 
 #### SchedulerIngesterStatus
@@ -875,6 +866,7 @@ _Appears in:_
 | `CommonSpecBase` _[CommonSpecBase](#commonspecbase)_ |  |  |  |
 | `replicas` _integer_ | Replicas is the number of replicated instances for Scheduler |  |  |
 | `ingress` _[IngressConfig](#ingressconfig)_ | Ingress defines labels and annotations for the Ingress controller of Scheduler |  |  |
+| `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
 | `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
 | `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 | `migrate` _boolean_ | Migrate toggles whether to run migrations when installed |  |  |

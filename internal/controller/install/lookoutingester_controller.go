@@ -65,13 +65,12 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(lookoutIngester.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(lookoutIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	lookoutIngester.Spec.PortConfig = pc
 
-	components, err := r.generateInstallComponents(&lookoutIngester, r.Scheme)
+	components, err := r.generateInstallComponents(&lookoutIngester, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -107,7 +106,11 @@ func (r *LookoutIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *installv1alpha1.LookoutIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
+func (r *LookoutIngesterReconciler) generateInstallComponents(
+	lookoutIngester *installv1alpha1.LookoutIngester,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookoutIngester.Spec.ApplicationConfig, lookoutIngester.Name, lookoutIngester.Namespace, GetConfigFilename(lookoutIngester.Name))
 	if err != nil {
 		return nil, err
@@ -119,14 +122,14 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := lookoutIngester.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(lookoutIngester.Name, lookoutIngester.Namespace, AllLabels(lookoutIngester.Name, lookoutIngester.Labels), lookoutIngester.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(lookoutIngester.Name, lookoutIngester.Namespace, AllLabels(lookoutIngester.Name, lookoutIngester.Labels), lookoutIngester.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(lookoutIngester, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := r.createDeployment(lookoutIngester, serviceAccountName)
+	deployment, err := r.createDeployment(lookoutIngester, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -134,19 +137,32 @@ func (r *LookoutIngesterReconciler) generateInstallComponents(lookoutIngester *i
 		return nil, err
 	}
 
+	profilingService, profilingIngress, err := newProfilingComponents(
+		lookoutIngester,
+		scheme,
+		config,
+		lookoutIngester.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &CommonComponents{
-		Deployment:     deployment,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		Deployment:       deployment,
+		ServiceAccount:   serviceAccount,
+		Secret:           secret,
+		ServiceProfiling: profilingService,
+		IngressProfiling: profilingIngress,
 	}, nil
 }
 
 // TODO: Flesh this out for lookoutingester
-func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1alpha1.LookoutIngester, serviceAccountName string) (*appsv1.Deployment, error) {
+func (r *LookoutIngesterReconciler) createDeployment(
+	lookoutIngester *installv1alpha1.LookoutIngester,
+	serviceAccountName string,
+	config *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
 
 	env := createEnv(lookoutIngester.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(lookoutIngester.Spec.ApplicationConfig)
@@ -175,24 +191,16 @@ func (r *LookoutIngesterReconciler) createDeployment(lookoutIngester *installv1a
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: lookoutIngester.Spec.TerminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               lookoutIngester.Spec.PodSecurityContext,
 					Containers: []corev1.Container{{
 						Name:            "lookoutingester",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(lookoutIngester.Spec.Image),
 						Args:            []string{appConfigFlag, appConfigFilepath},
-						// FIXME(Clif): Needs to change
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: lookoutIngester.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
+						Ports:           newContainerPortsMetrics(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: lookoutIngester.Spec.SecurityContext,
 					}},
 					Tolerations: lookoutIngester.Spec.Tolerations,
 					Volumes:     volumes,

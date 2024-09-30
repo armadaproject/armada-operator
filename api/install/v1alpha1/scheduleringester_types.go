@@ -31,6 +31,8 @@ type SchedulerIngesterSpec struct {
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 	// PodSecurityContext defines the security options the pod should be run with
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
+	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
 }
 
 // SchedulerIngesterStatus defines the observed state of SchedulerIngester

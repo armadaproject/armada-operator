@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/builders"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/stretchr/testify/assert"
@@ -105,12 +107,15 @@ func TestBinoculars_GenerateBinocularsInstallComponents(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := generateBinocularsInstallComponents(tt.binoculars, scheme)
+			commonConfig, err := builders.ParseCommonApplicationConfig(tt.binoculars.Spec.ApplicationConfig)
 			if tt.expectedError {
 				assert.Error(t, err)
+				return
 			} else {
 				assert.NoError(t, err)
 			}
+			_, err = generateBinocularsInstallComponents(tt.binoculars, scheme, commonConfig)
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -156,7 +161,11 @@ func TestBinocularsReconciler_Reconcile(t *testing.T) {
 		},
 	}
 
-	binoculars, err := generateBinocularsInstallComponents(&expectedBinoculars, scheme)
+	commonConfig, err := builders.ParseCommonApplicationConfig(expectedBinoculars.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	binoculars, err := generateBinocularsInstallComponents(&expectedBinoculars, scheme, commonConfig)
 	if err != nil {
 		t.Fatal("We should not fail on generating binoculars")
 	}
@@ -447,12 +456,16 @@ func TestSchedulerReconciler_createBinolcularsIngress_EmptyHosts(t *testing.T) {
 	t.Parallel()
 
 	input := v1alpha1.Binoculars{}
-	ingress, err := createBinocularsIngressHttp(&input)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createBinocularsIngressHttp(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
 
-	ingress, err = createBinocularsIngressGrpc(&input)
+	ingress, err = createBinocularsIngressGrpc(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
@@ -479,12 +492,16 @@ func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
 			HostNames: []string{"localhost"},
 		},
 	}
-	ingress, err := createBinocularsIngressHttp(&input)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createBinocularsIngressHttp(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
 
-	ingress, err = createBinocularsIngressGrpc(&input)
+	ingress, err = createBinocularsIngressGrpc(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)

@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -69,13 +68,12 @@ func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(schedulerIngester.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(schedulerIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	schedulerIngester.Spec.PortConfig = pc
 
-	components, err := r.generateSchedulerIngesterComponents(&schedulerIngester, r.Scheme)
+	components, err := r.generateSchedulerIngesterComponents(&schedulerIngester, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -111,7 +109,11 @@ func (r *SchedulerIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedulerIngester *installv1alpha1.SchedulerIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
+func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(
+	schedulerIngester *installv1alpha1.SchedulerIngester,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(schedulerIngester.Spec.ApplicationConfig, schedulerIngester.Name, schedulerIngester.Namespace, GetConfigFilename(schedulerIngester.Name))
 	if err != nil {
 		return nil, err
@@ -123,14 +125,14 @@ func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedu
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := schedulerIngester.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(schedulerIngester.Name, schedulerIngester.Namespace, AllLabels(schedulerIngester.Name, schedulerIngester.Labels), schedulerIngester.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(schedulerIngester.Name, schedulerIngester.Namespace, AllLabels(schedulerIngester.Name, schedulerIngester.Labels), schedulerIngester.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(schedulerIngester, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := r.createDeployment(schedulerIngester, serviceAccountName)
+	deployment, err := r.createDeployment(schedulerIngester, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -138,94 +140,79 @@ func (r *SchedulerIngesterReconciler) generateSchedulerIngesterComponents(schedu
 		return nil, err
 	}
 
+	profilingService, profilingIngress, err := newProfilingComponents(
+		schedulerIngester,
+		scheme,
+		config,
+		schedulerIngester.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &CommonComponents{
-		Deployment:     deployment,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		Deployment:       deployment,
+		ServiceAccount:   serviceAccount,
+		Secret:           secret,
+		ServiceProfiling: profilingService,
+		IngressProfiling: profilingIngress,
 	}, nil
 }
 
-func (r *SchedulerIngesterReconciler) createDeployment(scheduleringester *installv1alpha1.SchedulerIngester, serviceAccountName string) (*appsv1.Deployment, error) {
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
-	env := createEnv(scheduleringester.Spec.Environment)
-	pulsarConfig, err := ExtractPulsarConfig(scheduleringester.Spec.ApplicationConfig)
+func (r *SchedulerIngesterReconciler) createDeployment(
+	schedulerIngester *installv1alpha1.SchedulerIngester,
+	serviceAccountName string,
+	config *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
+	env := createEnv(schedulerIngester.Spec.Environment)
+	pulsarConfig, err := ExtractPulsarConfig(schedulerIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
-	volumes := createVolumes(scheduleringester.Name, scheduleringester.Spec.AdditionalVolumes)
+	volumes := createVolumes(schedulerIngester.Name, schedulerIngester.Spec.AdditionalVolumes)
 	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
-	volumeMounts := createVolumeMounts(GetConfigFilename(scheduleringester.Name), scheduleringester.Spec.AdditionalVolumeMounts)
+	volumeMounts := createVolumeMounts(GetConfigFilename(schedulerIngester.Name), schedulerIngester.Spec.AdditionalVolumeMounts)
 	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
 	deployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: scheduleringester.Name, Namespace: scheduleringester.Namespace, Labels: AllLabels(scheduleringester.Name, scheduleringester.Labels)},
+		ObjectMeta: metav1.ObjectMeta{Name: schedulerIngester.Name, Namespace: schedulerIngester.Namespace, Labels: AllLabels(schedulerIngester.Name, schedulerIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: scheduleringester.Spec.Replicas,
+			Replicas: schedulerIngester.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: IdentityLabel(scheduleringester.Name),
+				MatchLabels: IdentityLabel(schedulerIngester.Name),
 			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &intstr.IntOrString{IntVal: int32(1)},
-				},
-			},
+			Strategy: defaultDeploymentStrategy(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        scheduleringester.Name,
-					Namespace:   scheduleringester.Namespace,
-					Labels:      AllLabels(scheduleringester.Name, scheduleringester.Labels),
-					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduleringester.Spec.ApplicationConfig.Raw)},
+					Name:        schedulerIngester.Name,
+					Namespace:   schedulerIngester.Namespace,
+					Labels:      AllLabels(schedulerIngester.Name, schedulerIngester.Labels),
+					Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(schedulerIngester.Spec.ApplicationConfig.Raw)},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
-					TerminationGracePeriodSeconds: scheduleringester.Spec.TerminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{scheduleringester.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
+					TerminationGracePeriodSeconds: schedulerIngester.Spec.TerminationGracePeriodSeconds,
+					SecurityContext:               schedulerIngester.Spec.PodSecurityContext,
+					Affinity:                      defaultAffinity(schedulerIngester.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "scheduleringester",
-						ImagePullPolicy: "IfNotPresent",
-						Image:           ImageString(scheduleringester.Spec.Image),
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Image:           ImageString(schedulerIngester.Spec.Image),
 						Args:            []string{appConfigFlag, appConfigFilepath},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: scheduleringester.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
+						Ports:           newContainerPortsMetrics(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: schedulerIngester.Spec.SecurityContext,
 					}},
-					Tolerations: scheduleringester.Spec.Tolerations,
+					Tolerations: schedulerIngester.Spec.Tolerations,
 					Volumes:     volumes,
 				},
 			},
 		},
 	}
-	if scheduleringester.Spec.Resources != nil {
-		deployment.Spec.Template.Spec.Containers[0].Resources = *scheduleringester.Spec.Resources
-		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *scheduleringester.Spec.Resources)
+	if schedulerIngester.Spec.Resources != nil {
+		deployment.Spec.Template.Spec.Containers[0].Resources = *schedulerIngester.Spec.Resources
+		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *schedulerIngester.Spec.Resources)
 	}
 
 	return &deployment, nil

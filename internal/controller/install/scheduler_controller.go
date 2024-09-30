@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/pkg/errors"
-
-	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -79,13 +79,13 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	scheduler.Spec.PortConfig, err = installv1alpha1.BuildPortConfig(scheduler.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(scheduler.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	var components *CommonComponents
-	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme)
+	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -144,7 +144,11 @@ type SchedulerConfig struct {
 	Postgres PostgresConfig
 }
 
-func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, scheme *runtime.Scheme) (*CommonComponents, error) {
+func generateSchedulerInstallComponents(
+	scheduler *installv1alpha1.Scheduler,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(scheduler.Spec.ApplicationConfig, scheduler.Name, scheduler.Namespace, GetConfigFilename(scheduler.Name))
 	if err != nil {
 		return nil, err
@@ -156,14 +160,14 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := scheduler.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(scheduler.Name, scheduler.Namespace, AllLabels(scheduler.Name, scheduler.Labels), scheduler.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(scheduler.Name, scheduler.Namespace, AllLabels(scheduler.Name, scheduler.Labels), scheduler.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(scheduler, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := createSchedulerDeployment(scheduler, serviceAccountName)
+	deployment, err := newSchedulerDeployment(scheduler, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -171,25 +175,42 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 		return nil, err
 	}
 
-	service := builders.Service(scheduler.Name, scheduler.Namespace, AllLabels(scheduler.Name, scheduler.Labels), IdentityLabel(scheduler.Name), scheduler.Spec.PortConfig)
+	service := builders.Service(
+		scheduler.Name,
+		scheduler.Namespace,
+		AllLabels(scheduler.Name, scheduler.Labels),
+		IdentityLabel(scheduler.Name),
+		config,
+		builders.ServiceEnableApplicationPortsOnly,
+	)
 	if err := controllerutil.SetOwnerReference(scheduler, service, scheme); err != nil {
 		return nil, err
+	}
+
+	profilingService, profilingIngress, err := newProfilingComponents(
+		scheduler,
+		scheme,
+		config,
+		scheduler.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
 	var prometheusRule *monitoringv1.PrometheusRule
 	if scheduler.Spec.Prometheus != nil && scheduler.Spec.Prometheus.Enabled {
-		serviceMonitor = createSchedulerServiceMonitor(scheduler)
+		serviceMonitor = newSchedulerServiceMonitor(scheduler)
 		if err := controllerutil.SetOwnerReference(scheduler, serviceMonitor, scheme); err != nil {
 			return nil, err
 		}
-		prometheusRule = createSchedulerPrometheusRule(scheduler)
+		prometheusRule = newSchedulerPrometheusRule(scheduler)
 		if err := controllerutil.SetOwnerReference(scheduler, prometheusRule, scheme); err != nil {
 			return nil, err
 		}
 	}
 
-	job, err := createSchedulerMigrationJob(scheduler, serviceAccountName)
+	job, err := newSchedulerMigrationJob(scheduler, serviceAccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +220,7 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 
 	var cronJob *batchv1.CronJob
 	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
-		cronJob, err := createSchedulerCronJob(scheduler)
+		cronJob, err := newSchedulerCronJob(scheduler)
 		if err != nil {
 			return nil, err
 		}
@@ -208,35 +229,57 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 		}
 	}
 
-	ingressGrpc, err := createSchedulerIngressGrpc(scheduler)
+	ingressGRPC, err := newSchedulerIngressGRPC(scheduler, config)
 	if err != nil {
 		return nil, err
 	}
-	if ingressGrpc != nil {
-		if err := controllerutil.SetOwnerReference(scheduler, ingressGrpc, scheme); err != nil {
+	if ingressGRPC != nil {
+		if err := controllerutil.SetOwnerReference(scheduler, ingressGRPC, scheme); err != nil {
 			return nil, err
 		}
 	}
 
 	return &CommonComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
-		IngressGrpc:    ingressGrpc,
-		Jobs:           []*batchv1.Job{job},
-		ServiceMonitor: serviceMonitor,
-		PrometheusRule: prometheusRule,
-		CronJob:        cronJob,
+		Deployment:       deployment,
+		Service:          service,
+		ServiceProfiling: profilingService,
+		ServiceAccount:   serviceAccount,
+		Secret:           secret,
+		IngressGrpc:      ingressGRPC,
+		IngressProfiling: profilingIngress,
+		Jobs:             []*batchv1.Job{job},
+		ServiceMonitor:   serviceMonitor,
+		PrometheusRule:   prometheusRule,
+		CronJob:          cronJob,
 	}, nil
 }
 
+// newSchedulerServiceMonitor will return a ServiceMonitor for this
+func newSchedulerServiceMonitor(scheduler *installv1alpha1.Scheduler) *monitoringv1.ServiceMonitor {
+	return &monitoringv1.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scheduler.Name,
+			Namespace: scheduler.Namespace,
+			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				{Port: "metrics", Interval: "15s"},
+			},
+		},
+	}
+}
+
 // Function to build the deployment object for Scheduler.
-// This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*appsv1.Deployment, error) {
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
+// This should be changing from CRD to CRD.  Not sure if generalize this helps much
+func newSchedulerDeployment(
+	scheduler *installv1alpha1.Scheduler,
+	serviceAccountName string,
+	config *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
 	env := createEnv(scheduler.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(scheduler.Spec.ApplicationConfig)
 	if err != nil {
@@ -264,47 +307,17 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler, serviceAcco
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: scheduler.DeletionGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Affinity: &corev1.Affinity{
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{scheduler.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
+					SecurityContext:               scheduler.Spec.PodSecurityContext,
+					Affinity:                      defaultAffinity(scheduler.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "scheduler",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(scheduler.Spec.Image),
 						Args:            []string{"run", appConfigFlag, appConfigFilepath},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "grpc",
-								ContainerPort: scheduler.Spec.PortConfig.GrpcPort,
-								Protocol:      "TCP",
-							},
-						},
+						Ports:           newContainerPortsGRPCWithMetrics(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: scheduler.Spec.SecurityContext,
 					}},
 					Volumes: volumes,
 				},
@@ -320,71 +333,33 @@ func createSchedulerDeployment(scheduler *installv1alpha1.Scheduler, serviceAcco
 	return &deployment, nil
 }
 
-func createSchedulerIngressGrpc(scheduler *installv1alpha1.Scheduler) (*networking.Ingress, error) {
+func newSchedulerIngressGRPC(scheduler *installv1alpha1.Scheduler, config *builders.CommonApplicationConfig) (*networking.Ingress, error) {
 	if len(scheduler.Spec.HostNames) == 0 {
-		// when no hostnames provided, no ingress can be configured
+		// if no hostnames, no ingress can be configured
 		return nil, nil
 	}
-	ingressName := scheduler.Name + "-grpc"
-	ingressHttp := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ingressName, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                  scheduler.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
-				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-			},
-		},
-	}
 
-	if scheduler.Spec.ClusterIssuer != "" {
-		ingressHttp.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = scheduler.Spec.ClusterIssuer
-		ingressHttp.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = scheduler.Spec.ClusterIssuer
+	name := scheduler.Name + "-grpc"
+	labels := AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/ssl-redirect": "true",
 	}
-
-	if scheduler.Spec.Ingress.Annotations != nil {
-		for key, value := range scheduler.Spec.Ingress.Annotations {
-			ingressHttp.ObjectMeta.Annotations[key] = value
-		}
-	}
-	ingressHttp.ObjectMeta.Labels = AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(scheduler.Spec.Ingress, baseAnnotations, BackendProtocolGRPC, config.GRPC.Enabled)
 
 	secretName := scheduler.Name + "-service-tls"
-	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: scheduler.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
 	serviceName := scheduler.Name
-	for _, val := range scheduler.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/",
-					PathType: (*networking.PathType)(ptr.To[string]("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: scheduler.Spec.PortConfig.GrpcPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	ingressHttp.Spec.Rules = ingressRules
-
-	return ingressHttp, nil
+	servicePort := config.GRPCPort
+	path := "/"
+	ingress, err := builders.Ingress(name, scheduler.Namespace, labels, annotations, scheduler.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
-// createSchedulerMigrationJob returns a batch Job or an error if the app config is not correct
-func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.Job, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
+// newSchedulerMigrationJob returns a batch Job or an error if the app config is not correct
+func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.Job, error) {
 	var terminationGracePeriodSeconds int64
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
 	}
-	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
@@ -423,10 +398,7 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAc
 					ServiceAccountName:            serviceAccountName,
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               scheduler.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  "scheduler-migration-db-wait",
 						Image: "postgres:15.2-alpine",
@@ -468,21 +440,16 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAc
 					}},
 					Containers: []corev1.Container{{
 						Name:            "scheduler-migration",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(scheduler.Spec.Image),
 						Args: []string{
 							"migrateDatabase",
 							appConfigFlag,
 							appConfigFilepath,
 						},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: scheduler.Spec.SecurityContext,
 					}},
 					Tolerations: scheduler.Spec.Tolerations,
 					Volumes:     volumes,
@@ -494,15 +461,12 @@ func createSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAc
 	return &job, nil
 }
 
-// createSchedulerCronJob returns a batch CronJob or an error if the app config is not correct
-func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
+// newSchedulerCronJob returns a batch CronJob or an error if the app config is not correct
+func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob, error) {
 	terminationGracePeriodSeconds := int64(0)
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
 	}
-	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
@@ -568,10 +532,7 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 						Spec: corev1.PodSpec{
 							RestartPolicy:                 "Never",
 							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-							SecurityContext: &corev1.PodSecurityContext{
-								RunAsUser:  &runAsUser,
-								RunAsGroup: &runAsGroup,
-							},
+							SecurityContext:               scheduler.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "scheduler-db-pruner-db-wait",
 								Image: "alpine:3.10",
@@ -597,17 +558,12 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 							}},
 							Containers: []corev1.Container{{
 								Name:            "scheduler-db-pruner",
-								ImagePullPolicy: "IfNotPresent",
+								ImagePullPolicy: corev1.PullIfNotPresent,
 								Image:           ImageString(scheduler.Spec.Image),
 								Args:            prunerArgs,
-								Ports: []corev1.ContainerPort{{
-									Name:          "metrics",
-									ContainerPort: scheduler.Spec.PortConfig.MetricsPort,
-									Protocol:      "TCP",
-								}},
 								Env:             env,
 								VolumeMounts:    volumeMounts,
-								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+								SecurityContext: scheduler.Spec.SecurityContext,
 								Resources:       prunerResources,
 							}},
 							Tolerations: scheduler.Spec.Tolerations,
@@ -622,32 +578,8 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 	return &job, nil
 }
 
-// createSchedulerServiceMonitor will return a ServiceMonitor for this
-func createSchedulerServiceMonitor(scheduler *installv1alpha1.Scheduler) *monitoringv1.ServiceMonitor {
-	scrapeInterval := &metav1.Duration{Duration: defaultPrometheusInterval}
-	if scheduler.Spec.Prometheus.ScrapeInterval == nil {
-		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
-	}
-	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
-	return &monitoringv1.ServiceMonitor{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "ServiceMonitor",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scheduler.Name,
-			Namespace: scheduler.Namespace,
-			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
-		},
-		Spec: monitoringv1.ServiceMonitorSpec{
-			Endpoints: []monitoringv1.Endpoint{
-				{Port: "metrics", Interval: monitoringv1.Duration(durationString)},
-			},
-		},
-	}
-}
-
-// createSchedulerPrometheusRule creates a PrometheusRule for monitoring Armada scheduler.
-func createSchedulerPrometheusRule(scheduler *installv1alpha1.Scheduler) *monitoringv1.PrometheusRule {
+// newSchedulerPrometheusRule creates a PrometheusRule for monitoring Armada scheduler.
+func newSchedulerPrometheusRule(scheduler *installv1alpha1.Scheduler) *monitoringv1.PrometheusRule {
 	rules := []monitoringv1.Rule{
 		{
 			Record: "node:armada_scheduler_failed_jobs",

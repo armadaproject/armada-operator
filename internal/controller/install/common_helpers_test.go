@@ -756,7 +756,7 @@ func makeCommonComponents() CommonComponents {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:            "armadaserver",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           "gresearch/someimage",
 						Args:            []string{appConfigFlag, appConfigFilepath},
 						Ports: []corev1.ContainerPort{{

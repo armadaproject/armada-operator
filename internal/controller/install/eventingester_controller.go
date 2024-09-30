@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -64,13 +63,12 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(eventIngester.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(eventIngester.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	eventIngester.Spec.PortConfig = pc
 
-	components, err := r.generateEventIngesterComponents(&eventIngester, r.Scheme)
+	components, err := r.generateEventIngesterComponents(&eventIngester, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -111,7 +109,11 @@ func (r *EventIngesterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester *installv1alpha1.EventIngester, scheme *runtime.Scheme) (*CommonComponents, error) {
+func (r *EventIngesterReconciler) generateEventIngesterComponents(
+	eventIngester *installv1alpha1.EventIngester,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(eventIngester.Spec.ApplicationConfig, eventIngester.Name, eventIngester.Namespace, GetConfigFilename(eventIngester.Name))
 	if err != nil {
 		return nil, err
@@ -123,14 +125,14 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := eventIngester.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(eventIngester.Name, eventIngester.Namespace, AllLabels(eventIngester.Name, eventIngester.Labels), eventIngester.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(eventIngester.Name, eventIngester.Namespace, AllLabels(eventIngester.Name, eventIngester.Labels), eventIngester.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(eventIngester, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := r.createDeployment(eventIngester, serviceAccountName)
+	deployment, err := r.createDeployment(eventIngester, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -138,17 +140,30 @@ func (r *EventIngesterReconciler) generateEventIngesterComponents(eventIngester 
 		return nil, err
 	}
 
+	profilingService, profilingIngress, err := newProfilingComponents(
+		eventIngester,
+		scheme,
+		config,
+		eventIngester.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &CommonComponents{
-		Deployment:     deployment,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
+		Deployment:       deployment,
+		ServiceAccount:   serviceAccount,
+		Secret:           secret,
+		ServiceProfiling: profilingService,
+		IngressProfiling: profilingIngress,
 	}, nil
 }
 
-func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha1.EventIngester, serviceAccountName string) (*appsv1.Deployment, error) {
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
+func (r *EventIngesterReconciler) createDeployment(
+	eventIngester *installv1alpha1.EventIngester,
+	serviceAccountName string,
+	config *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
 	env := createEnv(eventIngester.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(eventIngester.Spec.ApplicationConfig)
 	if err != nil {
@@ -166,12 +181,7 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(eventIngester.Name),
 			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: &intstr.IntOrString{IntVal: int32(1)},
-				},
-			},
+			Strategy: defaultDeploymentStrategy(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        eventIngester.Name,
@@ -182,40 +192,17 @@ func (r *EventIngesterReconciler) createDeployment(eventIngester *installv1alpha
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{eventIngester.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
+					SecurityContext:               eventIngester.Spec.PodSecurityContext,
+					Affinity:                      defaultAffinity(eventIngester.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "eventingester",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(eventIngester.Spec.Image),
 						Args:            []string{appConfigFlag, appConfigFilepath},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: eventIngester.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
+						Ports:           newContainerPortsMetrics(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: eventIngester.Spec.SecurityContext,
 					}},
 					NodeSelector: eventIngester.Spec.NodeSelector,
 					Tolerations:  eventIngester.Spec.Tolerations,

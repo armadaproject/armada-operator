@@ -20,13 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/yaml"
-)
-
-const (
-	defaultHTTPPort    = 8080
-	defaultGRPCPort    = 50051
-	defaultMetricsPort = 9000
 )
 
 type Image struct {
@@ -62,21 +55,15 @@ type IngressConfig struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	// The type of ingress that is used
 	IngressClass string `json:"ingressClass,omitempty"`
-	// Overide name for ingress
-	NameOverride string `json:"nameOverride,omitempty"`
+	// An array of host names to build ingress rules for
+	Hostnames []string `json:"hostNames,omitempty"`
+	// Who is issuing certificates for CA
+	ClusterIssuer string `json:"clusterIssuer,omitempty"`
 }
 
 type AdditionalClusterRoleBinding struct {
 	NameSuffix      string `json:"nameSuffix"`
 	ClusterRoleName string `json:"clusterRoleName"`
-}
-
-type PortConfig struct {
-	HttpPort     int32 `json:"httpPort"`
-	HttpNodePort int32 `json:"httpNodePort,omitempty"`
-	GrpcPort     int32 `json:"grpcPort"`
-	GrpcNodePort int32 `json:"grpcNodePort,omitempty"`
-	MetricsPort  int32 `json:"metricsPort"`
 }
 
 // CommonSpecBase is the common configuration for all services.
@@ -109,37 +96,6 @@ type CommonSpecBase struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
-	// PortConfig is automatically populated with defaults and overlaid by values in ApplicationConfig.
-	PortConfig PortConfig `json:"portConfig,omitempty"`
-}
-
-// BuildPortConfig extracts ports from the ApplicationConfig and returns a PortConfig
-func BuildPortConfig(rawAppConfig runtime.RawExtension) (PortConfig, error) {
-	appConfig, err := ConvertRawExtensionToYaml(rawAppConfig)
-	if err != nil {
-		return PortConfig{}, err
-	}
-	// defaults
-	portConfig := PortConfig{
-		HttpPort:    defaultHTTPPort,
-		GrpcPort:    defaultGRPCPort,
-		MetricsPort: defaultMetricsPort,
-	}
-	err = yaml.Unmarshal([]byte(appConfig), &portConfig)
-	if err != nil {
-		return PortConfig{}, err
-	}
-	return portConfig, nil
-}
-
-// ConvertRawExtensionToYaml converts a RawExtension input to Yaml
-func ConvertRawExtensionToYaml(config runtime.RawExtension) (string, error) {
-	yamlConfig, err := yaml.JSONToYAML(config.Raw)
-	if err != nil {
-		return "", err
-	}
-
-	return string(yamlConfig), nil
 }
 
 func GetDefaultSecurityContext() *corev1.SecurityContext {

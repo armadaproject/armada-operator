@@ -53,6 +53,8 @@ type SchedulerSpec struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 	// Ingress defines labels and annotations for the Ingress controller of Scheduler
 	Ingress *IngressConfig `json:"ingress,omitempty"`
+	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
+	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
 	// An array of host names to build ingress rules for
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA
