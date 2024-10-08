@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/duration"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/pkg/errors"
 
 	"k8s.io/utils/ptr"
@@ -128,6 +131,10 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.PrometheusRule, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	logger.Info("Successfully reconciled Scheduler object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -170,9 +177,14 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
+	var prometheusRule *monitoringv1.PrometheusRule
 	if scheduler.Spec.Prometheus != nil && scheduler.Spec.Prometheus.Enabled {
 		serviceMonitor = createSchedulerServiceMonitor(scheduler)
 		if err := controllerutil.SetOwnerReference(scheduler, serviceMonitor, scheme); err != nil {
+			return nil, err
+		}
+		prometheusRule = createSchedulerPrometheusRule(scheduler)
+		if err := controllerutil.SetOwnerReference(scheduler, prometheusRule, scheme); err != nil {
 			return nil, err
 		}
 	}
@@ -214,27 +226,9 @@ func generateSchedulerInstallComponents(scheduler *installv1alpha1.Scheduler, sc
 		IngressGrpc:    ingressGrpc,
 		Jobs:           []*batchv1.Job{job},
 		ServiceMonitor: serviceMonitor,
+		PrometheusRule: prometheusRule,
 		CronJob:        cronJob,
 	}, nil
-}
-
-// createSchedulerServiceMonitor will return a ServiceMonitor for this
-func createSchedulerServiceMonitor(scheduler *installv1alpha1.Scheduler) *monitoringv1.ServiceMonitor {
-	return &monitoringv1.ServiceMonitor{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "ServiceMonitor",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scheduler.Name,
-			Namespace: scheduler.Namespace,
-			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
-		},
-		Spec: monitoringv1.ServiceMonitorSpec{
-			Endpoints: []monitoringv1.Endpoint{
-				{Port: "metrics", Interval: "15s"},
-			},
-		},
-	}
 }
 
 // Function to build the deployment object for Scheduler.
@@ -626,6 +620,189 @@ func createSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.Cron
 	}
 
 	return &job, nil
+}
+
+// createSchedulerServiceMonitor will return a ServiceMonitor for this
+func createSchedulerServiceMonitor(scheduler *installv1alpha1.Scheduler) *monitoringv1.ServiceMonitor {
+	scrapeInterval := &metav1.Duration{Duration: defaultPrometheusInterval}
+	if scheduler.Spec.Prometheus.ScrapeInterval == nil {
+		scrapeInterval = &metav1.Duration{Duration: defaultPrometheusInterval}
+	}
+	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	return &monitoringv1.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scheduler.Name,
+			Namespace: scheduler.Namespace,
+			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Endpoints: []monitoringv1.Endpoint{
+				{Port: "metrics", Interval: monitoringv1.Duration(durationString)},
+			},
+		},
+	}
+}
+
+// createSchedulerPrometheusRule creates a PrometheusRule for monitoring Armada scheduler.
+func createSchedulerPrometheusRule(scheduler *installv1alpha1.Scheduler) *monitoringv1.PrometheusRule {
+	rules := []monitoringv1.Rule{
+		{
+			Record: "node:armada_scheduler_failed_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (node) (armada_scheduler_job_state_counter_by_node{state="failed"})`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (cluster, category, subCategory) (armada_scheduler_error_classification_by_node)`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (queue, category, subCategory) (armada_scheduler_job_error_classification_by_queue)`},
+		},
+		{
+			Record: "node:armada_scheduler_succeeded_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (node) (armada_scheduler_job_state_counter_by_node{state="succeeded"})`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_succeeded_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (cluster, category, subCategory) (armada_scheduler_job_state_counter_by_node{state="succeeded"})`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_succeeded_jobs",
+			Expr:   intstr.IntOrString{StrVal: `sum by (queue) (armada_scheduler_job_state_counter_by_queue{state="succeeded"})`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_job_state_counter_by_queue{state="failed"}[1m:])`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_job_state_counter_by_queue{state="failed"}[10m:])`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_job_state_counter_by_queue{state="failed"}[1h:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_failed_jobs[1m:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_failed_jobs[10m:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_failed_jobs[1h:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_failed_jobs[1m:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_failed_jobs[10m:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_failed_jobs[1h:])`},
+		},
+		{
+			Record: "node:armada_scheduler_succeeded_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_succeeded_jobs[1m:])`},
+		},
+		{
+			Record: "node:armada_scheduler_succeeded_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_succeeded_jobs[10m:])`},
+		},
+		{
+			Record: "node:armada_scheduler_succeeded_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(node:armada_scheduler_succeeded_jobs[1h:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_succeeded_jobs[1m:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_succeeded_jobs[10m:])`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(cluster_category_subCategory:armada_scheduler_succeeded_jobs[1h:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_succeeded_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_succeeded_jobs[1m:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_succeeded_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_succeeded_jobs[10m:])`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_succeeded_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `increase(queue_category_subCategory:armada_scheduler_succeeded_jobs[1h:])`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_rate_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(node) (node:armada_scheduler_failed_jobs:increase1m) / on(node) group_left() ((sum by(node) (node:armada_scheduler_failed_jobs:increase1m)) + (sum by(node) (node:armada_scheduler_succeeded_jobs:increase1m)))`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_rate_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(node) (node:armada_scheduler_failed_jobs:increase10m) / on(node) group_left() ((sum by(node) (node:armada_scheduler_failed_jobs:increase10m)) + (sum by(node) (node:armada_scheduler_succeeded_jobs:increase10m)))`},
+		},
+		{
+			Record: "node:armada_scheduler_failed_rate_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `sum by(node) (node:armada_scheduler_failed_jobs:increase1h) / on(node) group_left() ((sum by(node) (node:armada_scheduler_failed_jobs:increase1h)) + (sum by(node) (node:armada_scheduler_succeeded_jobs:increase1h)))`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_rate_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(cluster, category, subCategory) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase1m) / on(cluster) group_left() ((sum by(cluster) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase1m)) + (sum by(cluster) (cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase1m)))`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_rate_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(cluster, category, subCategory) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase10m) / on(cluster) group_left() ((sum by(cluster) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase10m)) + (sum by(cluster) (cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase10m)))`},
+		},
+		{
+			Record: "cluster_category_subCategory:armada_scheduler_failed_rate_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `sum by(cluster, category, subCategory) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase1h) / on(cluster) group_left() ((sum by(cluster) (cluster_category_subCategory:armada_scheduler_failed_jobs:increase1h)) + (sum by(cluster) (cluster_category_subCategory:armada_scheduler_succeeded_jobs:increase1h)))`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_rate_jobs:increase1m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(queue, category, subCategory) (queue_category_subCategory:armada_scheduler_failed_jobs:increase1m) / on(queue) group_left() ((sum by(queue) (queue_category_subCategory:armada_scheduler_failed_jobs:increase1m)) + (sum by(queue) (queue_category_subCategory:armada_scheduler_succeeded_jobs:increase1m)))`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_rate_jobs:increase10m",
+			Expr:   intstr.IntOrString{StrVal: `sum by(queue, category, subCategory) (queue_category_subCategory:armada_scheduler_failed_jobs:increase10m) / on(queue) group_left() ((sum by(queue) (queue_category_subCategory:armada_scheduler_failed_jobs:increase10m)) + (sum by(queue) (queue_category_subCategory:armada_scheduler_succeeded_jobs:increase10m)))`},
+		},
+		{
+			Record: "queue_category_subCategory:armada_scheduler_failed_rate_jobs:increase1h",
+			Expr:   intstr.IntOrString{StrVal: `sum by(queue, category, subCategory) (queue_category_subCategory:armada_scheduler_failed_jobs:increase1h) / on(queue) group_left() ((sum by(queue) (queue_category_subCategory:armada_scheduler_failed_jobs:increase1h)) + (sum by(queue) (queue_category_subCategory:armada_scheduler_succeeded_jobs:increase1h)))`},
+		},
+	}
+
+	objectMetaName := "armada-" + scheduler.Name + "-metrics"
+	scrapeInterval := &metav1.Duration{Duration: defaultPrometheusInterval}
+	if interval := scheduler.Spec.Prometheus.ScrapeInterval; interval != nil {
+		scrapeInterval = &metav1.Duration{Duration: interval.Duration}
+	}
+	durationString := duration.ShortHumanDuration(scrapeInterval.Duration)
+	return &monitoringv1.PrometheusRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scheduler.Name,
+			Namespace: scheduler.Namespace,
+			Labels:    AllLabels(scheduler.Name, scheduler.Spec.Labels, scheduler.Spec.Prometheus.Labels),
+		},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{{
+				Name:     objectMetaName,
+				Interval: ptr.To(monitoringv1.Duration(durationString)),
+				Rules:    rules,
+			}},
+		},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
