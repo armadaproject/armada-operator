@@ -55,6 +55,8 @@ type BinocularsSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// Ingress for this component. Used to inject labels/annotations into ingress
 	Ingress *IngressConfig `json:"ingress,omitempty"`
+	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
+	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
 	// An array of host names to build ingress rules for
 	HostNames []string `json:"hostNames,omitempty"`
 	// Who is issuing certificates for CA

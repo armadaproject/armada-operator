@@ -2020,8 +2020,7 @@ spec:
                 - tag
                 type: object
               ingress:
-                description: Ingress defines labels and annotations for the Ingress
-                  controller of ArmadaServer
+                description: Ingress defines configuration for the Ingress resource
                 properties:
                   annotations:
                     additionalProperties:
@@ -2029,6 +2028,14 @@ spec:
                     description: Annotations is a map of annotations which will be
                       added to all ingress rules
                     type: object
+                  clusterIssuer:
+                    description: Who is issuing certificates for CA
+                    type: string
+                  hostNames:
+                    description: An array of host names to build ingress rules for
+                    items:
+                      type: string
+                    type: array
                   ingressClass:
                     description: The type of ingress that is used
                     type: string
@@ -2038,9 +2045,6 @@ spec:
                     description: Labels is the map of labels which wil be added to
                       all objects
                     type: object
-                  nameOverride:
-                    description: Overide name for ingress
-                    type: string
                 type: object
               labels:
                 additionalProperties:
@@ -2254,29 +2258,33 @@ spec:
                         type: string
                     type: object
                 type: object
-              portConfig:
-                description: PortConfig is automatically populated with defaults and
-                  overlaid by values in ApplicationConfig.
+              profilingIngressConfig:
+                description: ProfilingIngressConfig defines configuration for the
+                  profiling Ingress resource
                 properties:
-                  grpcNodePort:
-                    format: int32
-                    type: integer
-                  grpcPort:
-                    format: int32
-                    type: integer
-                  httpNodePort:
-                    format: int32
-                    type: integer
-                  httpPort:
-                    format: int32
-                    type: integer
-                  metricsPort:
-                    format: int32
-                    type: integer
-                required:
-                - grpcPort
-                - httpPort
-                - metricsPort
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is a map of annotations which will be
+                      added to all ingress rules
+                    type: object
+                  clusterIssuer:
+                    description: Who is issuing certificates for CA
+                    type: string
+                  hostNames:
+                    description: An array of host names to build ingress rules for
+                    items:
+                      type: string
+                    type: array
+                  ingressClass:
+                    description: The type of ingress that is used
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels is the map of labels which wil be added to
+                      all objects
+                    type: object
                 type: object
               prometheus:
                 description: PrometheusConfig is the configuration block for Prometheus

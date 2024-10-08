@@ -5,41 +5,50 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-
-	"github.com/armadaproject/armada-operator/api/install/v1alpha1"
 )
 
 func TestService(t *testing.T) {
-	testcases := map[string]struct {
+	t.Parallel()
+
+	tests := map[string]struct {
 		name          string
 		namespace     string
 		labels        map[string]string
 		identityLabel map[string]string
-		portConfig    v1alpha1.PortConfig
-		ports         []corev1.ServicePort
+		config        CommonApplicationConfig
+		portConfig    PortConfig
+		expectedPorts []corev1.ServicePort
 	}{
-		"PortConfig values are translated to ServicePort": {
+		"All ports generated correct": {
 			name:          "lookout",
 			namespace:     "lookout",
 			labels:        map[string]string{"app": "lookout", "hello": "world"},
 			identityLabel: map[string]string{"app": "binoculars"},
-			portConfig: v1alpha1.PortConfig{
-				GrpcPort:    50059,
-				HttpPort:    8080,
+			config: CommonApplicationConfig{
+				GRPCPort:    50059,
+				HTTPPort:    8080,
 				MetricsPort: 9000,
 			},
-			ports: []corev1.ServicePort{
+			portConfig: PortConfig{
+				ExposeHTTP:    true,
+				ExposeGRPC:    true,
+				ExposeMetrics: true,
+			},
+			expectedPorts: []corev1.ServicePort{
 				{
-					Name: "grpc",
-					Port: 50059,
+					Name:     "grpc",
+					Port:     50059,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name: "web",
-					Port: 8080,
+					Name:     "web",
+					Port:     8080,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name: "metrics",
-					Port: 9000,
+					Name:     "metrics",
+					Port:     9000,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 		},
@@ -48,44 +57,60 @@ func TestService(t *testing.T) {
 			namespace:     "lookout",
 			labels:        map[string]string{"app": "lookout", "hello": "world"},
 			identityLabel: map[string]string{"app": "binoculars"},
-			portConfig: v1alpha1.PortConfig{
-				GrpcPort:     50059,
-				GrpcNodePort: 32000,
-				HttpPort:     8080,
-				HttpNodePort: 32001,
+			config: CommonApplicationConfig{
+				GRPCPort:     50059,
+				GRPCNodePort: 32000,
+				HTTPPort:     8080,
+				HTTPNodePort: 32001,
 				MetricsPort:  9000,
+				Profiling: ProfilingConfig{
+					Port: 1337,
+				},
 			},
-			ports: []corev1.ServicePort{
+			portConfig: PortConfig{
+				ExposeHTTP:      true,
+				ExposeGRPC:      true,
+				ExposeMetrics:   true,
+				ExposeProfiling: true,
+			},
+			expectedPorts: []corev1.ServicePort{
 				{
 					Name:     "grpc",
 					Port:     50059,
 					NodePort: 32000,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
 					Name:     "web",
 					Port:     8080,
 					NodePort: 32001,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name: "metrics",
-					Port: 9000,
+					Name:     "metrics",
+					Port:     9000,
+					Protocol: corev1.ProtocolTCP,
+				},
+				{
+					Name:     "profiling",
+					Port:     1337,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 		},
 	}
 
-	for name, tc := range testcases {
+	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := Service(tc.name, tc.namespace, tc.labels, tc.identityLabel, tc.portConfig)
+			got := Service(tc.name, tc.namespace, tc.labels, tc.identityLabel, &tc.config, tc.portConfig)
 			assert.Equal(t, tc.name, got.Name)
 			assert.Equal(t, tc.namespace, got.Namespace)
-			assert.ElementsMatch(t, tc.ports, got.Spec.Ports)
-			if tc.portConfig.GrpcNodePort > 0 {
-				assert.Equal(t, corev1.ServiceType("NodePort"), got.Spec.Type)
+			assert.ElementsMatch(t, tc.expectedPorts, got.Spec.Ports)
+			if tc.config.GRPCNodePort > 0 || tc.config.HTTPNodePort > 0 {
+				assert.Equal(t, corev1.ServiceTypeNodePort, got.Spec.Type)
 			} else {
-				assert.Equal(t, corev1.ServiceType(""), got.Spec.Type)
+				assert.Equal(t, corev1.ServiceTypeClusterIP, got.Spec.Type)
 			}
-
 		})
 	}
 }

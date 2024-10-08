@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/builders"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
@@ -72,7 +74,11 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		},
 	}
 
-	expectedComponents, err := generateArmadaServerInstallComponents(&expectedAS, scheme)
+	commonConfig, err := builders.ParseCommonApplicationConfig(expectedAS.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	expectedComponents, err := generateArmadaServerInstallComponents(&expectedAS, scheme, commonConfig)
 	require.NoError(t, err)
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -403,12 +409,16 @@ func TestSchedulerReconciler_createIngress_EmptyHosts(t *testing.T) {
 	t.Parallel()
 
 	input := v1alpha1.ArmadaServer{}
-	ingress, err := createIngressHttp(&input)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createServerIngressHTTP(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
 
-	ingress, err = createIngressGrpc(&input)
+	ingress, err = createServerIngressGRPC(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
@@ -435,12 +445,16 @@ func TestSchedulerReconciler_createIngress(t *testing.T) {
 			HostNames: []string{"localhost"},
 		},
 	}
-	ingress, err := createIngressHttp(&input)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createServerIngressHTTP(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
 
-	ingress, err = createIngressGrpc(&input)
+	ingress, err = createServerIngressGRPC(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)

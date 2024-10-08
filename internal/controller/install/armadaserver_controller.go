@@ -33,7 +33,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,14 +73,13 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(server.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(server.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	server.Spec.PortConfig = pc
 
 	var components *CommonComponents
-	components, err = generateArmadaServerInstallComponents(&server, r.Scheme)
+	components, err = generateArmadaServerInstallComponents(&server, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -160,7 +158,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme) (*CommonComponents, error) {
+func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme, config *builders.CommonApplicationConfig) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
 		return nil, err
@@ -172,14 +170,14 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := as.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), as.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(as, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := createArmadaServerDeployment(as, serviceAccountName)
+	deployment, err := createArmadaServerDeployment(as, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +185,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		return nil, err
 	}
 
-	ingressGrpc, err := createIngressGrpc(as)
+	ingressGrpc, err := createServerIngressGRPC(as, config)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +195,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		}
 	}
 
-	ingressHttp, err := createIngressHttp(as)
+	ingressHttp, err := createServerIngressHTTP(as, config)
 	if err != nil {
 		return nil, err
 	}
@@ -207,14 +205,30 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		}
 	}
 
-	service := builders.Service(as.Name, as.Namespace, AllLabels(as.Name, as.Labels), IdentityLabel(as.Name), as.Spec.PortConfig)
+	service := builders.Service(
+		as.Name,
+		as.Namespace,
+		AllLabels(as.Name, as.Labels),
+		IdentityLabel(as.Name),
+		config,
+		builders.ServiceEnableApplicationPortsOnly,
+	)
 	if err := controllerutil.SetOwnerReference(as, service, scheme); err != nil {
 		return nil, err
+	}
+	profilingService, profilingIngress, err := newProfilingComponents(
+		as,
+		scheme,
+		config,
+		as.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	pdb := createServerPodDisruptionBudget(as)
 	if err := controllerutil.SetOwnerReference(as, pdb, scheme); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	var prometheusRule *monitoringv1.PrometheusRule
@@ -233,7 +247,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	jobs := []*batchv1.Job{{}}
 	if as.Spec.PulsarInit {
-		jobs, err = createArmadaServerMigrationJobs(as)
+		jobs, err = createArmadaServerMigrationJobs(as, config)
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +262,9 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 		Deployment:          deployment,
 		IngressGrpc:         ingressGrpc,
 		IngressHttp:         ingressHttp,
+		IngressProfiling:    profilingIngress,
 		Service:             service,
+		ServiceProfiling:    profilingService,
 		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		PodDisruptionBudget: pdb,
@@ -259,11 +275,8 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 }
 
-func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batchv1.Job, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
+func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer, commonConfig *builders.CommonApplicationConfig) ([]*batchv1.Job, error) {
 	terminationGracePeriodSeconds := as.Spec.TerminationGracePeriodSeconds
-	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
@@ -299,13 +312,10 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 				Spec: corev1.PodSpec{
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: terminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               as.Spec.PodSecurityContext,
 					Containers: []corev1.Container{{
 						Name:            "wait-for-pulsar",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           "alpine:3.16",
 						Args: []string{
 							"/bin/sh",
@@ -316,7 +326,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "metrics",
-							ContainerPort: as.Spec.PortConfig.MetricsPort,
+							ContainerPort: commonConfig.MetricsPort,
 							Protocol:      "TCP",
 						}},
 						Env: []corev1.EnvVar{
@@ -331,7 +341,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 								SubPath:   as.Name,
 							},
 						},
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: as.Spec.SecurityContext,
 					}},
 					NodeSelector: as.Spec.NodeSelector,
 					Tolerations:  as.Spec.Tolerations,
@@ -372,7 +382,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{{
 						Name:            "init-pulsar",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           fmt.Sprintf("%v:%v", asConfig.Pulsar.ArmadaInit.Image.Repository, asConfig.Pulsar.ArmadaInit.Image.Tag),
 						Args: []string{
 							"/bin/sh",
@@ -388,11 +398,6 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
               bin/pulsar-admin --admin-url $PULSARADMINURL namespaces set-auto-topic-creation public/default --disable
               bin/pulsar-admin --admin-url $PULSARADMINURL namespaces set-auto-topic-creation armada/armada --disable`,
 						},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: as.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
 						Env: []corev1.EnvVar{
 							{
 								Name: "PULSARADMINURL",
@@ -408,7 +413,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 								SubPath:   as.Name,
 							},
 						},
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: as.Spec.SecurityContext,
 					}},
 					NodeSelector: as.Spec.NodeSelector,
 					Tolerations:  as.Spec.Tolerations,
@@ -428,11 +433,12 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer) ([]*batch
 	return []*batchv1.Job{&pulsarWaitJob, &initPulsarJob}, nil
 }
 
-func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer, serviceAccountName string) (*appsv1.Deployment, error) {
+func createArmadaServerDeployment(
+	as *installv1alpha1.ArmadaServer,
+	serviceAccountName string,
+	commonConfig *builders.CommonApplicationConfig,
+) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
 	env := createEnv(as.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(as.Spec.ApplicationConfig)
 	if err != nil {
@@ -466,61 +472,22 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer, serviceAccou
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: as.DeletionGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{as.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
+					SecurityContext:               as.Spec.PodSecurityContext,
+					Affinity:                      defaultAffinity(as.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "armadaserver",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(as.Spec.Image),
 						Args:            []string{appConfigFlag, appConfigFilepath},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: as.Spec.PortConfig.MetricsPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "grpc",
-								ContainerPort: as.Spec.PortConfig.GrpcPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "http",
-								ContainerPort: as.Spec.PortConfig.HttpPort,
-								Protocol:      "TCP",
-							},
-						},
+						Ports:           newContainerPortsAll(commonConfig),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: as.Spec.SecurityContext,
 					}},
 					Volumes: volumes,
 				},
 			},
-			Strategy:                appsv1.DeploymentStrategy{},
-			MinReadySeconds:         0,
-			RevisionHistoryLimit:    nil,
-			Paused:                  false,
-			ProgressDeadlineSeconds: nil,
+			Strategy: defaultDeploymentStrategy(1),
 		},
 	}
 	if as.Spec.Resources != nil {
@@ -531,115 +498,46 @@ func createArmadaServerDeployment(as *installv1alpha1.ArmadaServer, serviceAccou
 	return &deployment, nil
 }
 
-func createIngressGrpc(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+func createServerIngressGRPC(as *installv1alpha1.ArmadaServer, config *builders.CommonApplicationConfig) (*networkingv1.Ingress, error) {
 	if len(as.Spec.HostNames) == 0 {
 		// if no hostnames, no ingress can be configured
 		return nil, nil
 	}
-	ingressGRPCName := as.Name + "-grpc"
-	grpcIngress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Name: ingressGRPCName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                  as.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
-				"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
-			},
-		},
-	}
 
-	if as.Spec.ClusterIssuer != "" {
-		grpcIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = as.Spec.ClusterIssuer
-		grpcIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = as.Spec.ClusterIssuer
+	name := as.Name + "-grpc"
+	labels := AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/ssl-redirect": "true",
 	}
-
-	if as.Spec.Ingress.Annotations != nil {
-		for key, value := range as.Spec.Ingress.Annotations {
-			grpcIngress.ObjectMeta.Annotations[key] = value
-		}
-	}
-	grpcIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(as.Spec.Ingress, baseAnnotations, BackendProtocolGRPC, config.GRPC.Enabled)
 
 	secretName := as.Name + "-service-tls"
-	grpcIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
 	serviceName := as.Name
-	for _, val := range as.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/",
-					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: as.Spec.PortConfig.GrpcPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	grpcIngress.Spec.Rules = ingressRules
-
-	return grpcIngress, nil
+	servicePort := config.GRPCPort
+	path := "/"
+	ingress, err := builders.Ingress(name, as.Namespace, labels, annotations, as.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
-func createIngressHttp(as *installv1alpha1.ArmadaServer) (*networkingv1.Ingress, error) {
+func createServerIngressHTTP(as *installv1alpha1.ArmadaServer, config *builders.CommonApplicationConfig) (*networkingv1.Ingress, error) {
 	if len(as.Spec.HostNames) == 0 {
 		// when no hostnames, no ingress can be configured
 		return nil, nil
 	}
-	restIngressName := as.Name + "-rest"
-	restIngress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: restIngressName, Namespace: as.Namespace, Labels: AllLabels(as.Name, as.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":                as.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
-				"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
-			},
-		},
+	name := as.Name + "-rest"
+	labels := AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/rewrite-target": "/$2",
+		"nginx.ingress.kubernetes.io/ssl-redirect":   "true",
 	}
-
-	if as.Spec.ClusterIssuer != "" {
-		restIngress.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = as.Spec.ClusterIssuer
-		restIngress.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = as.Spec.ClusterIssuer
-	}
-
-	if as.Spec.Ingress.Annotations != nil {
-		for key, value := range as.Spec.Ingress.Annotations {
-			restIngress.ObjectMeta.Annotations[key] = value
-		}
-	}
-	restIngress.ObjectMeta.Labels = AllLabels(as.Name, as.Spec.Labels, as.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(as.Spec.Ingress, baseAnnotations, BackendProtocolHTTP, config.GRPC.Enabled)
 
 	secretName := as.Name + "-service-tls"
-	restIngress.Spec.TLS = []networking.IngressTLS{{Hosts: as.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
 	serviceName := as.Name
-	for _, val := range as.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/api(/|$)(.*)",
-					PathType: (*networking.PathType)(ptr.To[string]("ImplementationSpecific")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: as.Spec.PortConfig.HttpPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	restIngress.Spec.Rules = ingressRules
-
-	return restIngress, nil
+	servicePort := config.HTTPPort
+	path := "/api(/|$)(.*)"
+	ingress, err := builders.Ingress(name, as.Namespace, labels, annotations, as.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
 func createServerPodDisruptionBudget(as *installv1alpha1.ArmadaServer) *policyv1.PodDisruptionBudget {

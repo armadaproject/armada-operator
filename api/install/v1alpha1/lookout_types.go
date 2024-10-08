@@ -69,6 +69,8 @@ type LookoutSpec struct {
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 	// PodSecurityContext defines the security options the pod should be run with
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
+	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
 }
 
 // LookoutStatus defines the observed state of lookout

@@ -7,7 +7,7 @@ import (
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 )
 
-func CreateServiceAccount(name, namespace string, labels map[string]string, serviceAccountConfig *installv1alpha1.ServiceAccountConfig) *corev1.ServiceAccount {
+func ServiceAccount(name, namespace string, labels map[string]string, serviceAccountConfig *installv1alpha1.ServiceAccountConfig) *corev1.ServiceAccount {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels},
 	}

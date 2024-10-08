@@ -8,6 +8,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/go-logr/logr"
@@ -51,7 +54,9 @@ type CommonComponents struct {
 	Deployment          *appsv1.Deployment
 	IngressGrpc         *networkingv1.Ingress
 	IngressHttp         *networkingv1.Ingress
+	IngressProfiling    *networkingv1.Ingress
 	Service             *corev1.Service
+	ServiceProfiling    *corev1.Service
 	ServiceAccount      *corev1.ServiceAccount
 	Secret              *corev1.Secret
 	ClusterRole         *rbacv1.ClusterRole
@@ -62,50 +67,6 @@ type CommonComponents struct {
 	PodDisruptionBudget *policyv1.PodDisruptionBudget
 	Jobs                []*batchv1.Job
 	CronJob             *batchv1.CronJob
-}
-
-// PostgresConfig is used for scanning postgres section of application config
-type PostgresConfig struct {
-	Connection ConnectionConfig
-}
-
-// ConnectionConfig is used for scanning connection section of postgres config
-type ConnectionConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Dbname   string
-}
-
-// PulsarConfig is used for scanning pulsar section of application config
-type PulsarConfig struct {
-	ArmadaInit            ArmadaInit
-	AuthenticationEnabled bool
-	TlsEnabled            bool
-	AuthenticationSecret  string
-	Cacert                string
-}
-
-// ArmadaInit used to initialize pulsar
-type ArmadaInit struct {
-	Enabled    bool
-	Image      Image
-	BrokerHost string
-	Protocol   string
-	AdminPort  int
-	Port       int
-}
-
-// Image represents a docker image
-type Image struct {
-	Repository string
-	Tag        string
-}
-
-// AppConfig is used for scanning the appconfig to find particular values
-type AppConfig struct {
-	Pulsar PulsarConfig
 }
 
 // CleanupFunc is a function that will clean up additional resources which are not deleted by owner references.
@@ -154,12 +115,21 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 	cc.Deployment.Spec = newComponents.Deployment.Spec
 	cc.Deployment.Labels = newComponents.Deployment.Labels
 	cc.Deployment.Annotations = newComponents.Deployment.Annotations
+
 	if newComponents.Service != nil {
 		cc.Service.Spec = newComponents.Service.Spec
 		cc.Service.Labels = newComponents.Service.Labels
 		cc.Service.Annotations = newComponents.Service.Annotations
 	} else {
 		cc.Service = nil
+	}
+
+	if newComponents.ServiceProfiling != nil {
+		cc.ServiceProfiling.Spec = newComponents.ServiceProfiling.Spec
+		cc.ServiceProfiling.Labels = newComponents.ServiceProfiling.Labels
+		cc.ServiceProfiling.Annotations = newComponents.ServiceProfiling.Annotations
+	} else {
+		cc.ServiceProfiling = nil
 	}
 
 	if newComponents.ServiceAccount != nil {
@@ -196,6 +166,14 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 		cc.IngressHttp = nil
 	}
 
+	if newComponents.IngressProfiling != nil {
+		cc.IngressProfiling.Spec = newComponents.IngressProfiling.Spec
+		cc.IngressProfiling.Labels = newComponents.IngressProfiling.Labels
+		cc.IngressProfiling.Annotations = newComponents.IngressProfiling.Annotations
+	} else {
+		cc.IngressProfiling = nil
+	}
+
 	if newComponents.PodDisruptionBudget != nil {
 		cc.PodDisruptionBudget.Spec = newComponents.PodDisruptionBudget.Spec
 		cc.PodDisruptionBudget.Labels = newComponents.PodDisruptionBudget.Labels
@@ -218,6 +196,50 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 		cc.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
 		cc.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
 	}
+}
+
+// PostgresConfig is used for scanning postgres section of application config
+type PostgresConfig struct {
+	Connection ConnectionConfig
+}
+
+// ConnectionConfig is used for scanning connection section of postgres config
+type ConnectionConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Dbname   string
+}
+
+// PulsarConfig is used for scanning pulsar section of application config
+type PulsarConfig struct {
+	ArmadaInit            ArmadaInit
+	AuthenticationEnabled bool
+	TlsEnabled            bool
+	AuthenticationSecret  string
+	Cacert                string
+}
+
+// ArmadaInit used to initialize pulsar
+type ArmadaInit struct {
+	Enabled    bool
+	Image      Image
+	BrokerHost string
+	Protocol   string
+	AdminPort  int
+	Port       int
+}
+
+// Image represents a docker image
+type Image struct {
+	Repository string
+	Tag        string
+}
+
+// AppConfig is used for scanning the appconfig to find particular values
+type AppConfig struct {
+	Pulsar PulsarConfig
 }
 
 // ImageString generates a docker image.
@@ -441,6 +463,41 @@ func addGoMemLimit(env []corev1.EnvVar, resources corev1.ResourceRequirements) [
 	return env
 }
 
+type BackendProtocol string
+
+const (
+	BackendProtocolGRPC BackendProtocol = "GRPC"
+	BackendProtocolHTTP BackendProtocol = "HTTP"
+)
+
+func buildIngressAnnotations(
+	ingressConfig *installv1alpha1.IngressConfig,
+	baseAnnotations map[string]string,
+	protocol BackendProtocol,
+	useTLS bool,
+) map[string]string {
+	annotations := map[string]string{
+		"kubernetes.io/ingress.class": ingressConfig.IngressClass,
+	}
+	if useTLS {
+		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = string(protocol) + "S"
+		annotations["nginx.ingress.kubernetes.io/ssl-passthrough"] = "true"
+	} else {
+		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = string(protocol)
+	}
+	for key, value := range baseAnnotations {
+		annotations[key] = value
+	}
+	if ingressConfig.ClusterIssuer != "" {
+		annotations["certmanager.k8s.io/cluster-issuer"] = ingressConfig.ClusterIssuer
+		annotations["cert-manager.io/cluster-issuer"] = ingressConfig.ClusterIssuer
+	}
+	for key, value := range ingressConfig.Annotations {
+		annotations[key] = value
+	}
+	return annotations
+}
+
 // checkAndHandleObjectDeletion handles the deletion of the resource by adding/removing the finalizer.
 // If the resource is being deleted, it will remove the finalizer.
 // If the resource is not being deleted, it will add the finalizer.
@@ -571,4 +628,182 @@ func getObject(
 		return true, err
 	}
 	return false, nil
+}
+
+func newProfilingComponents(
+	object metav1.Object,
+	scheme *runtime.Scheme,
+	commonConfig *builders.CommonApplicationConfig,
+	ingressConfig *installv1alpha1.IngressConfig,
+) (*corev1.Service, *networkingv1.Ingress, error) {
+	profilingService, err := newProfilingService(object, commonConfig, scheme)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "error creating profiling service")
+	}
+	profilingIngress, err := newProfilingIngress(object, commonConfig, ingressConfig, scheme)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "error creating profiling ingress")
+	}
+
+	return profilingService, profilingIngress, nil
+}
+
+// newProfilingService creates a new Kubernetes Service for the profiling server and sets the owner reference to the parent object.
+func newProfilingService(
+	object metav1.Object,
+	commonConfig *builders.CommonApplicationConfig,
+	scheme *runtime.Scheme,
+) (*corev1.Service, error) {
+	profilingService := builders.Service(
+		object.GetName()+"-profiling",
+		object.GetNamespace(),
+		AllLabels(object.GetName(), object.GetLabels()),
+		IdentityLabel(object.GetName()),
+		commonConfig,
+		builders.ServiceEnableProfilingPortOnly,
+	)
+	if err := controllerutil.SetOwnerReference(object, profilingService, scheme); err != nil {
+		return nil, err
+	}
+
+	return profilingService, nil
+}
+
+// newProfilingIngress creates a new Kubernetes Ingress for the profiling server and sets the owner reference to the parent object.
+func newProfilingIngress(
+	object metav1.Object,
+	commonConfig *builders.CommonApplicationConfig,
+	ingressConfig *installv1alpha1.IngressConfig,
+	scheme *runtime.Scheme,
+) (*networkingv1.Ingress, error) {
+	if ingressConfig == nil {
+		return nil, nil
+	}
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/ssl-redirect": "true",
+	}
+	annotations := buildIngressAnnotations(ingressConfig, baseAnnotations, BackendProtocolHTTP, false)
+	secretName := object.GetName() + "-service-tls"
+	serviceName := object.GetName()
+	servicePort := commonConfig.HTTPPort
+	path := "/"
+	profilingIngress, err := builders.Ingress(
+		object.GetName()+"-profiling",
+		object.GetNamespace(),
+		AllLabels(object.GetName(), object.GetLabels(), ingressConfig.Labels),
+		annotations,
+		ingressConfig.Hostnames,
+		serviceName,
+		secretName,
+		path,
+		servicePort,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err := controllerutil.SetOwnerReference(object, profilingIngress, scheme); err != nil {
+		return nil, err
+	}
+
+	return profilingIngress, nil
+}
+
+// newContainerPortsAll creates container ports for grpc, http and metrics server and optional port for profiling server.
+func newContainerPortsAll(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
+	ports := []corev1.ContainerPort{newContainerPortGRPC(config), newContainerPortHTTP(config), newContainerPortMetrics(config)}
+	if config.Profiling.Port > 0 {
+		ports = append(ports, newContainerPortProfiling(config))
+	}
+	return ports
+}
+
+func newContainerPortsHTTPWithMetrics(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
+	ports := []corev1.ContainerPort{newContainerPortHTTP(config), newContainerPortMetrics(config)}
+	if config.Profiling.Port > 0 {
+		ports = append(ports, newContainerPortProfiling(config))
+	}
+	return ports
+}
+
+// newContainerPortsGRPCWithMetrics creates container ports for grpc and metrics server and optional port for profiling server.
+func newContainerPortsGRPCWithMetrics(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
+	ports := []corev1.ContainerPort{newContainerPortGRPC(config), newContainerPortMetrics(config)}
+	if config.Profiling.Port > 0 {
+		ports = append(ports, newContainerPortProfiling(config))
+	}
+	return ports
+}
+
+// newContainerPortsMetrics creates container ports for metrics server and optional port for profiling server.
+func newContainerPortsMetrics(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
+	ports := []corev1.ContainerPort{newContainerPortMetrics(config)}
+	if config.Profiling.Port > 0 {
+		ports = append(ports, newContainerPortProfiling(config))
+	}
+	return ports
+}
+
+// newContainerPortGRPC creates a container port for grpc server from settings defined in builders.CommonApplicationConfig.
+func newContainerPortGRPC(config *builders.CommonApplicationConfig) corev1.ContainerPort {
+	return corev1.ContainerPort{
+		Name:          "grpc",
+		ContainerPort: config.GRPCPort,
+		Protocol:      corev1.ProtocolTCP,
+	}
+}
+
+// newContainerPortHTTP creates a container port for http server from settings defined in builders.CommonApplicationConfig.
+func newContainerPortHTTP(config *builders.CommonApplicationConfig) corev1.ContainerPort {
+	return corev1.ContainerPort{
+
+		Name:          "http",
+		ContainerPort: config.HTTPPort,
+		Protocol:      corev1.ProtocolTCP,
+	}
+}
+
+// newContainerPortMetrics creates a container port for metrics server from settings defined in builders.CommonApplicationConfig.
+func newContainerPortMetrics(config *builders.CommonApplicationConfig) corev1.ContainerPort {
+	return corev1.ContainerPort{
+		Name:          "metrics",
+		ContainerPort: config.MetricsPort,
+		Protocol:      corev1.ProtocolTCP,
+	}
+}
+
+func newContainerPortProfiling(config *builders.CommonApplicationConfig) corev1.ContainerPort {
+	return corev1.ContainerPort{
+		Name:          "profiling",
+		ContainerPort: config.Profiling.Port,
+		Protocol:      corev1.ProtocolTCP,
+	}
+}
+
+func defaultAffinity(app string, weight int32) *corev1.Affinity {
+	return &corev1.Affinity{
+		PodAffinity: &corev1.PodAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+				Weight: weight,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					TopologyKey: "kubernetes.io/hostname",
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{{
+							Key:      "app",
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{app},
+						}},
+					},
+				},
+			}},
+		},
+	}
+}
+
+func defaultDeploymentStrategy(maxUnavailable int32) appsv1.DeploymentStrategy {
+	return appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{IntVal: maxUnavailable},
+		},
+	}
 }

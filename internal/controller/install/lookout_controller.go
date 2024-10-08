@@ -19,8 +19,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"k8s.io/utils/ptr"
-
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -71,14 +69,13 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(lookout.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(lookout.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	lookout.Spec.PortConfig = pc
 
 	var components *CommonComponents
-	components, err = generateLookoutInstallComponents(&lookout, r.Scheme)
+	components, err = generateLookoutInstallComponents(&lookout, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -144,7 +141,11 @@ type LookoutConfig struct {
 	Postgres PostgresConfig
 }
 
-func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *runtime.Scheme) (*CommonComponents, error) {
+func generateLookoutInstallComponents(
+	lookout *installv1alpha1.Lookout,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
 		return nil, err
@@ -156,14 +157,14 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := lookout.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
-	deployment, err := createLookoutDeployment(lookout, serviceAccountName)
+	deployment, err := createLookoutDeployment(lookout, serviceAccountName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -171,9 +172,26 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		return nil, err
 	}
 
-	service := builders.Service(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), IdentityLabel(lookout.Name), lookout.Spec.PortConfig)
+	service := builders.Service(
+		lookout.Name,
+		lookout.Namespace,
+		AllLabels(lookout.Name, lookout.Labels),
+		IdentityLabel(lookout.Name),
+		config,
+		builders.ServiceEnableHTTPWithMetrics,
+	)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
 		return nil, err
+	}
+
+	profilingService, profilingIngress, err := newProfilingComponents(
+		lookout,
+		scheme,
+		config,
+		lookout.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
@@ -203,25 +221,27 @@ func generateLookoutInstallComponents(lookout *installv1alpha1.Lookout, scheme *
 		}
 	}
 
-	ingressHttp, err := createLookoutIngressHttp(lookout)
+	ingressHTTP, err := createLookoutIngressHttp(lookout, config)
 	if err != nil {
 		return nil, err
 	}
-	if ingressHttp != nil {
-		if err := controllerutil.SetOwnerReference(lookout, ingressHttp, scheme); err != nil {
+	if ingressHTTP != nil {
+		if err := controllerutil.SetOwnerReference(lookout, ingressHTTP, scheme); err != nil {
 			return nil, err
 		}
 	}
 
 	return &CommonComponents{
-		Deployment:     deployment,
-		Service:        service,
-		ServiceAccount: serviceAccount,
-		Secret:         secret,
-		IngressHttp:    ingressHttp,
-		Jobs:           []*batchv1.Job{job},
-		ServiceMonitor: serviceMonitor,
-		CronJob:        cronJob,
+		Deployment:       deployment,
+		Service:          service,
+		ServiceProfiling: profilingService,
+		ServiceAccount:   serviceAccount,
+		Secret:           secret,
+		IngressHttp:      ingressHTTP,
+		IngressProfiling: profilingIngress,
+		Jobs:             []*batchv1.Job{job},
+		ServiceMonitor:   serviceMonitor,
+		CronJob:          cronJob,
 	}, nil
 }
 
@@ -246,10 +266,7 @@ func createLookoutServiceMonitor(lookout *installv1alpha1.Lookout) *monitoringv1
 
 // Function to build the deployment object for Lookout.
 // This should be changing from CRD to CRD.  Not sure if generailize this helps much
-func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountName string) (*appsv1.Deployment, error) {
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
-	allowPrivilegeEscalation := false
+func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountName string, config *builders.CommonApplicationConfig) (*appsv1.Deployment, error) {
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
@@ -271,52 +288,17 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: lookout.DeletionGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									TopologyKey: "kubernetes.io/hostname",
-									LabelSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{{
-											Key:      "app",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{lookout.Name},
-										}},
-									},
-								},
-							}},
-						},
-					},
+					SecurityContext:               lookout.Spec.PodSecurityContext,
+					Affinity:                      defaultAffinity(lookout.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "lookout",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(lookout.Spec.Image),
 						Args:            []string{appConfigFlag, appConfigFilepath},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "metrics",
-								ContainerPort: lookout.Spec.PortConfig.MetricsPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "http",
-								ContainerPort: lookout.Spec.PortConfig.HttpPort,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "grpc",
-								ContainerPort: lookout.Spec.PortConfig.GrpcPort,
-								Protocol:      "TCP",
-							},
-						},
+						Ports:           newContainerPortsHTTPWithMetrics(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: lookout.Spec.SecurityContext,
 					}},
 					Volumes: volumes,
 				},
@@ -331,70 +313,32 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 	return &deployment, nil
 }
 
-func createLookoutIngressHttp(lookout *installv1alpha1.Lookout) (*networking.Ingress, error) {
+func createLookoutIngressHttp(lookout *installv1alpha1.Lookout, config *builders.CommonApplicationConfig) (*networking.Ingress, error) {
 	if len(lookout.Spec.HostNames) == 0 {
 		// when no hostnames, no ingress can be configured
 		return nil, nil
 	}
-	ingressName := lookout.Name + "-rest"
-	ingressHttp := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ingressName, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels),
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":              lookout.Spec.Ingress.IngressClass,
-				"nginx.ingress.kubernetes.io/ssl-redirect": "true",
-			},
-		},
+	name := lookout.Name + "-rest"
+	labels := AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
+	baseAnnotations := map[string]string{
+		"nginx.ingress.kubernetes.io/ssl-redirect": "true",
 	}
-
-	if lookout.Spec.ClusterIssuer != "" {
-		ingressHttp.ObjectMeta.Annotations["certmanager.k8s.io/cluster-issuer"] = lookout.Spec.ClusterIssuer
-		ingressHttp.ObjectMeta.Annotations["cert-manager.io/cluster-issuer"] = lookout.Spec.ClusterIssuer
-	}
-
-	if lookout.Spec.Ingress.Annotations != nil {
-		for key, value := range lookout.Spec.Ingress.Annotations {
-			ingressHttp.ObjectMeta.Annotations[key] = value
-		}
-	}
-	ingressHttp.ObjectMeta.Labels = AllLabels(lookout.Name, lookout.Spec.Labels, lookout.Spec.Ingress.Labels)
+	annotations := buildIngressAnnotations(lookout.Spec.Ingress, baseAnnotations, BackendProtocolHTTP, config.GRPC.Enabled)
 
 	secretName := lookout.Name + "-service-tls"
-	ingressHttp.Spec.TLS = []networking.IngressTLS{{Hosts: lookout.Spec.HostNames, SecretName: secretName}}
-	var ingressRules []networking.IngressRule
 	serviceName := lookout.Name
-	for _, val := range lookout.Spec.HostNames {
-		ingressRules = append(ingressRules, networking.IngressRule{Host: val, IngressRuleValue: networking.IngressRuleValue{
-			HTTP: &networking.HTTPIngressRuleValue{
-				Paths: []networking.HTTPIngressPath{{
-					Path:     "/",
-					PathType: (*networking.PathType)(ptr.To[string]("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: serviceName,
-							Port: networking.ServiceBackendPort{
-								Number: lookout.Spec.PortConfig.HttpPort,
-							},
-						},
-					},
-				}},
-			},
-		}})
-	}
-	ingressHttp.Spec.Rules = ingressRules
-
-	return ingressHttp, nil
+	servicePort := config.HTTPPort
+	path := "/"
+	ingress, err := builders.Ingress(name, lookout.Namespace, labels, annotations, lookout.Spec.HostNames, serviceName, secretName, path, servicePort)
+	return ingress, errors.WithStack(err)
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
 func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
 	var terminationGracePeriodSeconds int64
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
 	}
-	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
@@ -433,10 +377,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 					ServiceAccountName:            serviceAccountName,
 					RestartPolicy:                 "Never",
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
+					SecurityContext:               lookout.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  "lookout-migration-db-wait",
 						Image: "postgres:15.2-alpine",
@@ -478,21 +419,16 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 					}},
 					Containers: []corev1.Container{{
 						Name:            "lookout-migration",
-						ImagePullPolicy: "IfNotPresent",
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(lookout.Spec.Image),
 						Args: []string{
 							"--migrateDatabase",
 							appConfigFlag,
 							appConfigFilepath,
 						},
-						Ports: []corev1.ContainerPort{{
-							Name:          "metrics",
-							ContainerPort: lookout.Spec.PortConfig.MetricsPort,
-							Protocol:      "TCP",
-						}},
 						Env:             env,
 						VolumeMounts:    volumeMounts,
-						SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+						SecurityContext: lookout.Spec.SecurityContext,
 					}},
 					NodeSelector: lookout.Spec.NodeSelector,
 					Tolerations:  lookout.Spec.Tolerations,
@@ -507,13 +443,10 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 
 // createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
 func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
-	runAsUser := int64(1000)
-	runAsGroup := int64(2000)
 	terminationGracePeriodSeconds := int64(0)
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
 	}
-	allowPrivilegeEscalation := false
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(0)
@@ -563,10 +496,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 						Spec: corev1.PodSpec{
 							RestartPolicy:                 "Never",
 							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-							SecurityContext: &corev1.PodSecurityContext{
-								RunAsUser:  &runAsUser,
-								RunAsGroup: &runAsGroup,
-							},
+							SecurityContext:               lookout.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "lookout-db-pruner-db-wait",
 								Image: "alpine:3.10",
@@ -592,21 +522,16 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 							}},
 							Containers: []corev1.Container{{
 								Name:            "lookout-db-pruner",
-								ImagePullPolicy: "IfNotPresent",
+								ImagePullPolicy: corev1.PullIfNotPresent,
 								Image:           ImageString(lookout.Spec.Image),
 								Args: []string{
 									"--pruneDatabase",
 									appConfigFlag,
 									appConfigFilepath,
 								},
-								Ports: []corev1.ContainerPort{{
-									Name:          "metrics",
-									ContainerPort: lookout.Spec.PortConfig.MetricsPort,
-									Protocol:      "TCP",
-								}},
 								Env:             env,
 								VolumeMounts:    volumeMounts,
-								SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+								SecurityContext: lookout.Spec.SecurityContext,
 							}},
 							NodeSelector: lookout.Spec.NodeSelector,
 							Tolerations:  lookout.Spec.Tolerations,

@@ -89,13 +89,12 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	pc, err := installv1alpha1.BuildPortConfig(executor.Spec.ApplicationConfig)
+	commonConfig, err := builders.ParseCommonApplicationConfig(executor.Spec.ApplicationConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	executor.Spec.PortConfig = pc
 
-	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme)
+	components, err := r.generateExecutorInstallComponents(&executor, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -160,7 +159,11 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *installv1alpha1.Executor, scheme *runtime.Scheme) (*CommonComponents, error) {
+func (r *ExecutorReconciler) generateExecutorInstallComponents(
+	executor *installv1alpha1.Executor,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(executor.Spec.ApplicationConfig, executor.Name, executor.Namespace, GetConfigFilename(executor.Name))
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -171,17 +174,24 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	var serviceAccount *corev1.ServiceAccount
 	serviceAccountName := executor.Spec.CustomServiceAccount
 	if serviceAccountName == "" {
-		serviceAccount = builders.CreateServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
+		serviceAccount = builders.ServiceAccount(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), executor.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(executor, serviceAccount, scheme); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
-	deployment := r.createDeployment(executor, serviceAccountName)
+	deployment := r.createDeployment(executor, serviceAccountName, config)
 	if err = controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	service := builders.Service(executor.Name, executor.Namespace, AllLabels(executor.Name, executor.Labels), IdentityLabel(executor.Name), executor.Spec.PortConfig)
+	service := builders.Service(
+		executor.Name,
+		executor.Namespace,
+		AllLabels(executor.Name, executor.Labels),
+		IdentityLabel(executor.Name),
+		config,
+		builders.ServiceEnableMetricsPortOnly,
+	)
 	if err = controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -194,6 +204,16 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		clusterRoleBindings = append(clusterRoleBindings, r.createAdditionalClusterRoleBindings(executor, serviceAccountName)...)
 	}
 
+	profilingService, profilingIngress, err := newProfilingComponents(
+		executor,
+		scheme,
+		config,
+		executor.Spec.ProfilingIngressConfig,
+	)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	components := &CommonComponents{
 		Deployment:          deployment,
 		Service:             service,
@@ -202,6 +222,8 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 		ClusterRoleBindings: clusterRoleBindings,
 		PriorityClasses:     executor.Spec.PriorityClasses,
 		ClusterRole:         clusterRole,
+		ServiceProfiling:    profilingService,
+		IngressProfiling:    profilingIngress,
 	}
 
 	if executor.Spec.Prometheus != nil && executor.Spec.Prometheus.Enabled {
@@ -219,19 +241,15 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(executor *install
 	return components, nil
 }
 
-func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor, serviceAccountName string) *appsv1.Deployment {
+func (r *ExecutorReconciler) createDeployment(
+	executor *installv1alpha1.Executor,
+	serviceAccountName string,
+	config *builders.CommonApplicationConfig,
+) *appsv1.Deployment {
 	var replicas int32 = 1
-	var runAsUser int64 = 1000
-	var runAsGroup int64 = 2000
 	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
 
-	allowPrivilegeEscalation := false
-	ports := []corev1.ContainerPort{{
-		Name:          "metrics",
-		ContainerPort: executor.Spec.PortConfig.MetricsPort,
-		Protocol:      "TCP",
-	}}
 	env := []corev1.EnvVar{
 		{
 			Name: "SERVICE_ACCOUNT",
@@ -253,13 +271,13 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 	env = append(env, executor.Spec.Environment...)
 	containers := []corev1.Container{{
 		Name:            "executor",
-		ImagePullPolicy: "IfNotPresent",
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           ImageString(executor.Spec.Image),
 		Args:            []string{appConfigFlag, appConfigFilepath},
-		Ports:           ports,
+		Ports:           newContainerPortsMetrics(config),
 		Env:             env,
 		VolumeMounts:    volumeMounts,
-		SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: &allowPrivilegeEscalation},
+		SecurityContext: executor.Spec.SecurityContext,
 	}}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},
@@ -278,14 +296,11 @@ func (r *ExecutorReconciler) createDeployment(executor *installv1alpha1.Executor
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: executor.Spec.TerminationGracePeriodSeconds,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &runAsUser,
-						RunAsGroup: &runAsGroup,
-					},
-					Containers:   containers,
-					NodeSelector: executor.Spec.NodeSelector,
-					Tolerations:  executor.Spec.Tolerations,
-					Volumes:      volumes,
+					SecurityContext:               executor.Spec.PodSecurityContext,
+					Containers:                    containers,
+					NodeSelector:                  executor.Spec.NodeSelector,
+					Tolerations:                   executor.Spec.Tolerations,
+					Volumes:                       volumes,
 				},
 			},
 		},

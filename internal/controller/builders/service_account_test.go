@@ -33,7 +33,7 @@ func Test_ServiceAccount(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			output := CreateServiceAccount(tt.name, tt.namespace, tt.labels, tt.serviceAccountConfig)
+			output := ServiceAccount(tt.name, tt.namespace, tt.labels, tt.serviceAccountConfig)
 			assert.Equal(t, "test", output.Name)
 			assert.Equal(t, "default", output.Namespace)
 			assert.Equal(t, tt.labels, output.Labels)

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/builders"
+
 	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -572,8 +574,12 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 func TestSchedulerReconciler_createIngressHttp_EmptyHosts(t *testing.T) {
 	t.Parallel()
 
-	lookoutInput := v1alpha1.Lookout{}
-	ingress, err := createLookoutIngressHttp(&lookoutInput)
+	input := v1alpha1.Lookout{}
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createLookoutIngressHttp(&input, commonConfig)
 	// expect no error and nil ingress with empty hosts slice
 	assert.NoError(t, err)
 	assert.Nil(t, ingress)
@@ -582,7 +588,7 @@ func TestSchedulerReconciler_createIngressHttp_EmptyHosts(t *testing.T) {
 func TestSchedulerReconciler_createLookoutIngressHttp(t *testing.T) {
 	t.Parallel()
 
-	lookoutInput := v1alpha1.Lookout{
+	input := v1alpha1.Lookout{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Lookout",
 			APIVersion: "install.armadaproject.io/v1alpha1",
@@ -600,7 +606,11 @@ func TestSchedulerReconciler_createLookoutIngressHttp(t *testing.T) {
 			HostNames: []string{"localhost"},
 		},
 	}
-	ingress, err := createLookoutIngressHttp(&lookoutInput)
+	commonConfig, err := builders.ParseCommonApplicationConfig(input.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	ingress, err := createLookoutIngressHttp(&input, commonConfig)
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
