@@ -144,16 +144,6 @@ Quickstart example which allows anonymous auth:
 auth:
   anonymousAuth: true
   permissionGroupMapping:
-    submit_jobs: ["everyone"]
-    submit_any_jobs: ["everyone"]
-    create_queue: ["everyone"]
-    delete_queue: ["everyone"]
-    cancel_jobs: ["everyone"]
-    cancel_any_jobs: ["everyone"]
-    reprioritize_jobs: ["everyone"]
-    reprioritize_any_jobs: ["everyone"]
-    watch_events: ["everyone"]
-    watch_all_events: ["everyone"]
     execute_jobs: ["everyone"]
 ```
 
