@@ -485,7 +485,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob
 	}
 
 	prunerArgs := []string{
-		"--pruneDatabase",
+		"pruneDatabase",
 		appConfigFlag,
 		appConfigFilepath,
 	}
