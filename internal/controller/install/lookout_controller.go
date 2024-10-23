@@ -212,7 +212,7 @@ func generateLookoutInstallComponents(
 
 	var cronJob *batchv1.CronJob
 	if enabled := lookout.Spec.DbPruningEnabled; enabled != nil && *enabled {
-		cronJob, err = createLookoutCronJob(lookout)
+		cronJob, err = createLookoutCronJob(lookout, serviceAccountName)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +442,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 }
 
 // createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
-func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, error) {
+func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.CronJob, error) {
 	terminationGracePeriodSeconds := int64(0)
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
@@ -494,6 +494,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout) (*batchv1.CronJob, e
 							Labels:    AllLabels(lookout.Name, lookout.Labels),
 						},
 						Spec: corev1.PodSpec{
+							ServiceAccountName:            serviceAccountName,
 							RestartPolicy:                 "Never",
 							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 							SecurityContext:               lookout.Spec.PodSecurityContext,

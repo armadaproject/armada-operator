@@ -527,13 +527,14 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 			},
 		},
 	}
-	cronJob, err := newSchedulerCronJob(&schedulerInput)
-	expectedArgs := []string{"--pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
+	cronJob, err := newSchedulerCronJob(&schedulerInput, "sa")
+	expectedArgs := []string{"pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
 	expectedResources := *schedulerInput.Spec.Pruner.Resources
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedArgs, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Args)
 	assert.Equal(t, expectedResources, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources)
+	assert.Equal(t, "sa", cronJob.Spec.JobTemplate.Spec.Template.Spec.ServiceAccountName)
 }
 
 func TestSchedulerReconciler_createSchedulerIngressGrpc_EmptyHosts(t *testing.T) {
@@ -612,7 +613,7 @@ func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 			},
 		},
 	}
-	_, err := newSchedulerCronJob(&expectedScheduler)
+	_, err := newSchedulerCronJob(&expectedScheduler, "scheduler")
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
 }
