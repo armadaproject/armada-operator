@@ -220,7 +220,7 @@ func generateSchedulerInstallComponents(
 
 	var cronJob *batchv1.CronJob
 	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
-		cronJob, err := newSchedulerCronJob(scheduler)
+		cronJob, err = newSchedulerCronJob(scheduler)
 		if err != nil {
 			return nil, err
 		}
