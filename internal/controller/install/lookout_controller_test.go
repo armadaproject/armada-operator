@@ -339,7 +339,7 @@ func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T
 			},
 		},
 	}
-	_, err := createLookoutCronJob(&expectedLookout)
+	_, err := createLookoutCronJob(&expectedLookout, "lookout")
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
 }

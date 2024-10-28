@@ -220,7 +220,7 @@ func generateSchedulerInstallComponents(
 
 	var cronJob *batchv1.CronJob
 	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
-		cronJob, err := newSchedulerCronJob(scheduler)
+		cronJob, err = newSchedulerCronJob(scheduler, serviceAccountName)
 		if err != nil {
 			return nil, err
 		}
@@ -462,7 +462,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 }
 
 // newSchedulerCronJob returns a batch CronJob or an error if the app config is not correct
-func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob, error) {
+func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.CronJob, error) {
 	terminationGracePeriodSeconds := int64(0)
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
@@ -485,7 +485,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob
 	}
 
 	prunerArgs := []string{
-		"--pruneDatabase",
+		"pruneDatabase",
 		appConfigFlag,
 		appConfigFilepath,
 	}
@@ -530,6 +530,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler) (*batchv1.CronJob
 							Labels:    AllLabels(scheduler.Name, scheduler.Labels),
 						},
 						Spec: corev1.PodSpec{
+							ServiceAccountName:            serviceAccountName,
 							RestartPolicy:                 "Never",
 							TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 							SecurityContext:               scheduler.Spec.PodSecurityContext,

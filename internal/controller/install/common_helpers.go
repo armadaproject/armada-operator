@@ -196,6 +196,14 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 		cc.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
 		cc.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
 	}
+
+	if newComponents.CronJob != nil {
+		cc.CronJob.Spec = newComponents.CronJob.Spec
+		cc.CronJob.Annotations = newComponents.CronJob.Annotations
+		cc.CronJob.Labels = newComponents.CronJob.Labels
+	} else {
+		cc.CronJob = nil
+	}
 }
 
 // PostgresConfig is used for scanning postgres section of application config
