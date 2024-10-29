@@ -311,7 +311,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `labels` _object (keys:string, values:string)_ | Labels is the map of labels which wil be added to all objects |  |  |
 | `image` _[Image](#image)_ | Image is the configuration block for the image repository and tag |  |  |
-| `applicationConfig` _[RawExtension](#rawextension)_ | ApplicationConfig is the internal configuration of the application which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object |  | Schemaless: {} <br /> |
+| `applicationConfig` _[RawExtension](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#rawextension-runtime-pkg)_ | ApplicationConfig is the internal configuration of the application which will be created as a Kubernetes Secret and mounted in the Kubernetes Deployment object |  | Schemaless: \{\} <br /> |
 | `prometheus` _[PrometheusConfig](#prometheusconfig)_ | PrometheusConfig is the configuration block for Prometheus monitoring |  |  |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core)_ | Resources is the configuration block for setting resource requirements for this service |  |  |
 | `tolerations` _[Toleration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#toleration-v1-core) array_ | Tolerations is the configuration block for specifying which taints this pod can tolerate |  |  |

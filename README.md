@@ -244,6 +244,16 @@ should all succeed without error.
 Add and change appropriate unit and integration tests to ensure your changes 
 are covered by automated tests and appear to be correct.
 
+## FAQ
+
+### kube-prometheus-stack is not installing
+
+If you get the following error:
+```bash
+Error: template: kube-prometheus-stack/templates/prometheus/prometheus.yaml:262:11: executing "kube-prometheus-stack/templates/prometheus/prometheus.yaml" at <ne .Values.prometheus.prometheusSpec.scrapeConfigNamespaceSelector nil>: error calling ne: uncomparable type map[string]interface {}: map[]
+```
+Try upgrading your Helm version to `v3.16.2` or later.
+
 ## License
 
 Copyright 2024.
