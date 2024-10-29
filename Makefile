@@ -88,8 +88,8 @@ submit-example-job: ## Submit example job to Armada using armadactl
 	armadactl submit dev/quickstart/example-job.yaml
 
 .PHONY: get-armadactl
-get-armadactl: ## Get armadactl binary
-	curl -o $(LOCALBIN_APP)/get-armadactl.sh https://raw.githubusercontent.com/armadaproject/armada/master/scripts/get-armadactl.sh
+get-armadactl: $(LOCALBIN_APP) ## Get armadactl binary
+	curl -o "$(LOCALBIN_APP)/get-armadactl.sh" "https://raw.githubusercontent.com/armadaproject/armada/master/scripts/get-armadactl.sh"
 	bash -c "cd bin/app && bash get-armadactl.sh"
 	rm bin/app/get-armadactl.sh
 
@@ -368,14 +368,14 @@ GORELEASER ?= $(LOCALBIN_TOOLING)/goreleaser
 CRD_REF_DOCS ?= $(LOCALBIN_TOOLING)/crd-ref-docs
 GOLANGCI_LINT ?= $(LOCALBIN_TOOLING)/golangci-lint
 
-KUSTOMIZE_VERSION ?= v5.4.2
+KUSTOMIZE_VERSION ?= v5.5.0
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN_TOOLING)
 	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN_TOOLING); }
 
-CONTROLLER_TOOLS_VERSION ?= v0.15.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.1
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
@@ -386,7 +386,7 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN_TOOLING)
 	test -s $(ENVTEST) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-GOTESTSUM_VERSION ?= v1.11.0
+GOTESTSUM_VERSION ?= v1.12.0
 .PHONY: gotestsum
 gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
 $(GOTESTSUM): $(LOCALBIN_TOOLING)
@@ -398,31 +398,31 @@ mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN): $(LOCALBIN_TOOLING)
 	test -s $(MOCKGEN) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golang/mock/mockgen@$(MOCKGEN_VERSION)
 
-KIND_VERSION ?= v0.23.0
+KIND_VERSION ?= v0.24.0
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary.
 $(KIND): $(LOCALBIN_TOOLING)
 	test -s $(KIND) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
-HELMIFY_VERSION ?= v0.4.13
+HELMIFY_VERSION ?= v0.4.14
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
 $(HELMIFY): $(LOCALBIN_TOOLING)
 	test -s $(HELMIFY) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/arttor/helmify/cmd/helmify@$(HELMIFY_VERSION)
 
-GORELEASER_VERSION ?= v1.26.2
+GORELEASER_VERSION ?= v2.3.2
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download GoReleaser locally if necessary.
 $(GORELEASER): $(LOCALBIN_TOOLING)
 	test -s $(GORELEASER) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
 
-CRD_REF_DOCS_VERSION ?= v0.0.12
+CRD_REF_DOCS_VERSION ?= v0.1.0
 .PHONY: crd-ref-docs
 crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
 $(CRD_REF_DOCS): $(LOCALBIN_TOOLING)
 	test -s $(CRD_REF_DOCS) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
 
-GOLANGCI_LINT_VERSION ?= v1.59.0
+GOLANGCI_LINT_VERSION ?= v1.61.0
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN_TOOLING)
