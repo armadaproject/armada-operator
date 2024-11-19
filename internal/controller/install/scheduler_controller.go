@@ -503,11 +503,13 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 		prunerResources = *scheduler.Spec.Pruner.Resources
 	}
 
+	name := scheduler.Name + "-db-pruner"
+
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        scheduler.Name + "-db-pruner",
+			Name:        name,
 			Namespace:   scheduler.Namespace,
-			Labels:      AllLabels(scheduler.Name, scheduler.Labels),
+			Labels:      AllLabels(name, scheduler.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
@@ -515,9 +517,9 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 			Schedule: scheduler.Spec.Pruner.Schedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      scheduler.Name + "-db-pruner",
+					Name:      name,
 					Namespace: scheduler.Namespace,
-					Labels:    AllLabels(scheduler.Name, scheduler.Labels),
+					Labels:    AllLabels(name, scheduler.Labels),
 				},
 				Spec: batchv1.JobSpec{
 					Parallelism:  &parallelism,
@@ -525,9 +527,9 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 					BackoffLimit: &backoffLimit,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      scheduler.Name + "-db-pruner",
+							Name:      name,
 							Namespace: scheduler.Namespace,
-							Labels:    AllLabels(scheduler.Name, scheduler.Labels),
+							Labels:    AllLabels(name, scheduler.Labels),
 						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName:            serviceAccountName,
@@ -558,7 +560,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 								},
 							}},
 							Containers: []corev1.Container{{
-								Name:            "scheduler-db-pruner",
+								Name:            name,
 								ImagePullPolicy: corev1.PullIfNotPresent,
 								Image:           ImageString(scheduler.Spec.Image),
 								Args:            prunerArgs,

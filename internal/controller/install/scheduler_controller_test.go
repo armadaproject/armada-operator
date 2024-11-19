@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
@@ -528,13 +531,126 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 		},
 	}
 	cronJob, err := newSchedulerCronJob(&schedulerInput, "sa")
-	expectedArgs := []string{"pruneDatabase", appConfigFlag, appConfigFilepath, "--timeout", "10m", "--batchsize", "1000", "--expireAfter", "1d"}
-	expectedResources := *schedulerInput.Spec.Pruner.Resources
-
 	assert.NoError(t, err)
-	assert.Equal(t, expectedArgs, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Args)
-	assert.Equal(t, expectedResources, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Resources)
-	assert.Equal(t, "sa", cronJob.Spec.JobTemplate.Spec.Template.Spec.ServiceAccountName)
+
+	var expectedParallelism int32 = 1
+	var expectedCompletions int32 = 1
+	var expectedBackoffLimit int32 = 0
+	var expectedTerminationGracePeriodSeconds int64 = 0
+
+	expectedCronJob := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "scheduler-db-pruner",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "scheduler-db-pruner",
+				"release": "scheduler-db-pruner",
+			},
+			Annotations: map[string]string{
+				"checksum/config": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+			},
+		},
+		Spec: batchv1.CronJobSpec{
+			JobTemplate: batchv1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "scheduler-db-pruner",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "scheduler-db-pruner",
+						"release": "scheduler-db-pruner",
+					},
+				},
+				Spec: batchv1.JobSpec{
+					Parallelism:  &expectedParallelism,
+					Completions:  &expectedCompletions,
+					BackoffLimit: &expectedBackoffLimit,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "scheduler-db-pruner",
+							Namespace: "default",
+							Labels: map[string]string{
+								"app":     "scheduler-db-pruner",
+								"release": "scheduler-db-pruner",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Args: []string{
+										"pruneDatabase",
+										"--config",
+										"/config/application_config.yaml",
+										"--timeout",
+										"10m",
+										"--batchsize",
+										"1000",
+										"--expireAfter",
+										"1d",
+									},
+									Image:           "testrepo:1.0.0",
+									ImagePullPolicy: "IfNotPresent",
+									Name:            "scheduler-db-pruner",
+									Resources: corev1.ResourceRequirements{
+										Limits: map[corev1.ResourceName]resource.Quantity{
+											"memory": {Format: "4gi"},
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "user-config",
+											ReadOnly:  true,
+											MountPath: appConfigFilepath,
+											SubPath:   "scheduler-config.yaml",
+										},
+									},
+								},
+							},
+							InitContainers: []corev1.Container{
+								{
+									Name:  "scheduler-db-pruner-db-wait",
+									Image: "alpine:3.10",
+									Command: []string{
+										"/bin/sh",
+										"-c",
+										`echo "Waiting for Postres..."
+                                                         while ! nc -z $PGHOST $PGPORT; do
+                                                           sleep 1
+                                                         done
+                                                         echo "Postres started!"`,
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name: "PGHOST",
+										},
+										{
+											Name: "PGPORT",
+										},
+									},
+								},
+							},
+							RestartPolicy:                 "Never",
+							ServiceAccountName:            "sa",
+							TerminationGracePeriodSeconds: &expectedTerminationGracePeriodSeconds,
+							Volumes: []corev1.Volume{
+								{
+									Name: "user-config",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											SecretName: "scheduler",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if !cmp.Equal(expectedCronJob, cronJob, protocmp.Transform()) {
+		t.Fatalf("cronjob is not the same %s", cmp.Diff(expectedCronJob, cronJob, protocmp.Transform()))
+	}
 }
 
 func TestSchedulerReconciler_createSchedulerIngressGrpc_EmptyHosts(t *testing.T) {

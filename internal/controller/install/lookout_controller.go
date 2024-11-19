@@ -468,20 +468,22 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 		return nil, err
 	}
 
+	name := lookout.Name + "-db-pruner"
+
 	job := batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name + "-db-pruner",
+			Name:        name,
 			Namespace:   lookout.Namespace,
-			Labels:      AllLabels(lookout.Name, lookout.Labels),
+			Labels:      AllLabels(name, lookout.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule: dbPruningSchedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      lookout.Name + "-db-pruner",
+					Name:      name,
 					Namespace: lookout.Namespace,
-					Labels:    AllLabels(lookout.Name, lookout.Labels),
+					Labels:    AllLabels(name, lookout.Labels),
 				},
 				Spec: batchv1.JobSpec{
 					Parallelism:  &parallelism,
@@ -489,9 +491,9 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 					BackoffLimit: &backoffLimit,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      lookout.Name + "-db-pruner",
+							Name:      name,
 							Namespace: lookout.Namespace,
-							Labels:    AllLabels(lookout.Name, lookout.Labels),
+							Labels:    AllLabels(name, lookout.Labels),
 						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName:            serviceAccountName,
@@ -522,7 +524,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 								},
 							}},
 							Containers: []corev1.Container{{
-								Name:            "lookout-db-pruner",
+								Name:            name,
 								ImagePullPolicy: corev1.PullIfNotPresent,
 								Image:           ImageString(lookout.Spec.Image),
 								Args: []string{
