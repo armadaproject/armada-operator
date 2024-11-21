@@ -190,6 +190,7 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
 		Return(nil)
 
+	// PrometheusRule
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
@@ -197,6 +198,208 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
+	// CronJob
+	expectedCronJobName := expectedNamespacedName
+	expectedCronJobName.Name = expectedCronJobName.Name + "-db-pruner"
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedCronJobName, gomock.AssignableToTypeOf(&batchv1.CronJob{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
+		Return(nil)
+
+	r := SchedulerReconciler{
+		Client: mockK8sClient,
+		Scheme: scheme,
+	}
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "scheduler"},
+	}
+
+	_, err = r.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("reconcile should not return error")
+	}
+}
+
+func TestSchedulerReconciler_ReconcilePruningDisabled(t *testing.T) {
+	t.Parallel()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	scheme, err := v1alpha1.SchemeBuilder.Build()
+	if err != nil {
+		t.Fatalf("should not return error when building schema")
+	}
+
+	expectedNamespacedName := types.NamespacedName{Namespace: "default", Name: "scheduler"}
+	dbPruningEnabled := false
+	dbPruningSchedule := "1d"
+	terminationGracePeriod := int64(20)
+	expectedScheduler := v1alpha1.Scheduler{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Scheduler",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduler"},
+		Spec: v1alpha1.SchedulerSpec{
+			Replicas: ptr.To[int32](2),
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig:             runtime.RawExtension{},
+				Resources:                     &corev1.ResourceRequirements{},
+				Prometheus:                    &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+				TerminationGracePeriodSeconds: &terminationGracePeriod,
+			},
+			ClusterIssuer: "test",
+			HostNames:     []string{"localhost"},
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
+			},
+			Pruner: &installv1alpha1.PrunerConfig{
+				Enabled:  dbPruningEnabled,
+				Schedule: dbPruningSchedule,
+			},
+		},
+	}
+
+	commonConfig, err := builders.ParseCommonApplicationConfig(expectedScheduler.Spec.ApplicationConfig)
+	if err != nil {
+		t.Fatalf("should not return error when parsing common application config")
+	}
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
+	if err != nil {
+		t.Fatal("We should not fail on generating scheduler")
+	}
+
+	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+	// Scheduler
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&v1alpha1.Scheduler{})).
+		Return(nil).
+		SetArg(2, expectedScheduler)
+
+	// Finalizer
+	mockK8sClient.
+		EXPECT().
+		Update(gomock.Any(), gomock.AssignableToTypeOf(&installv1alpha1.Scheduler{})).
+		Return(nil)
+
+	// ServiceAccount
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+		Return(nil).
+		SetArg(1, *scheduler.ServiceAccount)
+
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Secret{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+		Return(nil).
+		SetArg(1, *scheduler.Secret)
+
+	expectedJobName := types.NamespacedName{Namespace: "default", Name: "scheduler-migration"}
+	scheduler.Jobs[0].Status = batchv1.JobStatus{
+		Conditions: []batchv1.JobCondition{{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(1, *scheduler.Jobs[0])
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+		Return(nil).
+		SetArg(2, *scheduler.Jobs[0])
+
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&appsv1.Deployment{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
+		Return(nil).
+		SetArg(1, *scheduler.Deployment)
+
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(nil).
+		SetArg(1, *scheduler.Service)
+
+	// IngressGrpc
+	expectedIngressName := expectedNamespacedName
+	expectedIngressName.Name = expectedIngressName.Name + "-grpc"
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedIngressName, gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&networkingv1.Ingress{})).
+		Return(nil).
+		SetArg(1, *scheduler.IngressGrpc)
+
+	// ServiceMonitor
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
+		Return(nil)
+
+	// PrometheusRule
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
+	// CronJob
+	expectedCronJobName := expectedNamespacedName
+	expectedCronJobName.Name = expectedCronJobName.Name + "-db-pruner"
+	mockK8sClient.
+		EXPECT().
+		Delete(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
 		Return(nil)
 
 	r := SchedulerReconciler{
@@ -462,6 +665,7 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.ServiceMonitor{})).
 		Return(nil)
 
+	// PrometheusRule
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
@@ -469,6 +673,18 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&monitoringv1.PrometheusRule{})).
+		Return(nil)
+
+	// CronJob
+	expectedCronJobName := expectedNamespacedName
+	expectedCronJobName.Name = expectedCronJobName.Name + "-db-pruner"
+	mockK8sClient.
+		EXPECT().
+		Get(gomock.Any(), expectedCronJobName, gomock.AssignableToTypeOf(&batchv1.CronJob{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
 		Return(nil)
 
 	r := SchedulerReconciler{

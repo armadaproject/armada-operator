@@ -596,13 +596,13 @@ func upsertObjectIfNeeded(
 	mutateFn controllerutil.MutateFn,
 	logger logr.Logger,
 ) error {
-	if !isNil(object) {
-		logger.Info(fmt.Sprintf("Upserting %s %s object", componentName, object.GetObjectKind()))
-		if _, err := controllerutil.CreateOrUpdate(ctx, client, object, mutateFn); err != nil {
-			return err
-		}
+	if isNil(object) {
+		return nil
 	}
-	return nil
+
+	logger.Info(fmt.Sprintf("Upserting %s %s object", componentName, object.GetObjectKind()))
+	_, err := controllerutil.CreateOrUpdate(ctx, client, object, mutateFn)
+	return err
 }
 
 // Helper function to determine if the object is nil even if it's a pointer to a nil value
@@ -617,6 +617,27 @@ func isNil(i any) bool {
 	default:
 		return false
 	}
+}
+
+// deleteObjectIfNeeded will delete the object if it exists.
+func deleteObjectIfNeeded(
+	ctx context.Context,
+	k8sClient client.Client,
+	object client.Object,
+	componentName string,
+	logger logr.Logger,
+) error {
+	if isNil(object) {
+		return nil
+	}
+
+	if err := k8sClient.Delete(ctx, object); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	logger.Info("Successfully deleted %s %s", componentName, object.GetObjectKind())
+
+	return nil
 }
 
 // getObject will get the object from Kubernetes and return if it is missing or an error.

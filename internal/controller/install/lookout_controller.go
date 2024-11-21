@@ -124,8 +124,14 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	if err := upsertObjectIfNeeded(ctx, r.Client, components.CronJob, lookout.Kind, mutateFn, logger); err != nil {
-		return ctrl.Result{}, err
+	if enabled := lookout.Spec.DbPruningEnabled; enabled != nil && *enabled {
+		if err := upsertObjectIfNeeded(ctx, r.Client, components.CronJob, lookout.Kind, mutateFn, logger); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := deleteObjectIfNeeded(ctx, r.Client, components.CronJob, lookout.Kind, logger); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceMonitor, lookout.Kind, mutateFn, logger); err != nil {
@@ -210,15 +216,12 @@ func generateLookoutInstallComponents(
 		return nil, err
 	}
 
-	var cronJob *batchv1.CronJob
-	if enabled := lookout.Spec.DbPruningEnabled; enabled != nil && *enabled {
-		cronJob, err = createLookoutCronJob(lookout, serviceAccountName)
-		if err != nil {
-			return nil, err
-		}
-		if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
-			return nil, err
-		}
+	cronJob, err := createLookoutCronJob(lookout, serviceAccountName)
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
+		return nil, err
 	}
 
 	ingressHTTP, err := createLookoutIngressHttp(lookout, config)

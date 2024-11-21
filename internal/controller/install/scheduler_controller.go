@@ -135,6 +135,16 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
+		if err := upsertObjectIfNeeded(ctx, r.Client, components.CronJob, scheduler.Kind, mutateFn, logger); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		if err := deleteObjectIfNeeded(ctx, r.Client, components.CronJob, scheduler.Kind, logger); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	logger.Info("Successfully reconciled Scheduler object", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -218,15 +228,12 @@ func generateSchedulerInstallComponents(
 		return nil, err
 	}
 
-	var cronJob *batchv1.CronJob
-	if scheduler.Spec.Pruner != nil && scheduler.Spec.Pruner.Enabled {
-		cronJob, err = newSchedulerCronJob(scheduler, serviceAccountName)
-		if err != nil {
-			return nil, err
-		}
-		if err := controllerutil.SetOwnerReference(scheduler, cronJob, scheme); err != nil {
-			return nil, err
-		}
+	cronJob, err := newSchedulerCronJob(scheduler, serviceAccountName)
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerutil.SetOwnerReference(scheduler, cronJob, scheme); err != nil {
+		return nil, err
 	}
 
 	ingressGRPC, err := newSchedulerIngressGRPC(scheduler, config)
