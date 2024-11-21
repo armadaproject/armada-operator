@@ -250,6 +250,8 @@ func (r *ExecutorReconciler) createDeployment(
 	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
 
+	readinessProbe, livenessProbe := CreateProbesWithScheme(corev1.URISchemeHTTP)
+
 	env := []corev1.EnvVar{
 		{
 			Name: "SERVICE_ACCOUNT",
@@ -278,6 +280,8 @@ func (r *ExecutorReconciler) createDeployment(
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: executor.Spec.SecurityContext,
+		ReadinessProbe:  readinessProbe,
+		LivenessProbe:   livenessProbe,
 	}}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: executor.Name, Namespace: executor.Namespace, Labels: AllLabels(executor.Name, executor.Labels)},

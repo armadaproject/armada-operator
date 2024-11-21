@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -483,6 +485,206 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 	_, err = r.Reconcile(context.Background(), req)
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
+	}
+}
+
+func TestSchedulerReconciler_CreateDeployment(t *testing.T) {
+	t.Parallel()
+
+	commonConfig := &builders.CommonApplicationConfig{
+		HTTPPort:    8080,
+		GRPCPort:    5051,
+		MetricsPort: 9000,
+		Profiling: builders.ProfilingConfig{
+			Port: 1337,
+		},
+	}
+
+	scheduler := &v1alpha1.Scheduler{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Scheduler",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduler"},
+		Spec: v1alpha1.SchedulerSpec{
+			Replicas: ptr.To[int32](2),
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig:             runtime.RawExtension{},
+				Prometheus:                    &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+				TerminationGracePeriodSeconds: ptr.To(int64(20)),
+			},
+			ClusterIssuer: "test",
+			HostNames:     []string{"localhost"},
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
+			},
+		},
+	}
+
+	deployment, err := newSchedulerDeployment(scheduler, "scheduler", commonConfig)
+	assert.NoError(t, err)
+
+	expectedDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "scheduler",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "scheduler",
+				"release": "scheduler",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](2),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "scheduler",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "scheduler",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "scheduler",
+						"release": "scheduler",
+					},
+					Annotations: map[string]string{
+						"checksum/config": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "app",
+													Operator: metav1.LabelSelectorOpIn,
+													Values: []string{
+														"scheduler",
+													},
+												},
+											},
+										},
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "user-config",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "scheduler",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Args: []string{
+								"run",
+								"--config",
+								"/config/application_config.yaml",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "SERVICE_ACCOUNT",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.serviceAccountName",
+										},
+									},
+								},
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
+							Image:           "testrepo:1.0.0",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								FailureThreshold:    3,
+							},
+							Name: "scheduler",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 5051,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9000,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "profiling",
+									ContainerPort: 1337,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      5,
+								FailureThreshold:    2,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "user-config",
+									ReadOnly:  true,
+									MountPath: appConfigFilepath,
+									SubPath:   "scheduler-config.yaml",
+								},
+							},
+						},
+					},
+					ServiceAccountName: "scheduler",
+				},
+			},
+		},
+	}
+
+	if !cmp.Equal(expectedDeployment, deployment, protocmp.Transform()) {
+		t.Fatalf("deployment is not the same %s", cmp.Diff(expectedDeployment, deployment, protocmp.Transform()))
 	}
 }
 

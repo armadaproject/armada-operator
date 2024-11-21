@@ -449,6 +449,13 @@ func createArmadaServerDeployment(
 	volumeMounts := createVolumeMounts(GetConfigFilename(as.Name), as.Spec.AdditionalVolumeMounts)
 	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
+	asConfig, err := extractArmadaServerConfig(as.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(asConfig.Grpc.Tls))
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      as.Name,
@@ -483,6 +490,8 @@ func createArmadaServerDeployment(
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: as.Spec.SecurityContext,
+						ReadinessProbe:  readinessProbe,
+						LivenessProbe:   livenessProbe,
 					}},
 					Volumes: volumes,
 				},
@@ -677,4 +686,22 @@ func createServerPrometheusRule(server *installv1alpha1.ArmadaServer) *monitorin
 			}},
 		},
 	}
+}
+
+type ArmadaServerConfig struct {
+	Grpc GrpcConfig
+}
+
+// extractArmadaServerConfig will unmarshal the appconfig and return the AramadaServerConfig portion
+func extractArmadaServerConfig(config runtime.RawExtension) (ArmadaServerConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return ArmadaServerConfig{}, err
+	}
+	var asConfig ArmadaServerConfig
+	err = yaml.Unmarshal([]byte(appConfig), &asConfig)
+	if err != nil {
+		return ArmadaServerConfig{}, err
+	}
+	return asConfig, err
 }

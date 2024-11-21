@@ -229,6 +229,14 @@ type PulsarConfig struct {
 	Cacert                string
 }
 
+type GrpcConfig struct {
+	Tls TlsConfig
+}
+
+type TlsConfig struct {
+	Enabled bool
+}
+
 // ArmadaInit used to initialize pulsar
 type ArmadaInit struct {
 	Enabled    bool
@@ -317,7 +325,16 @@ func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
 	if err != nil {
 		return PulsarConfig{}, err
 	}
-	return asConfig.Pulsar, nil
+	return asConfig.Pulsar, err
+}
+
+// GetServerScheme returns the URI scheme for the grpc server
+func GetServerScheme(tlsConfig TlsConfig) corev1.URIScheme {
+	if tlsConfig.Enabled {
+		return corev1.URISchemeHTTPS
+	}
+
+	return corev1.URISchemeHTTP
 }
 
 // waitForJob waits for the Job to reach a terminal state (complete or failed).
@@ -369,6 +386,36 @@ func createEnv(crdEnv []corev1.EnvVar) []corev1.EnvVar {
 	}
 	envVars = append(envVars, crdEnv...)
 	return envVars
+}
+
+func CreateProbesWithScheme(scheme corev1.URIScheme) (*corev1.Probe, *corev1.Probe) {
+	readinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/health",
+				Port:   intstr.FromString("http"),
+				Scheme: scheme,
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      5,
+		FailureThreshold:    2,
+	}
+
+	livenessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/health",
+				Port:   intstr.FromString("http"),
+				Scheme: scheme,
+			},
+		},
+		InitialDelaySeconds: 10,
+		TimeoutSeconds:      10,
+		FailureThreshold:    3,
+	}
+
+	return readinessProbe, livenessProbe
 }
 
 // createVolumes creates the default appconfig Volume and appends the CRD AdditionalVolumes
@@ -727,15 +774,6 @@ func newContainerPortsAll(config *builders.CommonApplicationConfig) []corev1.Con
 
 func newContainerPortsHTTPWithMetrics(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
 	ports := []corev1.ContainerPort{newContainerPortHTTP(config), newContainerPortMetrics(config)}
-	if config.Profiling.Port > 0 {
-		ports = append(ports, newContainerPortProfiling(config))
-	}
-	return ports
-}
-
-// newContainerPortsGRPCWithMetrics creates container ports for grpc and metrics server and optional port for profiling server.
-func newContainerPortsGRPCWithMetrics(config *builders.CommonApplicationConfig) []corev1.ContainerPort {
-	ports := []corev1.ContainerPort{newContainerPortGRPC(config), newContainerPortMetrics(config)}
 	if config.Profiling.Port > 0 {
 		ports = append(ports, newContainerPortProfiling(config))
 	}
