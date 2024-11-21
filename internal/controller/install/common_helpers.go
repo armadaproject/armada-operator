@@ -622,7 +622,7 @@ func isNil(i any) bool {
 // deleteObjectIfNeeded will delete the object if it exists.
 func deleteObjectIfNeeded(
 	ctx context.Context,
-	client client.Client,
+	k8sClient client.Client,
 	object client.Object,
 	componentName string,
 	logger logr.Logger,
@@ -631,13 +631,8 @@ func deleteObjectIfNeeded(
 		return nil
 	}
 
-	err := client.Delete(ctx, object)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil // nothing to do
-		} else {
-			return err
-		}
+	if err := k8sClient.Delete(ctx, object); err != nil {
+		return client.IgnoreNotFound(err)
 	}
 
 	logger.Info("Successfully deleted %s %s", componentName, object.GetObjectKind())
