@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
@@ -429,12 +433,12 @@ func TestSchedulerReconciler_createIngress(t *testing.T) {
 
 	input := v1alpha1.ArmadaServer{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Lookout",
+			Kind:       "armadaserver",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name:      "lookout",
+			Name:      "armadaserver",
 		},
 		Spec: v1alpha1.ArmadaServerSpec{
 			Replicas:      ptr.To[int32](2),
@@ -458,4 +462,211 @@ func TestSchedulerReconciler_createIngress(t *testing.T) {
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
+}
+
+func TestArmadaServerReconciler_CreateDeployment(t *testing.T) {
+	t.Parallel()
+
+	commonConfig := &builders.CommonApplicationConfig{
+		HTTPPort:    8080,
+		GRPCPort:    5051,
+		MetricsPort: 9000,
+		Profiling: builders.ProfilingConfig{
+			Port: 1337,
+		},
+	}
+
+	armadaServer := &installv1alpha1.ArmadaServer{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ArmadaServer",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "armadaserver"},
+		Spec: installv1alpha1.ArmadaServerSpec{
+			PulsarInit: true,
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: map[string]string{"test": "hello"},
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
+			},
+			ClusterIssuer: "test",
+			HostNames:     []string{"localhost"},
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
+			},
+		},
+	}
+
+	deployment, err := createArmadaServerDeployment(armadaServer, "armadaserver", commonConfig)
+	assert.NoError(t, err)
+
+	expectedDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "armadaserver",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "armadaserver",
+				"release": "armadaserver",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "armadaserver",
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{
+						IntVal: 1,
+					},
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "armadaserver",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "armadaserver",
+						"release": "armadaserver",
+					},
+					Annotations: map[string]string{
+						"checksum/config": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "app",
+													Operator: metav1.LabelSelectorOpIn,
+													Values: []string{
+														"armadaserver",
+													},
+												},
+											},
+										},
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "user-config",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "armadaserver",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Args: []string{
+								"--config",
+								"/config/application_config.yaml",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "SERVICE_ACCOUNT",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.serviceAccountName",
+										},
+									},
+								},
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
+							Image:           "testrepo:1.0.0",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								FailureThreshold:    3,
+							},
+							Name: "armadaserver",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 5051,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9000,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "profiling",
+									ContainerPort: 1337,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      5,
+								FailureThreshold:    2,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "user-config",
+									ReadOnly:  true,
+									MountPath: appConfigFilepath,
+									SubPath:   "armadaserver-config.yaml",
+								},
+							},
+						},
+					},
+					ServiceAccountName: "armadaserver",
+				},
+			},
+		},
+	}
+
+	if !cmp.Equal(expectedDeployment, deployment, protocmp.Transform()) {
+		t.Fatalf("deployment is not the same %s", cmp.Diff(expectedDeployment, deployment, protocmp.Transform()))
+	}
 }

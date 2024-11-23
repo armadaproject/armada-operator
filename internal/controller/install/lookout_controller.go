@@ -139,7 +139,6 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 type LookoutConfig struct {
 	Postgres PostgresConfig
-	Tls      TlsConfig
 }
 
 func generateLookoutInstallComponents(
@@ -271,13 +270,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
-
-	lookoutConfig, err := extractLookoutConfig(lookout.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(lookoutConfig.Tls))
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(config.GRPC.TLS))
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},

@@ -229,14 +229,6 @@ type PulsarConfig struct {
 	Cacert                string
 }
 
-type GrpcConfig struct {
-	Tls TlsConfig
-}
-
-type TlsConfig struct {
-	Enabled bool
-}
-
 // ArmadaInit used to initialize pulsar
 type ArmadaInit struct {
 	Enabled    bool
@@ -329,7 +321,7 @@ func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
 }
 
 // GetServerScheme returns the URI scheme for the grpc server
-func GetServerScheme(tlsConfig TlsConfig) corev1.URIScheme {
+func GetServerScheme(tlsConfig builders.TLSConfig) corev1.URIScheme {
 	if tlsConfig.Enabled {
 		return corev1.URISchemeHTTPS
 	}

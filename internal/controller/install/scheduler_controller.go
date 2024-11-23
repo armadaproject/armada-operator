@@ -141,7 +141,6 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 type SchedulerConfig struct {
-	Grpc     GrpcConfig
 	Postgres PostgresConfig
 }
 
@@ -290,12 +289,7 @@ func newSchedulerDeployment(
 	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
-
-	schedulerConfig, err := extractSchedulerConfig(scheduler.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(schedulerConfig.Grpc.Tls))
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(config.GRPC.TLS))
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: scheduler.Name, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels)},

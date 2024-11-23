@@ -20,8 +20,6 @@ import (
 	"context"
 	"time"
 
-	"sigs.k8s.io/yaml"
-
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -229,12 +227,7 @@ func createBinocularsDeployment(
 	env := createEnv(binoculars.Spec.Environment)
 	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(secret.Name), binoculars.Spec.AdditionalVolumeMounts)
-
-	binocularsConfig, err := extractBinocularsConfig(binoculars.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(binocularsConfig.Grpc.Tls))
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(commonConfig.GRPC.TLS))
 
 	containers := []corev1.Container{{
 		Name:            "binoculars",
@@ -377,22 +370,4 @@ func (r *BinocularsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.Binoculars{}).
 		Complete(r)
-}
-
-type BinocularsConfig struct {
-	Grpc GrpcConfig
-}
-
-// extractBinocularsConfig will unmarshal the appconfig and return the BinocularsConfig portion
-func extractBinocularsConfig(config runtime.RawExtension) (BinocularsConfig, error) {
-	appConfig, err := builders.ConvertRawExtensionToYaml(config)
-	if err != nil {
-		return BinocularsConfig{}, err
-	}
-	var binocularsConfig BinocularsConfig
-	err = yaml.Unmarshal([]byte(appConfig), &binocularsConfig)
-	if err != nil {
-		return BinocularsConfig{}, err
-	}
-	return binocularsConfig, err
 }

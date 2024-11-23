@@ -180,7 +180,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(
 		}
 		serviceAccountName = serviceAccount.Name
 	}
-	deployment := r.createDeployment(executor, serviceAccountName, config)
+	deployment := createExecutorDeployment(executor, serviceAccountName, config)
 	if err = controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -241,7 +241,7 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(
 	return components, nil
 }
 
-func (r *ExecutorReconciler) createDeployment(
+func createExecutorDeployment(
 	executor *installv1alpha1.Executor,
 	serviceAccountName string,
 	config *builders.CommonApplicationConfig,
@@ -249,7 +249,6 @@ func (r *ExecutorReconciler) createDeployment(
 	var replicas int32 = 1
 	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
-
 	readinessProbe, livenessProbe := CreateProbesWithScheme(corev1.URISchemeHTTP)
 
 	env := []corev1.EnvVar{
@@ -276,7 +275,7 @@ func (r *ExecutorReconciler) createDeployment(
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           ImageString(executor.Spec.Image),
 		Args:            []string{appConfigFlag, appConfigFilepath},
-		Ports:           newContainerPortsMetrics(config),
+		Ports:           newContainerPortsHTTPWithMetrics(config),
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: executor.Spec.SecurityContext,
