@@ -449,6 +449,8 @@ func createArmadaServerDeployment(
 	volumeMounts := createVolumeMounts(GetConfigFilename(as.Name), as.Spec.AdditionalVolumeMounts)
 	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
 
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(commonConfig.GRPC.TLS))
+
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      as.Name,
@@ -483,6 +485,8 @@ func createArmadaServerDeployment(
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: as.Spec.SecurityContext,
+						ReadinessProbe:  readinessProbe,
+						LivenessProbe:   livenessProbe,
 					}},
 					Volumes: volumes,
 				},

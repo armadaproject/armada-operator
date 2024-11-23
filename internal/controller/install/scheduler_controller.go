@@ -296,6 +296,7 @@ func newSchedulerDeployment(
 	volumes = append(volumes, createPulsarVolumes(pulsarConfig)...)
 	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 	volumeMounts = append(volumeMounts, createPulsarVolumeMounts(pulsarConfig)...)
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(config.GRPC.TLS))
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: scheduler.Name, Namespace: scheduler.Namespace, Labels: AllLabels(scheduler.Name, scheduler.Labels)},
@@ -321,10 +322,12 @@ func newSchedulerDeployment(
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(scheduler.Spec.Image),
 						Args:            []string{"run", appConfigFlag, appConfigFilepath},
-						Ports:           newContainerPortsGRPCWithMetrics(config),
+						Ports:           newContainerPortsAll(config),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: scheduler.Spec.SecurityContext,
+						ReadinessProbe:  readinessProbe,
+						LivenessProbe:   livenessProbe,
 					}},
 					Volumes: volumes,
 				},
@@ -374,12 +377,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 	volumes := createVolumes(scheduler.Name, scheduler.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(scheduler.Name), scheduler.Spec.AdditionalVolumeMounts)
 
-	appConfig, err := builders.ConvertRawExtensionToYaml(scheduler.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	var schedulerConfig SchedulerConfig
-	err = yaml.Unmarshal([]byte(appConfig), &schedulerConfig)
+	schedulerConfig, err := extractSchedulerConfig(scheduler.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -752,4 +750,18 @@ func (r *SchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.Scheduler{}).
 		Complete(r)
+}
+
+// extractSchedulerConfig will unmarshal the appconfig and return the SchedulerConfig portion
+func extractSchedulerConfig(config runtime.RawExtension) (SchedulerConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return SchedulerConfig{}, err
+	}
+	var schedulerConfig SchedulerConfig
+	err = yaml.Unmarshal([]byte(appConfig), &schedulerConfig)
+	if err != nil {
+		return SchedulerConfig{}, err
+	}
+	return schedulerConfig, err
 }

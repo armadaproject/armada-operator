@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -527,6 +529,201 @@ func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T
 	_, err := createLookoutCronJob(&expectedLookout, "lookout")
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
+}
+
+func TestLookoutReconciler_CreateDeployment(t *testing.T) {
+	t.Parallel()
+
+	commonConfig := &builders.CommonApplicationConfig{
+		HTTPPort:    8080,
+		GRPCPort:    5051,
+		MetricsPort: 9000,
+		Profiling: builders.ProfilingConfig{
+			Port: 1337,
+		},
+	}
+
+	lookout := &v1alpha1.Lookout{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Lookout",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:         "default",
+			Name:              "lookout",
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			Finalizers:        []string{operatorFinalizer},
+		},
+		Spec: v1alpha1.LookoutSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: v1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+				Resources:         &corev1.ResourceRequirements{},
+			},
+			Replicas:      ptr.To[int32](2),
+			ClusterIssuer: "test",
+			Ingress: &v1alpha1.IngressConfig{
+				IngressClass: "nginx",
+			},
+		},
+	}
+
+	deployment, err := createLookoutDeployment(lookout, "lookout", commonConfig)
+	assert.NoError(t, err)
+
+	expectedDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "lookout",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "lookout",
+				"release": "lookout",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](2),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "lookout",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "lookout",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "lookout",
+						"release": "lookout",
+					},
+					Annotations: map[string]string{
+						"checksum/config": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "app",
+													Operator: metav1.LabelSelectorOpIn,
+													Values: []string{
+														"lookout",
+													},
+												},
+											},
+										},
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "user-config",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "lookout",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Args: []string{
+								"--config",
+								"/config/application_config.yaml",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "SERVICE_ACCOUNT",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.serviceAccountName",
+										},
+									},
+								},
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
+							Image:           "testrepo:1.0.0",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								FailureThreshold:    3,
+							},
+							Name: "lookout",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9000,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "profiling",
+									ContainerPort: 1337,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      5,
+								FailureThreshold:    2,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "user-config",
+									ReadOnly:  true,
+									MountPath: appConfigFilepath,
+									SubPath:   "lookout-config.yaml",
+								},
+							},
+						},
+					},
+					ServiceAccountName: "lookout",
+				},
+			},
+		},
+	}
+
+	if !cmp.Equal(expectedDeployment, deployment, protocmp.Transform()) {
+		t.Fatalf("deployment is not the same %s", cmp.Diff(expectedDeployment, deployment, protocmp.Transform()))
+	}
 }
 
 func TestLookoutReconciler_CreateCronJob(t *testing.T) {

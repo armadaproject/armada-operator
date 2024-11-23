@@ -273,6 +273,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 	env := createEnv(lookout.Spec.Environment)
 	volumes := createVolumes(lookout.Name, lookout.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(lookout.Name), lookout.Spec.AdditionalVolumeMounts)
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(config.GRPC.TLS))
 
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookout.Name, Namespace: lookout.Namespace, Labels: AllLabels(lookout.Name, lookout.Labels)},
@@ -302,6 +303,8 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: lookout.Spec.SecurityContext,
+						ReadinessProbe:  readinessProbe,
+						LivenessProbe:   livenessProbe,
 					}},
 					Volumes: volumes,
 				},
@@ -461,12 +464,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 		dbPruningSchedule = *lookout.Spec.DbPruningSchedule
 	}
 
-	appConfig, err := builders.ConvertRawExtensionToYaml(lookout.Spec.ApplicationConfig)
-	if err != nil {
-		return nil, err
-	}
-	var lookoutConfig LookoutConfig
-	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	lookoutConfig, err := extractLookoutConfig(lookout.Spec.ApplicationConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -557,4 +555,18 @@ func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.Lookout{}).
 		Complete(r)
+}
+
+// extractLookoutConfig will unmarshal the appconfig and return the LookoutConfig portion
+func extractLookoutConfig(config runtime.RawExtension) (LookoutConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return LookoutConfig{}, err
+	}
+	var lookoutConfig LookoutConfig
+	err = yaml.Unmarshal([]byte(appConfig), &lookoutConfig)
+	if err != nil {
+		return LookoutConfig{}, err
+	}
+	return lookoutConfig, err
 }
