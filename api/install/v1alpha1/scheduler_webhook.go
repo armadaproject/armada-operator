@@ -53,10 +53,6 @@ func (r *Scheduler) Default() {
 		r.Spec.Image.Repository = "gresearch/armada-scheduler"
 	}
 
-	if r.Spec.Replicas == nil {
-		r.Spec.Replicas = ptr.To[int32](1)
-	}
-
 	if r.Spec.Migrate == nil {
 		r.Spec.Migrate = ptr.To[bool](true)
 	}
