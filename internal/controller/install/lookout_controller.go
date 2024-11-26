@@ -390,11 +390,11 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 						Command: []string{
 							"/bin/sh",
 							"-c",
-							`echo "Waiting for Postres..."
+							`echo "Waiting for Postgres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"
+                                                         echo "Postgres started!"
 							 echo "Creating DB $PGDB if needed..."
 							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "CREATE DATABASE $PGDB"
 							 psql -v ON_ERROR_STOP=1 --username "$PGUSER" -c "GRANT ALL PRIVILEGES ON DATABASE $PGDB TO $PGUSER"
@@ -503,15 +503,15 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 							SecurityContext:               lookout.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "lookout-db-pruner-db-wait",
-								Image: "alpine:3.10",
+								Image: defaultAlpineImage(),
 								Command: []string{
 									"/bin/sh",
 									"-c",
-									`echo "Waiting for Postres..."
+									`echo "Waiting for Postgres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"`,
+                                                         echo "Postgres started!"`,
 								},
 								Env: []corev1.EnvVar{
 									{

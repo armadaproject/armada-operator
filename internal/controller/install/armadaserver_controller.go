@@ -316,7 +316,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer, commonCon
 					Containers: []corev1.Container{{
 						Name:            "wait-for-pulsar",
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Image:           "alpine:3.16",
+						Image:           defaultAlpineImage(),
 						Args: []string{
 							"/bin/sh",
 							"-c",

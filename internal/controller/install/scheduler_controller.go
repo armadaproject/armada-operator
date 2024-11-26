@@ -410,7 +410,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 						Command: []string{
 							"/bin/sh",
 							"-c",
-							`echo "Waiting for Postres..."
+							`echo "Waiting for Postgres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
@@ -494,18 +494,20 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 		appConfigFlag,
 		appConfigFilepath,
 	}
-	if scheduler.Spec.Pruner.Args.Timeout != "" {
-		prunerArgs = append(prunerArgs, "--timeout", scheduler.Spec.Pruner.Args.Timeout)
-	}
-	if scheduler.Spec.Pruner.Args.Batchsize > 0 {
-		prunerArgs = append(prunerArgs, "--batchsize", fmt.Sprintf("%v", scheduler.Spec.Pruner.Args.Batchsize))
-	}
-	if scheduler.Spec.Pruner.Args.ExpireAfter != "" {
-		prunerArgs = append(prunerArgs, "--expireAfter", scheduler.Spec.Pruner.Args.ExpireAfter)
-	}
-	prunerResources := corev1.ResourceRequirements{}
-	if scheduler.Spec.Pruner.Resources != nil {
-		prunerResources = *scheduler.Spec.Pruner.Resources
+	var prunerResources corev1.ResourceRequirements
+	if pruner := scheduler.Spec.Pruner; pruner != nil {
+		if pruner.Args.Timeout != "" {
+			prunerArgs = append(prunerArgs, "--timeout", scheduler.Spec.Pruner.Args.Timeout)
+		}
+		if pruner.Args.Batchsize > 0 {
+			prunerArgs = append(prunerArgs, "--batchsize", fmt.Sprintf("%v", scheduler.Spec.Pruner.Args.Batchsize))
+		}
+		if pruner.Args.ExpireAfter != "" {
+			prunerArgs = append(prunerArgs, "--expireAfter", scheduler.Spec.Pruner.Args.ExpireAfter)
+		}
+		if pruner.Resources != nil {
+			prunerResources = *scheduler.Spec.Pruner.Resources
+		}
 	}
 
 	name := scheduler.Name + "-db-pruner"
@@ -518,7 +520,6 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
-
 			Schedule: scheduler.Spec.Pruner.Schedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -543,15 +544,15 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 							SecurityContext:               scheduler.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "scheduler-db-pruner-db-wait",
-								Image: "alpine:3.10",
+								Image: defaultAlpineImage(),
 								Command: []string{
 									"/bin/sh",
 									"-c",
-									`echo "Waiting for Postres..."
+									`echo "Waiting for Postgres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"`,
+                                                         echo "Postgres started!"`,
 								},
 								Env: []corev1.EnvVar{
 									{

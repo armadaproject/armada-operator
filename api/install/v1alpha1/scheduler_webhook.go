@@ -53,10 +53,6 @@ func (r *Scheduler) Default() {
 		r.Spec.Image.Repository = "gresearch/armada-scheduler"
 	}
 
-	if r.Spec.Replicas == nil {
-		r.Spec.Replicas = ptr.To[int32](1)
-	}
-
 	if r.Spec.Migrate == nil {
 		r.Spec.Migrate = ptr.To[bool](true)
 	}
@@ -80,6 +76,24 @@ func (r *Scheduler) Default() {
 				"cpu":    resource.MustParse("200m"),
 				"memory": resource.MustParse("512Mi"),
 			},
+		}
+	}
+
+	if r.Spec.Pruner == nil {
+		r.Spec.Pruner = &PrunerConfig{
+			Schedule: "@hourly",
+		}
+		if r.Spec.Pruner.Resources == nil {
+			r.Spec.Pruner.Resources = &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"cpu":    resource.MustParse("300m"),
+					"memory": resource.MustParse("1Gi"),
+				},
+				Requests: corev1.ResourceList{
+					"cpu":    resource.MustParse("200m"),
+					"memory": resource.MustParse("512Mi"),
+				},
+			}
 		}
 	}
 
