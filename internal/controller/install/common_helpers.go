@@ -317,7 +317,7 @@ func ExtractPulsarConfig(config runtime.RawExtension) (PulsarConfig, error) {
 	if err != nil {
 		return PulsarConfig{}, err
 	}
-	return asConfig.Pulsar, err
+	return asConfig.Pulsar, nil
 }
 
 // GetServerScheme returns the URI scheme for the grpc server

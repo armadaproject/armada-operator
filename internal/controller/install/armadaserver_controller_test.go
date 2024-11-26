@@ -433,7 +433,7 @@ func TestSchedulerReconciler_createIngress(t *testing.T) {
 
 	input := v1alpha1.ArmadaServer{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "armadaserver",
+			Kind:       "ArmadaServer",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{

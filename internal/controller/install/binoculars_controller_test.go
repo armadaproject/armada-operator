@@ -481,7 +481,7 @@ func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
 
 	input := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "binoculars",
+			Kind:       "Binoculars",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
