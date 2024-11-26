@@ -866,3 +866,7 @@ func defaultDeploymentStrategy(maxUnavailable int32) appsv1.DeploymentStrategy {
 		},
 	}
 }
+
+func defaultAlpineImage() string {
+	return "alpine:3.20"
+}

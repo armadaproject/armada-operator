@@ -83,6 +83,24 @@ func (r *Scheduler) Default() {
 		}
 	}
 
+	if r.Spec.Pruner == nil {
+		r.Spec.Pruner = &PrunerConfig{
+			Schedule: "@hourly",
+		}
+		if r.Spec.Pruner.Resources == nil {
+			r.Spec.Pruner.Resources = &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"cpu":    resource.MustParse("300m"),
+					"memory": resource.MustParse("1Gi"),
+				},
+				Requests: corev1.ResourceList{
+					"cpu":    resource.MustParse("200m"),
+					"memory": resource.MustParse("512Mi"),
+				},
+			}
+		}
+	}
+
 	// prometheus
 	if r.Spec.Prometheus != nil && r.Spec.Prometheus.Enabled {
 		if r.Spec.Prometheus.ScrapeInterval == nil {

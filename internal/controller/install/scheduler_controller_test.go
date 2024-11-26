@@ -1026,15 +1026,15 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "scheduler-db-pruner-db-wait",
-									Image: "alpine:3.10",
+									Image: defaultAlpineImage(),
 									Command: []string{
 										"/bin/sh",
 										"-c",
-										`echo "Waiting for Postres..."
+										`echo "Waiting for Postgres..."
                                                          while ! nc -z $PGHOST $PGPORT; do
                                                            sleep 1
                                                          done
-                                                         echo "Postres started!"`,
+                                                         echo "Postgres started!"`,
 									},
 									Env: []corev1.EnvVar{
 										{
