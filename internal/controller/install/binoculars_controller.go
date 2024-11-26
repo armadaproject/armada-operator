@@ -227,6 +227,8 @@ func createBinocularsDeployment(
 	env := createEnv(binoculars.Spec.Environment)
 	volumes := createVolumes(binoculars.Name, binoculars.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(secret.Name), binoculars.Spec.AdditionalVolumeMounts)
+	readinessProbe, livenessProbe := CreateProbesWithScheme(GetServerScheme(commonConfig.GRPC.TLS))
+
 	containers := []corev1.Container{{
 		Name:            "binoculars",
 		ImagePullPolicy: corev1.PullIfNotPresent,
@@ -236,6 +238,8 @@ func createBinocularsDeployment(
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: binoculars.Spec.SecurityContext,
+		ReadinessProbe:  readinessProbe,
+		LivenessProbe:   livenessProbe,
 	}}
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: binoculars.Name, Namespace: binoculars.Namespace, Labels: AllLabels(binoculars.Name, binoculars.Labels)},

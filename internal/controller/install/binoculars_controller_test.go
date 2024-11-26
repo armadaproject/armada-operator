@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
@@ -14,6 +18,7 @@ import (
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -476,12 +481,12 @@ func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
 
 	input := v1alpha1.Binoculars{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Lookout",
+			Kind:       "Binoculars",
 			APIVersion: "install.armadaproject.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name:      "lookout",
+			Name:      "binoculars",
 		},
 		Spec: v1alpha1.BinocularsSpec{
 			Replicas:      ptr.To[int32](2),
@@ -505,4 +510,209 @@ func TestSchedulerReconciler_createBinocularsIngress(t *testing.T) {
 	// expect no error and not-nil ingress
 	assert.NoError(t, err)
 	assert.NotNil(t, ingress)
+}
+
+func TestBinocularsReconciler_CreateDeployment(t *testing.T) {
+	t.Parallel()
+
+	commonConfig := &builders.CommonApplicationConfig{
+		HTTPPort:    8080,
+		GRPCPort:    5051,
+		MetricsPort: 9000,
+		Profiling: builders.ProfilingConfig{
+			Port: 1337,
+		},
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "binoculars",
+		},
+	}
+
+	binoculars := &v1alpha1.Binoculars{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Binoculars",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "binoculars"},
+		Spec: v1alpha1.BinocularsSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: map[string]string{"test": "hello"},
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
+			},
+
+			Replicas:      ptr.To[int32](2),
+			HostNames:     []string{"localhost"},
+			ClusterIssuer: "test",
+			Ingress: &installv1alpha1.IngressConfig{
+				IngressClass: "nginx",
+				Labels:       map[string]string{"test": "hello"},
+				Annotations:  map[string]string{"test": "hello"},
+			},
+		},
+	}
+
+	deployment, err := createBinocularsDeployment(binoculars, secret, "binoculars", commonConfig)
+	assert.NoError(t, err)
+
+	expectedDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "binoculars",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "binoculars",
+				"release": "binoculars",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](2),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "binoculars",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "binoculars",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "binoculars",
+						"release": "binoculars",
+					},
+					Annotations: map[string]string{
+						"checksum/config": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "app",
+													Operator: metav1.LabelSelectorOpIn,
+													Values: []string{
+														"binoculars",
+													},
+												},
+											},
+										},
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "user-config",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "binoculars",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Args: []string{
+								"--config",
+								"/config/application_config.yaml",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "SERVICE_ACCOUNT",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "spec.serviceAccountName",
+										},
+									},
+								},
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
+							Image:           "testrepo:1.0.0",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      10,
+								FailureThreshold:    3,
+							},
+							Name: "binoculars",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 5051,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "metrics",
+									ContainerPort: 9000,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "profiling",
+									ContainerPort: 1337,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health",
+										Port:   intstr.FromString("http"),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      5,
+								FailureThreshold:    2,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "user-config",
+									ReadOnly:  true,
+									MountPath: appConfigFilepath,
+									SubPath:   "binoculars-config.yaml",
+								},
+							},
+						},
+					},
+					ServiceAccountName: "binoculars",
+				},
+			},
+		},
+	}
+
+	if !cmp.Equal(expectedDeployment, deployment, protocmp.Transform()) {
+		t.Fatalf("deployment is not the same %s", cmp.Diff(expectedDeployment, deployment, protocmp.Transform()))
+	}
 }
