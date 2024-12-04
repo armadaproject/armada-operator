@@ -501,6 +501,7 @@ func TestArmadaServerReconciler_CreateDeployment(t *testing.T) {
 				Labels:       map[string]string{"test": "hello"},
 				Annotations:  map[string]string{"test": "hello"},
 			},
+			Replicas: ptr.To[int32](2),
 		},
 	}
 
@@ -517,7 +518,7 @@ func TestArmadaServerReconciler_CreateDeployment(t *testing.T) {
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To[int32](1),
+			Replicas: ptr.To[int32](2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": "armadaserver",
