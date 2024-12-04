@@ -438,7 +438,6 @@ func createArmadaServerDeployment(
 	serviceAccountName string,
 	commonConfig *builders.CommonApplicationConfig,
 ) (*appsv1.Deployment, error) {
-	var replicas int32 = 1
 	env := createEnv(as.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(as.Spec.ApplicationConfig)
 	if err != nil {
@@ -458,7 +457,7 @@ func createArmadaServerDeployment(
 			Labels:    AllLabels(as.Name, as.Labels),
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: as.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(as.Name),
 			},
