@@ -783,6 +783,7 @@ func TestLookoutReconciler_CreateCronJob(t *testing.T) {
 			},
 		},
 		Spec: batchv1.CronJobSpec{
+			ConcurrencyPolicy: batchv1.ForbidConcurrent,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "lookout-db-pruner",

@@ -479,7 +479,8 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
-			Schedule: dbPruningSchedule,
+			ConcurrencyPolicy: batchv1.ForbidConcurrent,
+			Schedule:          dbPruningSchedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,

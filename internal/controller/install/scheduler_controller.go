@@ -520,7 +520,8 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
-			Schedule: scheduler.Spec.Pruner.Schedule,
+			Schedule:          scheduler.Spec.Pruner.Schedule,
+			ConcurrencyPolicy: batchv1.ForbidConcurrent,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
