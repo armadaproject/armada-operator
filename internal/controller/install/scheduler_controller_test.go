@@ -969,6 +969,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 			},
 		},
 		Spec: batchv1.CronJobSpec{
+			ConcurrencyPolicy: batchv1.ForbidConcurrent,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "scheduler-db-pruner",
