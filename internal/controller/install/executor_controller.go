@@ -247,6 +247,11 @@ func createExecutorDeployment(
 	config *builders.CommonApplicationConfig,
 ) *appsv1.Deployment {
 	var replicas int32 = 1
+
+	if executor.Spec.Replicas != nil {
+		replicas = min(replicas, *executor.Spec.Replicas) // Allow executor replicas to scale down to 0
+	}
+
 	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
 	readinessProbe, livenessProbe := CreateProbesWithScheme(corev1.URISchemeHTTP)
