@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1013,7 +1015,7 @@ func TestGetObjectFromCache(t *testing.T) {
 
 			// Call the function under test
 			namespacedName := types.NamespacedName{Name: "test-resource", Namespace: "default"}
-			miss, err := getObject(ctx, fakeClient, object, namespacedName, logger)
+			miss, err := common.GetObject(ctx, fakeClient, object, namespacedName, logger)
 			if tc.expectError {
 				assert.ErrorIs(t, err, tc.returnError)
 			} else {

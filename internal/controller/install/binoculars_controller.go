@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -65,7 +67,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	logger.Info("Reconciling Binoculars object")
 
 	var binoculars installv1alpha1.Binoculars
-	if miss, err := getObject(ctx, r.Client, &binoculars, req.NamespacedName, logger); err != nil || miss {
+	if miss, err := common.GetObject(ctx, r.Client, &binoculars, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 

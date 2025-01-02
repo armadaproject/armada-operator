@@ -17,25 +17,30 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type PermissionSubject struct {
+	Kind string `json:"kind,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type QueuePermissions struct {
+	Subjects []PermissionSubject `json:"subjects,omitempty"`
+	Verbs    []string            `json:"verbs,omitempty"`
+}
 
 // QueueSpec defines the desired state of Queue
 type QueueSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Queue. Edit queue_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// PriorityFactor is a multiplicative constant which is applied to the priority.
+	PriorityFactor *resource.Quantity `json:"priorityFactor,omitempty"`
+	// Permissions describe who can perform what operations on queue related resources.
+	Permissions []QueuePermissions `json:"permissions,omitempty"`
 }
 
 // QueueStatus defines the observed state of Queue
 type QueueStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"k8s.io/utils/ptr"
 
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -70,7 +72,7 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	logger.Info("Reconciling object")
 
 	var scheduler installv1alpha1.Scheduler
-	if miss, err := getObject(ctx, r.Client, &scheduler, req.NamespacedName, logger); err != nil || miss {
+	if miss, err := common.GetObject(ctx, r.Client, &scheduler, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 

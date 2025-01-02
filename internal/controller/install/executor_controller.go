@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/utils/ptr"
@@ -85,7 +87,7 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger.Info("Reconciling object")
 
 	var executor installv1alpha1.Executor
-	if miss, err := getObject(ctx, r.Client, &executor, req.NamespacedName, logger); err != nil || miss {
+	if miss, err := common.GetObject(ctx, r.Client, &executor, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 

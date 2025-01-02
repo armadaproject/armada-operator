@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -59,7 +61,7 @@ func (r *EventIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logger.Info("Reconciling object")
 
 	var eventIngester installv1alpha1.EventIngester
-	if miss, err := getObject(ctx, r.Client, &eventIngester, req.NamespacedName, logger); err != nil || miss {
+	if miss, err := common.GetObject(ctx, r.Client, &eventIngester, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 

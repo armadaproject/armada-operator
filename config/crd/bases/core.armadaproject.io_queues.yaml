@@ -39,10 +39,34 @@ spec:
           spec:
             description: QueueSpec defines the desired state of Queue
             properties:
-              foo:
-                description: Foo is an example field of Queue. Edit queue_types.go
-                  to remove/update
-                type: string
+              permissions:
+                description: Permissions describe who can perform what operations
+                  on queue related resources.
+                items:
+                  properties:
+                    subjects:
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    verbs:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
+              priorityFactor:
+                anyOf:
+                - type: integer
+                - type: string
+                description: PriorityFactor is a multiplicative constant which is
+                  applied to the priority.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
             type: object
           status:
             description: QueueStatus defines the observed state of Queue
