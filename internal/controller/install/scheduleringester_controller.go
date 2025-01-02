@@ -65,7 +65,7 @@ func (r *SchedulerIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &schedulerIngester, operatorFinalizer, nil, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &schedulerIngester, operatorFinalizer, nil, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}

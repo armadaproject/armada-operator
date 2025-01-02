@@ -28,8 +28,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,42 +61,13 @@ func (r *QueueReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// examine DeletionTimestamp to determine if object is under deletion
-	deletionTimestamp := queue.ObjectMeta.DeletionTimestamp
-	// examine DeletionTimestamp to determine if object is under deletion
-	if deletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
-		if !controllerutil.ContainsFinalizer(&queue, operatorFinalizer) {
-			logger.Info("Attaching finalizer to Lookout object", "finalizer", operatorFinalizer)
-			controllerutil.AddFinalizer(&queue, operatorFinalizer)
-			if err := r.Update(ctx, &queue); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		logger.Info("Queue object is being deleted", "finalizer", operatorFinalizer)
-		logger.Info("Namespace-scoped resources will be deleted by Kubernetes based on their OwnerReference")
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(&queue, operatorFinalizer) {
-			// remove our finalizer from the list and update it.
-			logger.Info("Removing finalizer from Queue object", "finalizer", operatorFinalizer)
-			controllerutil.RemoveFinalizer(&queue, operatorFinalizer)
-			if err := r.Update(ctx, &queue); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		if err := r.deleteQueue(ctx, queue); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+	cleanupF := func(ctx context.Context) error { return r.deleteQueue(ctx, queue) }
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &queue, operatorFinalizer, cleanupF, logger)
+	if err != nil || finish {
+		return ctrl.Result{}, err
 	}
 
-	err := r.upsertQueue(ctx, queue)
+	err = r.upsertQueue(ctx, queue)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

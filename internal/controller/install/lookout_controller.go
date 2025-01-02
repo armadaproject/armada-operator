@@ -66,7 +66,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &lookout, operatorFinalizer, nil, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &lookout, operatorFinalizer, nil, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}

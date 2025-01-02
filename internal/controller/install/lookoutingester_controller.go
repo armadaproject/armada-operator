@@ -62,7 +62,7 @@ func (r *LookoutIngesterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &lookoutIngester, operatorFinalizer, nil, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &lookoutIngester, operatorFinalizer, nil, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}

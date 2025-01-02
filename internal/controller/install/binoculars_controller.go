@@ -85,7 +85,7 @@ func (r *BinocularsReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	cleanupF := func(ctx context.Context) error {
 		return r.deleteExternalResources(ctx, components)
 	}
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &binoculars, operatorFinalizer, cleanupF, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &binoculars, operatorFinalizer, cleanupF, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}

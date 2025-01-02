@@ -89,7 +89,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	cleanupF := func(ctx context.Context) error {
 		return r.deleteExternalResources(ctx, components, logger)
 	}
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &server, operatorFinalizer, cleanupF, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &server, operatorFinalizer, cleanupF, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}
