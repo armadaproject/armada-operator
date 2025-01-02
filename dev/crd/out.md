@@ -15,6 +15,23 @@ Package v1alpha1 contains API Schema definitions for the core v1alpha1 API group
 
 
 
+#### PermissionSubject
+
+
+
+
+
+
+
+_Appears in:_
+- [QueuePermissions](#queuepermissions)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `kind` _string_ |  |  |  |
+| `name` _string_ |  |  |  |
+
+
 #### Queue
 
 
@@ -57,6 +74,23 @@ QueueList contains a list of Queue
 | `items` _[Queue](#queue) array_ |  |  |  |
 
 
+#### QueuePermissions
+
+
+
+
+
+
+
+_Appears in:_
+- [QueueSpec](#queuespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `subjects` _[PermissionSubject](#permissionsubject) array_ |  |  |  |
+| `verbs` _string array_ |  |  |  |
+
+
 #### QueueSpec
 
 
@@ -70,7 +104,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `foo` _string_ | Foo is an example field of Queue. Edit queue_types.go to remove/update |  |  |
+| `priorityFactor` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#quantity-resource-api)_ | PriorityFactor is a multiplicative constant which is applied to the priority. |  |  |
+| `permissions` _[QueuePermissions](#queuepermissions) array_ | Permissions describe who can perform what operations on queue related resources. |  |  |
 
 
 #### QueueStatus
