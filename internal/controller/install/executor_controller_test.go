@@ -421,6 +421,7 @@ func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
 		Spec: installv1alpha1.ExecutorSpec{
+			Replicas: ptr.To[int32](2), // Max of 1 even if configured higher
 			CommonSpecBase: installv1alpha1.CommonSpecBase{
 				Labels: nil,
 				Image: installv1alpha1.Image{
@@ -562,4 +563,42 @@ func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 	if !cmp.Equal(expectedDeployment, deployment, protocmp.Transform()) {
 		t.Fatalf("deployment is not the same %s", cmp.Diff(expectedDeployment, deployment, protocmp.Transform()))
 	}
+}
+
+func TestExecutorReconciler_CreateDeploymentScaledDown(t *testing.T) {
+	t.Parallel()
+
+	commonConfig := &builders.CommonApplicationConfig{
+		HTTPPort:    8080,
+		GRPCPort:    5051,
+		MetricsPort: 9000,
+		Profiling: builders.ProfilingConfig{
+			Port: 1337,
+		},
+	}
+
+	executor := &installv1alpha1.Executor{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Executor",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
+		Spec: installv1alpha1.ExecutorSpec{
+			Replicas: ptr.To[int32](0),
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{},
+				Resources:         &corev1.ResourceRequirements{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+			},
+		},
+	}
+
+	deployment := createExecutorDeployment(executor, "executor", commonConfig)
+
+	assert.Equal(t, int32(0), *deployment.Spec.Replicas)
 }

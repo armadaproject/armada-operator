@@ -162,8 +162,6 @@ func (r *LookoutIngesterReconciler) createDeployment(
 	serviceAccountName string,
 	config *builders.CommonApplicationConfig,
 ) (*appsv1.Deployment, error) {
-	var replicas int32 = 1
-
 	env := createEnv(lookoutIngester.Spec.Environment)
 	pulsarConfig, err := ExtractPulsarConfig(lookoutIngester.Spec.ApplicationConfig)
 	if err != nil {
@@ -177,7 +175,7 @@ func (r *LookoutIngesterReconciler) createDeployment(
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: lookoutIngester.Name, Namespace: lookoutIngester.Namespace, Labels: AllLabels(lookoutIngester.Name, lookoutIngester.Labels)},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: lookoutIngester.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: IdentityLabel(lookoutIngester.Name),
 			},
