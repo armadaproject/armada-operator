@@ -104,9 +104,11 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: mock
-mock: mockgen ## Generate mock client for k8sclient
+mock: mockgen ## Generate mock clients
 	$(RM) test/k8sclient/mock_client.go
 	mockgen -destination=test/k8sclient/mock_client.go -package=k8sclient "github.com/armadaproject/armada-operator/test/k8sclient" Client
+	$(RM) test/armadaclient/mock_queue_client.go
+	mockgen -destination=test/armadaclient/mock_queue_client.go -package=armadaclient "github.com/armadaproject/armada-operator/test/armadaclient" QueueClient
 
 .PHONY: generate-helm-chart
 generate-helm-chart: manifests kustomize helmify ## Generate Helm chart from Kustomize manifests

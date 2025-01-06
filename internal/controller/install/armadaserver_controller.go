@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/armadaproject/armada-operator/internal/controller/common"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/go-logr/logr"
@@ -69,7 +71,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	logger.Info("Reconciling object")
 
 	var server installv1alpha1.ArmadaServer
-	if miss, err := getObject(ctx, r.Client, &server, req.NamespacedName, logger); err != nil || miss {
+	if miss, err := common.GetObject(ctx, r.Client, &server, req.NamespacedName, logger); err != nil || miss {
 		return ctrl.Result{}, err
 	}
 
@@ -87,7 +89,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	cleanupF := func(ctx context.Context) error {
 		return r.deleteExternalResources(ctx, components, logger)
 	}
-	finish, err := checkAndHandleObjectDeletion(ctx, r.Client, &server, operatorFinalizer, cleanupF, logger)
+	finish, err := common.CheckAndHandleObjectDeletion(ctx, r.Client, &server, operatorFinalizer, cleanupF, logger)
 	if err != nil || finish {
 		return ctrl.Result{}, err
 	}

@@ -42,7 +42,6 @@ import (
 
 	corev1alpha1 "github.com/armadaproject/armada-operator/api/core/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
-	corecontrollers "github.com/armadaproject/armada-operator/internal/controller/core"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -155,13 +154,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&corecontrollers.QueueReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Queue")
-		os.Exit(1)
-	}
+	//if err = (&corecontrollers.QueueReconciler{
+	//	Client: mgr.GetClient(),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Queue")
+	//	os.Exit(1)
+	//}
+
 	if err = (&install.LookoutIngesterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
