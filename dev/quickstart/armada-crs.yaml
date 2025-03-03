@@ -74,14 +74,14 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
 metadata:
-  name: armada-lookout-v2
+  name: armada-lookout
   namespace: armada
 spec:
   replicas: 1
   ingress:
     ingressClass: "nginx"
   image:
-    repository: gresearch/armada-lookout-v2
+    repository: gresearch/armada-lookout
     tag: latest
   prometheus:
     enabled: true
@@ -106,11 +106,11 @@ spec:
 apiVersion: install.armadaproject.io/v1alpha1
 kind: LookoutIngester
 metadata:
-  name: armada-lookout-ingester-v2
+  name: armada-lookout-ingester
   namespace: armada
 spec:
   image:
-    repository: gresearch/armada-lookout-ingester-v2
+    repository: gresearch/armada-lookout-ingester
     tag: latest
   applicationConfig:
     postgres:

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +73,8 @@ func TestScheduler_Default(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.input.Default()
+			defaulter := &SchedulerDefaulter{}
+			assert.NoError(t, defaulter.Default(context.Background(), tt.input))
 			tt.assert(t, tt.input)
 		})
 	}

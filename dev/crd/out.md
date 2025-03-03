@@ -150,6 +150,8 @@ _Appears in:_
 | `status` _[ArmadaServerStatus](#armadaserverstatus)_ |  |  |  |
 
 
+
+
 #### ArmadaServerList
 
 
@@ -208,6 +210,8 @@ _Appears in:_
 
 
 
+
+
 #### Binoculars
 
 
@@ -228,6 +232,8 @@ _Appears in:_
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[BinocularsSpec](#binocularsspec)_ |  |  |  |
 | `status` _[BinocularsStatus](#binocularsstatus)_ |  |  |  |
+
+
 
 
 #### BinocularsList
@@ -345,6 +351,8 @@ _Appears in:_
 | `status` _[EventIngesterStatus](#eventingesterstatus)_ |  |  |  |
 
 
+
+
 #### EventIngesterList
 
 
@@ -399,6 +407,8 @@ _Appears in:_
 
 
 
+
+
 #### Executor
 
 
@@ -419,6 +429,8 @@ _Appears in:_
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[ExecutorSpec](#executorspec)_ |  |  |  |
 | `status` _[ExecutorStatus](#executorstatus)_ |  |  |  |
+
+
 
 
 #### ExecutorList
@@ -474,6 +486,8 @@ ExecutorStatus defines the observed state of Executor
 
 _Appears in:_
 - [Executor](#executor)
+
+
 
 
 
@@ -543,6 +557,8 @@ _Appears in:_
 | `status` _[LookoutStatus](#lookoutstatus)_ |  |  |  |
 
 
+
+
 #### LookoutIngester
 
 
@@ -563,6 +579,8 @@ _Appears in:_
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[LookoutIngesterSpec](#lookoutingesterspec)_ |  |  |  |
 | `status` _[LookoutIngesterStatus](#lookoutingesterstatus)_ |  |  |  |
+
+
 
 
 #### LookoutIngesterList
@@ -615,6 +633,8 @@ LookoutIngesterStatus defines the observed state of LookoutIngester
 
 _Appears in:_
 - [LookoutIngester](#lookoutingester)
+
+
 
 
 
@@ -755,6 +775,8 @@ _Appears in:_
 | `status` _[SchedulerStatus](#schedulerstatus)_ |  |  |  |
 
 
+
+
 #### SchedulerIngester
 
 
@@ -775,6 +797,8 @@ _Appears in:_
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[SchedulerIngesterSpec](#scheduleringesterspec)_ |  |  |  |
 | `status` _[SchedulerIngesterStatus](#scheduleringesterstatus)_ |  |  |  |
+
+
 
 
 #### SchedulerIngesterList
@@ -827,6 +851,8 @@ SchedulerIngesterStatus defines the observed state of SchedulerIngester
 
 _Appears in:_
 - [SchedulerIngester](#scheduleringester)
+
+
 
 
 

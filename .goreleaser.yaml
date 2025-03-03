@@ -1,7 +1,9 @@
 project_name: armada-operator
 
+version: 2
+
 snapshot:
-  name_template: "{{ .FullCommit }}"
+  version_template: "{{ .FullCommit }}"
 
 dist: "dist"
 

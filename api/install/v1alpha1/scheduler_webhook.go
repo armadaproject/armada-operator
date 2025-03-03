@@ -17,7 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/utils/ptr"
 
@@ -25,16 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-// log is for logging in this package.
-var schedulerlog = logf.Log.WithName("scheduler-resource")
 
 func (r *Scheduler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(&SchedulerDefaulter{}).
 		Complete()
 }
 
@@ -42,12 +43,22 @@ func (r *Scheduler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-scheduler,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=schedulers,verbs=create;update,versions=v1alpha1,name=mscheduler.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Scheduler{}
+var _ webhook.CustomDefaulter = &SchedulerDefaulter{}
+
+type SchedulerDefaulter struct{}
+
+func (d *SchedulerDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	scheduler, ok := obj.(*Scheduler)
+	if !ok {
+		return fmt.Errorf("expected a Scheduler object in webhook but got %T", obj)
+	}
+
+	d.applyDefaults(scheduler)
+	return nil
+}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Scheduler) Default() {
-	schedulerlog.Info("default", "name", r.Name)
-
+func (d *SchedulerDefaulter) applyDefaults(r *Scheduler) {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearch/armada-scheduler"
