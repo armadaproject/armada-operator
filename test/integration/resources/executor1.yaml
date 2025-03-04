@@ -16,6 +16,9 @@ spec:
     apiConnection:
       armadaUrl: example.com:443
       forceNoTls: false
+    metric:
+      port: 9001
+      exposeQueueUsageMetrics: false
     toleratedTaints:
       - key: armada.io/batch
         operator: in
