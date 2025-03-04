@@ -164,7 +164,7 @@ goreleaser-build: goreleaser ## Build using GoReleaser
 
 .PHONY: goreleaser-snapshot
 goreleaser-snapshot: goreleaser ## Build a snapshot release using GoReleaser
-	$(GORELEASER) release --clean --snapshot
+	$(GORELEASER) release --clean --skip sbom,sign --snapshot
 
 ##@ Run
 

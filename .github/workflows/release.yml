@@ -79,10 +79,10 @@ jobs:
           echo "GORELEASER_PREVIOUS_TAG=$previous_tag" >> $GITHUB_ENV
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: v1.26.2
+          version: "~> v2.7"
           args: "-f ./.goreleaser.yaml release --clean"
         env:
           FULL_RELEASE: true

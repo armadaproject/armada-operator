@@ -66,11 +66,11 @@ jobs:
           password: "${{ secrets.DOCKERHUB_PASS }}"
 
       - name: "Run GoReleaser"
-        uses: "goreleaser/goreleaser-action@v5"
+        uses: "goreleaser/goreleaser-action@v6"
         with:
           distribution: "goreleaser"
-          version: v1.21.1
-          args: "-f ./.goreleaser.yaml release --snapshot --skip-sbom --skip-sign --clean"
+          version: "~> v2.7"
+          args: "-f ./.goreleaser.yaml release --snapshot --skip sbom,sign --clean"
         env:
           DOCKER_REPO: "gresearch"
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
