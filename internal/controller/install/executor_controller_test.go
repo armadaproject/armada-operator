@@ -2,8 +2,11 @@ package install
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
+
+	"sigs.k8s.io/yaml"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -405,6 +408,17 @@ func TestExecutorReconciler_generateAdditionalClusterRoles(t *testing.T) {
 func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 	t.Parallel()
 
+	cfg := ExecutorConfig{
+		Metric: MetricConfiguration{
+			Port: 9001,
+		},
+	}
+
+	out, err := yaml.Marshal(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	commonConfig := &builders.CommonApplicationConfig{
 		HTTPPort:    8080,
 		GRPCPort:    5051,
@@ -428,14 +442,17 @@ func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 					Repository: "testrepo",
 					Tag:        "1.0.0",
 				},
-				ApplicationConfig: runtime.RawExtension{},
+				ApplicationConfig: runtime.RawExtension{Raw: out},
 				Resources:         &corev1.ResourceRequirements{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
 			},
 		},
 	}
 
-	deployment := createExecutorDeployment(executor, "executor", commonConfig)
+	deployment, err := createExecutorDeployment(executor, "executor", commonConfig)
+	if err != nil {
+		t.Fatalf("createExecutorDeployment should not return error: %s", err)
+	}
 
 	expectedDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -462,7 +479,7 @@ func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 						"release": "executor",
 					},
 					Annotations: map[string]string{
-						"checksum/config": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+						"checksum/config": "92b3c6e95125781735cf2add3f23640786d96208e874510e9c7843c3cefcffe2",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -522,13 +539,13 @@ func TestExecutorReconciler_CreateDeployment(t *testing.T) {
 									Protocol:      corev1.ProtocolTCP,
 								},
 								{
-									Name:          "metrics",
-									ContainerPort: 9000,
+									Name:          "profiling",
+									ContainerPort: 1337,
 									Protocol:      corev1.ProtocolTCP,
 								},
 								{
-									Name:          "profiling",
-									ContainerPort: 1337,
+									Name:          "metrics",
+									ContainerPort: 9001,
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
@@ -598,7 +615,79 @@ func TestExecutorReconciler_CreateDeploymentScaledDown(t *testing.T) {
 		},
 	}
 
-	deployment := createExecutorDeployment(executor, "executor", commonConfig)
+	deployment, err := createExecutorDeployment(executor, "executor", commonConfig)
+	if err != nil {
+		t.Fatalf("createExecutorDeployment should not return error: %s", err)
+	}
 
 	assert.Equal(t, int32(0), *deployment.Spec.Replicas)
+}
+
+func TestExecutorReconciler_CreateService(t *testing.T) {
+	t.Parallel()
+
+	cfg := ExecutorConfig{
+		Metric: MetricConfiguration{
+			Port: 9001,
+		},
+	}
+
+	out, err := yaml.Marshal(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	executor := &installv1alpha1.Executor{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Executor",
+			APIVersion: "install.armadaproject.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "executor"},
+		Spec: installv1alpha1.ExecutorSpec{
+			Replicas: ptr.To[int32](2), // Max of 1 even if configured higher
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				Labels: nil,
+				Image: installv1alpha1.Image{
+					Repository: "testrepo",
+					Tag:        "1.0.0",
+				},
+				ApplicationConfig: runtime.RawExtension{Raw: out},
+				Resources:         &corev1.ResourceRequirements{},
+				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
+			},
+		},
+	}
+
+	service, err := createExecutorService(executor)
+	if err != nil {
+		t.Fatalf("createExecutorService should not return error: %s", err)
+	}
+
+	expectedService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "executor",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":     "executor",
+				"release": "executor",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "executor",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "metrics",
+					Port:     9001,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	if !cmp.Equal(expectedService, service, protocmp.Transform()) {
+		t.Fatalf("service is not the same %s", cmp.Diff(expectedService, service, protocmp.Transform()))
+	}
 }
