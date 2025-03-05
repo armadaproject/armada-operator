@@ -42,6 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"sigs.k8s.io/yaml"
+
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 )
@@ -180,18 +182,18 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(
 		}
 		serviceAccountName = serviceAccount.Name
 	}
-	deployment := createExecutorDeployment(executor, serviceAccountName, config)
+	deployment, err := createExecutorDeployment(executor, serviceAccountName, config)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	if err = controllerutil.SetOwnerReference(executor, deployment, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	service := builders.Service(
-		executor.Name,
-		executor.Namespace,
-		AllLabels(executor.Name, executor.Labels),
-		IdentityLabel(executor.Name),
-		config,
-		builders.ServiceEnableMetricsPortOnly,
-	)
+	service, err := createExecutorService(executor)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	if err = controllerutil.SetOwnerReference(executor, service, scheme); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -245,16 +247,32 @@ func createExecutorDeployment(
 	executor *installv1alpha1.Executor,
 	serviceAccountName string,
 	config *builders.CommonApplicationConfig,
-) *appsv1.Deployment {
+) (*appsv1.Deployment, error) {
 	var replicas int32 = 1
 
 	if executor.Spec.Replicas != nil {
 		replicas = min(replicas, *executor.Spec.Replicas) // Allow executor replicas to scale down to 0
 	}
 
+	executorConfig, err := extractExecutorConfig(executor.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	volumes := createVolumes(executor.Name, executor.Spec.AdditionalVolumes)
 	volumeMounts := createVolumeMounts(GetConfigFilename(executor.Name), executor.Spec.AdditionalVolumeMounts)
 	readinessProbe, livenessProbe := CreateProbesWithScheme(corev1.URISchemeHTTP)
+
+	ports := []corev1.ContainerPort{newContainerPortHTTP(config)}
+	if config.Profiling.Port > 0 {
+		ports = append(ports, newContainerPortProfiling(config))
+	}
+	// special handling for metrics port
+	ports = append(ports, corev1.ContainerPort{
+		Name:          "metrics",
+		ContainerPort: int32(executorConfig.Metric.Port),
+		Protocol:      corev1.ProtocolTCP,
+	})
 
 	env := []corev1.EnvVar{
 		{
@@ -280,7 +298,7 @@ func createExecutorDeployment(
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           ImageString(executor.Spec.Image),
 		Args:            []string{appConfigFlag, appConfigFilepath},
-		Ports:           newContainerPortsHTTPWithMetrics(config),
+		Ports:           ports,
 		Env:             env,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: executor.Spec.SecurityContext,
@@ -318,7 +336,7 @@ func createExecutorDeployment(
 		deployment.Spec.Template.Spec.Containers[0].Env = addGoMemLimit(deployment.Spec.Template.Spec.Containers[0].Env, *executor.Spec.Resources)
 	}
 
-	return &deployment
+	return &deployment, nil
 }
 
 func (r *ExecutorReconciler) createClusterRole(executor *installv1alpha1.Executor) *rbacv1.ClusterRole {
@@ -422,6 +440,33 @@ func (r *ExecutorReconciler) createAdditionalClusterRoleBindings(executor *insta
 	return bindings
 }
 
+func createExecutorService(executor *installv1alpha1.Executor) (*corev1.Service, error) {
+
+	executorConfig, err := extractExecutorConfig(executor.Spec.ApplicationConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      executor.Name,
+			Namespace: executor.Namespace,
+			Labels:    AllLabels(executor.Name, executor.Labels),
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: IdentityLabel(executor.Name),
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "metrics",
+					Port:     int32(executorConfig.Metric.Port),
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	}, nil
+}
+
 func (r *ExecutorReconciler) createServiceMonitor(executor *installv1alpha1.Executor) *monitoringv1.ServiceMonitor {
 	selectorLabels := IdentityLabel(executor.Name)
 	interval := "15s"
@@ -517,6 +562,28 @@ func createExecutorPrometheusRule(executor *installv1alpha1.Executor) *monitorin
 			}},
 		},
 	}
+}
+
+type ExecutorConfig struct {
+	Metric MetricConfiguration
+}
+
+type MetricConfiguration struct {
+	Port uint16
+}
+
+// extractExecutorConfig will unmarshal the appconfig and return the ExecutorConfig portion
+func extractExecutorConfig(config runtime.RawExtension) (ExecutorConfig, error) {
+	appConfig, err := builders.ConvertRawExtensionToYaml(config)
+	if err != nil {
+		return ExecutorConfig{}, err
+	}
+	var executorConfig ExecutorConfig
+	err = yaml.Unmarshal([]byte(appConfig), &executorConfig)
+	if err != nil {
+		return ExecutorConfig{}, err
+	}
+	return executorConfig, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
