@@ -17,22 +17,23 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
-var lookoutingesterlog = logf.Log.WithName("lookoutingester-resource")
-
 func (r *LookoutIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(&LookoutIngesterDefaulter{}).
+		WithValidator(&LookoutIngesterValidator{}).
 		Complete()
 }
 
@@ -40,15 +41,25 @@ func (r *LookoutIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-lookoutingester,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookoutingesters,verbs=create;update,versions=v1alpha1,name=mlookoutingester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &LookoutIngester{}
+var _ webhook.CustomDefaulter = &LookoutIngesterDefaulter{}
+
+type LookoutIngesterDefaulter struct{}
+
+func (d *LookoutIngesterDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	lookoutingester, ok := obj.(*LookoutIngester)
+	if !ok {
+		return fmt.Errorf("expected a LookoutIngester object in webhook but got %T", obj)
+	}
+
+	d.applyDefaults(lookoutingester)
+	return nil
+}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *LookoutIngester) Default() {
-	lookoutingesterlog.Info("default", "name", r.Name)
-
+func (d *LookoutIngesterDefaulter) applyDefaults(r *LookoutIngester) {
 	// image
 	if r.Spec.Image.Repository == "" {
-		r.Spec.Image.Repository = "gresearch/armada-lookout-ingester-v2"
+		r.Spec.Image.Repository = "gresearch/armada-lookout-ingester"
 	}
 
 	if r.Spec.Replicas == nil {
@@ -81,28 +92,18 @@ func (r *LookoutIngester) Default() {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-lookoutingester,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=lookoutingesters,verbs=create;update,versions=v1alpha1,name=vlookoutingester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &LookoutIngester{}
+var _ webhook.CustomValidator = &LookoutIngesterValidator{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *LookoutIngester) ValidateCreate() (admission.Warnings, error) {
-	lookoutingesterlog.Info("validate create", "name", r.Name)
+type LookoutIngesterValidator struct{}
 
-	// TODO(user): fill in your validation logic upon object creation.
+func (v *LookoutIngesterValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *LookoutIngester) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	lookoutingesterlog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
+func (v *LookoutIngesterValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *LookoutIngester) ValidateDelete() (admission.Warnings, error) {
-	lookoutingesterlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
+func (v *LookoutIngesterValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }

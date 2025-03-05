@@ -17,22 +17,23 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
-var scheduleringesterlog = logf.Log.WithName("scheduleringester-resource")
-
 func (r *SchedulerIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(&SchedulerIngesterDefaulter{}).
+		WithValidator(&SchedulerIngesterValidator{}).
 		Complete()
 }
 
@@ -40,12 +41,22 @@ func (r *SchedulerIngester) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-scheduleringester,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=scheduleringesters,verbs=create;update,versions=v1alpha1,name=mscheduleringester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &SchedulerIngester{}
+var _ webhook.CustomDefaulter = &SchedulerIngesterDefaulter{}
+
+type SchedulerIngesterDefaulter struct{}
+
+func (d *SchedulerIngesterDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	schedulerIngester, ok := obj.(*SchedulerIngester)
+	if !ok {
+		return fmt.Errorf("expected a SchedulerIngester object in webhook but got %T", obj)
+	}
+
+	d.applyDefaults(schedulerIngester)
+	return nil
+}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *SchedulerIngester) Default() {
-	scheduleringesterlog.Info("default", "name", r.Name)
-
+func (d *SchedulerIngesterDefaulter) applyDefaults(r *SchedulerIngester) {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearch/armada-scheduler-ingester"
@@ -81,28 +92,18 @@ func (r *SchedulerIngester) Default() {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-scheduleringester,mutating=false,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=scheduleringesters,verbs=create;update,versions=v1alpha1,name=vscheduleringester.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &SchedulerIngester{}
+var _ webhook.CustomValidator = &SchedulerIngesterValidator{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *SchedulerIngester) ValidateCreate() (admission.Warnings, error) {
-	scheduleringesterlog.Info("validate create", "name", r.Name)
+type SchedulerIngesterValidator struct{}
 
-	// TODO(user): fill in your validation logic upon object creation.
+func (s SchedulerIngesterValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *SchedulerIngester) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	scheduleringesterlog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
+func (s SchedulerIngesterValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *SchedulerIngester) ValidateDelete() (admission.Warnings, error) {
-	scheduleringesterlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
+func (s SchedulerIngesterValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }

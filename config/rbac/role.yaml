@@ -40,6 +40,7 @@ rules:
   - ""
   resources:
   - pods
+  - services
   verbs:
   - create
   - delete
@@ -52,20 +53,22 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - serviceaccounts/token
-  verbs:
-  - create
-- apiGroups:
-  - ""
-  resources:
-  - services
+  - secrets
+  - serviceaccounts
   verbs:
   - create
   - delete
-  - deletecollection
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
 - apiGroups:
   - ""
   - apps
@@ -114,20 +117,6 @@ rules:
   - create
   - delete
   - deletecollection
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - serviceaccounts
-  - services
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch

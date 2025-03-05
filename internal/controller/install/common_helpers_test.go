@@ -651,9 +651,9 @@ func TestDeepCopy(t *testing.T) {
 				assert.EqualValues(t, old.Deployment, new.Deployment)
 				assert.NotSame(t, old.Deployment, new.Deployment)
 				assert.Equal(t, len(old.PriorityClasses), len(new.PriorityClasses))
-				assert.NotSame(t, old.PriorityClasses, new.PriorityClasses)
+				assert.NotSame(t, &old.PriorityClasses, &new.PriorityClasses)
 				assert.Equal(t, old, new)
-				assert.NotSame(t, old, new)
+				assert.NotSame(t, &old, &new)
 			},
 		},
 	}

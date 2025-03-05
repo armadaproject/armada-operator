@@ -17,7 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/utils/ptr"
 
@@ -31,6 +35,7 @@ import (
 func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(&BinocularsDefaulter{}).
 		Complete()
 }
 
@@ -38,12 +43,23 @@ func (r *Binoculars) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-binoculars,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=binoculars,verbs=create;update,versions=v1alpha1,name=mbinoculars.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Binoculars{}
+var _ webhook.CustomDefaulter = &BinocularsDefaulter{}
+
+type BinocularsDefaulter struct{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Binoculars) Default() {
-	executorlog.Info("default", "name", r.Name)
+func (d *BinocularsDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	binoculars, ok := obj.(*Binoculars)
+	if !ok {
+		return fmt.Errorf("expected a Binoculars object in webhook but got %T", obj)
+	}
 
+	// Set default values
+	d.applyDefaults(binoculars)
+	return nil
+}
+
+func (d *BinocularsDefaulter) applyDefaults(r *Binoculars) {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearch/armada-binoculars"

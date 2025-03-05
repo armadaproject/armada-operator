@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,17 +27,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
-var armadaServerLog = logf.Log.WithName("armada-server-resource")
-
 func (r *ArmadaServer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(&ArmadaServerDefaulter{}).
+		WithValidator(&ArmadaServerValidator{}).
 		Complete()
 }
 
@@ -43,12 +43,23 @@ func (r *ArmadaServer) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-install-armadaproject-io-v1alpha1-armadaserver,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armadaservers,verbs=create;update,versions=v1alpha1,name=armadaserver.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &ArmadaServer{}
+var _ webhook.CustomDefaulter = &ArmadaServerDefaulter{}
+
+type ArmadaServerDefaulter struct{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *ArmadaServer) Default() {
-	armadaServerLog.Info("default", "name", r.Name)
+func (d *ArmadaServerDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	armadaServer, ok := obj.(*ArmadaServer)
+	if !ok {
+		return fmt.Errorf("expected an ArmadaServer object in webhook but got %T", obj)
+	}
 
+	// Set default values
+	d.applyDefaults(armadaServer)
+	return nil
+}
+
+func (d *ArmadaServerDefaulter) applyDefaults(r *ArmadaServer) {
 	// image
 	if r.Spec.Image.Repository == "" {
 		r.Spec.Image.Repository = "gresearch/armada-server"
@@ -91,28 +102,21 @@ func (r *ArmadaServer) Default() {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-install-armadaproject-io-v1alpha1-armadaserver,mutating=true,failurePolicy=fail,sideEffects=None,groups=install.armadaproject.io,resources=armadaservers,verbs=create;update,versions=v1alpha1,name=varmadaserver.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &ArmadaServer{}
+var _ webhook.CustomValidator = &ArmadaServerValidator{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *ArmadaServer) ValidateCreate() (admission.Warnings, error) {
-	armadaServerLog.Info("validate create", "name", r.Name)
+type ArmadaServerValidator struct{}
 
+func (v ArmadaServerValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *ArmadaServer) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	armadaServerLog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
+func (v ArmadaServerValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
+	// TODO(user): fill in your validation logic upon object creation.
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *ArmadaServer) ValidateDelete() (admission.Warnings, error) {
-	armadaServerLog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
+func (v ArmadaServerValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	// TODO(user): fill in your validation logic upon object creation.
 	return nil, nil
 }
