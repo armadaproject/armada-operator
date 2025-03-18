@@ -1,0 +1,32 @@
+name: Integration
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    name: Kind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          cache-prefix: go-integration-kind
+
+      - name: Starting Armada cluster
+        run: make kind-all
+
+      - name: Create test queue
+        run: ./bin/app/armadactl create queue test
+
+      - name: Test queue exists
+        run: ./bin/app/armadactl get queue test
+
+      - name: Submit job
+        run: ./bin/app/armadactl submit dev/quickstart/example-job.yaml
