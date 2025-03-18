@@ -324,7 +324,7 @@ helm-install-cert-manager:
 
 .PHONY: helm-install-pulsar
 helm-install-pulsar: helm-repos ## Install Apache Pulsar using Helm.
-	helm upgrade --install pulsar apache/pulsar --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
+	helm upgrade --install pulsar apache/pulsar --version 3.9.0 --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-pulsar
 helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
@@ -332,7 +332,7 @@ helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
-	helm upgrade --install postgresql bitnami/postgresql --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+	helm upgrade --install postgresql bitnami/postgresql --version 16.5.2 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-postgres
 helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
@@ -340,7 +340,7 @@ helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
 
 .PHONY: helm-install-redis
 helm-install-redis: helm-repos ## Install Redis using Helm.
-	helm upgrade --install redis-ha dandydev/redis-ha --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
+	helm upgrade --install redis-ha dandydev/redis-ha --version 4.33.2 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-redis
 helm-uninstall-redis: ## Uninstall Redis using Helm.
