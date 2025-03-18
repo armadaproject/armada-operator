@@ -22,11 +22,74 @@ jobs:
       - name: Starting Armada cluster
         run: make kind-all
 
-      - name: Create test queue
-        run: ./bin/app/armadactl create queue test
+      - name: Create queue
+        run: |
+          # Create queue
+          for second in {1..60}
+          do
+            if ./bin/app/armadactl create queue example 2> armadactl-${second}.log
+            then
+              if [[ second -eq 1 ]]
+              then
+                echo "Successfully created queue 'example'"
+              else
+                echo "Successfully created queue 'example' after ${second}s"
+                echo "Previously failed due to:"
+                cat armadactl-$((second-1)).log
+              fi
+              exit
+            fi
+            sleep 1
+          done
+
+          echo "Failed to create queue 'example' after ${second}s"
+          cat armadactl-${second}.log >&2
+          exit 1
 
       - name: Test queue exists
-        run: ./bin/app/armadactl get queue test
+        run: |
+          # Test queue exists
+          for second in {1..60}
+          do
+            if ./bin/app/armadactl get queue example 2> armadactl-${second}.log
+            then
+              if [[ second -eq 1 ]]
+              then
+                echo "Successfully inspected queue 'example'"
+              else
+                echo "Successfully inspected queue 'example' after ${second}s"
+                echo "Previously failed due to:"
+                cat armadactl-$((second-1)).log
+              fi
+              exit
+            fi
+            sleep 1
+          done
+
+          echo "Failed to inspected queue 'example' after ${second}s"
+          cat armadactl-${second}.log >&2
+          exit 1
 
       - name: Submit job
-        run: ./bin/app/armadactl submit dev/quickstart/example-job.yaml
+        run: |
+          # Submit job
+          for second in {1..60}
+          do
+            if ./bin/app/armadactl submit dev/quickstart/example-job.yaml 2> armadactl-${second}.log
+            then
+              if [[ attempt -eq 1 ]]
+              then
+                echo "Successfully submitted job"
+              else
+                echo "Successfully submitted job after ${second}s"
+                echo "Previously failed due to:"
+                cat armadactl-$((second-1)).log
+              fi
+              exit
+            fi
+            sleep 1
+          done
+
+          echo "Failed to submitted job after ${second}s"
+          cat armadactl-${second}.log >&2
+          exit 1
