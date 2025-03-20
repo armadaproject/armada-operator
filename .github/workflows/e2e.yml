@@ -20,7 +20,7 @@ jobs:
           cache-prefix: go-integration-kind
 
       - name: Starting Armada cluster
-        run: make kind-all
+        run: make kind-all-local
 
       - name: Create queue
         run: |
