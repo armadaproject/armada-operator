@@ -9,6 +9,14 @@ log() {
     echo -e "${GREEN}$1${NC}"
 }
 
+armadactl-retry() {
+  for i in {1..60}; do
+    if ! armadactl "$@"; then
+      sleep 1
+    fi
+  done
+}
+
 log "Running e2e tests..."
 
 log "Creating kind cluster..."
@@ -29,6 +37,12 @@ done
 
 log "Waiting for Armada Operator pod to be ready..."
 kubectl wait --for='condition=Ready' pods -l 'app.kubernetes.io/name=armada-operator' --timeout=600s --namespace armada-system
+
+log "Creating test queue..."
+armadactl-retry create queue test
+
+log "Submitting job..."
+armadactl-retry submit dev/quickstart/example-job.yaml
 
 log "Deleting kind cluster..."
 make kind-delete-cluster
