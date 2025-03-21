@@ -211,7 +211,11 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
+.PHONY: kind-all
 kind-all: kind-create-cluster install-and-wait-cert-manager helm-repos helm-install install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything
+
+.PHONY: kind-all-local
+kind-all-local: kind-create-cluster install-and-wait-cert-manager helm-repos helm-install-local install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything from sources
 
 .PHONY: kind-all-dev
 kind-all-dev: kind-create-cluster kind-deploy helm-repos install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything with Operator built from scratch
