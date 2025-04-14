@@ -5,7 +5,6 @@ STATEFULSETS=(
     "pulsar-bookie"
     "pulsar-broker"
     "pulsar-proxy"
-    "pulsar-recovery"
     "pulsar-toolset"
     "pulsar-zookeeper"
     "redis-ha-server"
