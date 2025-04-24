@@ -87,6 +87,10 @@ func (d *LookoutIngesterDefaulter) applyDefaults(r *LookoutIngester) {
 			},
 		}
 	}
+
+	if r.Spec.CommonSpecBase.TopologyKey == "" {
+		r.Spec.CommonSpecBase.TopologyKey = "kubernetes.io/hostname"
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

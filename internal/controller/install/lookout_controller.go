@@ -293,7 +293,7 @@ func createLookoutDeployment(lookout *installv1alpha1.Lookout, serviceAccountNam
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: lookout.DeletionGracePeriodSeconds,
 					SecurityContext:               lookout.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(lookout.Name, 100),
+					Affinity:                      defaultAffinity(lookout.Spec.TopologyKey, lookout.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "lookout",
 						ImagePullPolicy: corev1.PullIfNotPresent,

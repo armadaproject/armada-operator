@@ -474,7 +474,8 @@ func createArmadaServerDeployment(
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: as.DeletionGracePeriodSeconds,
 					SecurityContext:               as.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(as.Name, 100),
+					Affinity:                      defaultAffinity(as.Spec.TopologyKey, as.Name, 100),
+					NodeSelector:                  as.Spec.NodeSelector,
 					Containers: []corev1.Container{{
 						Name:            "armadaserver",
 						ImagePullPolicy: corev1.PullIfNotPresent,

@@ -327,6 +327,8 @@ _Appears in:_
 | `environment` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#envvar-v1-core) array_ | Extra environment variables that get added to deployment |  |  |
 | `additionalVolumes` _[Volume](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#volume-v1-core) array_ | Additional volumes that are mounted into deployments |  |  |
 | `additionalVolumeMounts` _[VolumeMount](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#volumemount-v1-core) array_ | Additional volume mounts that are added as volumes |  |  |
+| `nodeSelector` _object (keys:string, values:string)_ | NodeSelector is the configuration block for specifying which nodes the pod can be scheduled on |  |  |
+| `topologyKey` _string_ | TopologyKey is used for configuring pod spread across nodes |  |  |
 
 
 #### EventIngester

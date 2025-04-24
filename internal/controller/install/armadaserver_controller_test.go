@@ -493,6 +493,7 @@ func TestArmadaServerReconciler_CreateDeployment(t *testing.T) {
 				ApplicationConfig: runtime.RawExtension{},
 				Resources:         &corev1.ResourceRequirements{},
 				Prometheus:        &installv1alpha1.PrometheusConfig{Enabled: true},
+				TopologyKey:       "kubernetes.io/hostname",
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},

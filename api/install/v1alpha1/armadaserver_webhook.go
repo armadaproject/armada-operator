@@ -97,6 +97,10 @@ func (d *ArmadaServerDefaulter) applyDefaults(r *ArmadaServer) {
 			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
 		}
 	}
+
+	if r.Spec.CommonSpecBase.TopologyKey == "" {
+		r.Spec.CommonSpecBase.TopologyKey = "kubernetes.io/hostname"
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

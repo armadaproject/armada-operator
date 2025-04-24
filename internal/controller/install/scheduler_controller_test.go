@@ -733,6 +733,7 @@ func TestSchedulerReconciler_CreateDeployment(t *testing.T) {
 				ApplicationConfig:             runtime.RawExtension{},
 				Prometheus:                    &installv1alpha1.PrometheusConfig{Enabled: true, ScrapeInterval: &metav1.Duration{Duration: 1 * time.Second}},
 				TerminationGracePeriodSeconds: ptr.To(int64(20)),
+				TopologyKey:                   "kubernetes.io/hostname",
 			},
 			ClusterIssuer: "test",
 			HostNames:     []string{"localhost"},
