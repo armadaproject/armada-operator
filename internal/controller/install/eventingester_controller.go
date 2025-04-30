@@ -193,7 +193,7 @@ func (r *EventIngesterReconciler) createDeployment(
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: eventIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext:               eventIngester.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(eventIngester.Name, 100),
+					Affinity:                      defaultAffinity(eventIngester.Spec.TopologyKey, eventIngester.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "eventingester",
 						ImagePullPolicy: corev1.PullIfNotPresent,

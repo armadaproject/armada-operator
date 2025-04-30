@@ -259,7 +259,7 @@ func createBinocularsDeployment(
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: binoculars.DeletionGracePeriodSeconds,
 					SecurityContext:               binoculars.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(binoculars.Name, 100),
+					Affinity:                      defaultAffinity(binoculars.Spec.TopologyKey, binoculars.Name, 100),
 					Containers:                    containers,
 					Volumes:                       volumes,
 				},

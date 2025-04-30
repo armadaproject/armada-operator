@@ -2037,6 +2037,12 @@ spec:
                 description: Labels is the map of labels which wil be added to all
                   objects
                 type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector is the configuration block for specifying
+                  which nodes the pod can be scheduled on
+                type: object
               podSecurityContext:
                 description: PodSecurityContext defines the security options the pod
                   should be run with
@@ -2690,6 +2696,10 @@ spec:
                       type: string
                   type: object
                 type: array
+              topologyKey:
+                description: TopologyKey is used for configuring pod spread across
+                  nodes
+                type: string
             required:
             - applicationConfig
             - image

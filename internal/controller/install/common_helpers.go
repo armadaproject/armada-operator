@@ -838,13 +838,13 @@ func newContainerPortProfiling(config *builders.CommonApplicationConfig) corev1.
 	}
 }
 
-func defaultAffinity(app string, weight int32) *corev1.Affinity {
+func defaultAffinity(topologyKey, app string, weight int32) *corev1.Affinity {
 	return &corev1.Affinity{
 		PodAffinity: &corev1.PodAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
 				Weight: weight,
 				PodAffinityTerm: corev1.PodAffinityTerm{
-					TopologyKey: "kubernetes.io/hostname",
+					TopologyKey: topologyKey,
 					LabelSelector: &metav1.LabelSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{{
 							Key:      "app",

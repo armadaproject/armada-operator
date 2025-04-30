@@ -114,4 +114,8 @@ func (d *SchedulerDefaulter) applyDefaults(r *Scheduler) {
 			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
 		}
 	}
+
+	if r.Spec.CommonSpecBase.TopologyKey == "" {
+		r.Spec.CommonSpecBase.TopologyKey = "kubernetes.io/hostname"
+	}
 }

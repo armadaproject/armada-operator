@@ -96,6 +96,10 @@ type CommonSpecBase struct {
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 	// Additional volume mounts that are added as volumes
 	AdditionalVolumeMounts []corev1.VolumeMount `json:"additionalVolumeMounts,omitempty"`
+	// NodeSelector is the configuration block for specifying which nodes the pod can be scheduled on
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// TopologyKey is used for configuring pod spread across nodes
+	TopologyKey string `json:"topologyKey,omitempty"`
 }
 
 func GetDefaultSecurityContext() *corev1.SecurityContext {

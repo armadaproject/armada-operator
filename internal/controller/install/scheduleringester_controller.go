@@ -193,7 +193,7 @@ func (r *SchedulerIngesterReconciler) createDeployment(
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: schedulerIngester.Spec.TerminationGracePeriodSeconds,
 					SecurityContext:               schedulerIngester.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(schedulerIngester.Name, 100),
+					Affinity:                      defaultAffinity(schedulerIngester.Spec.TopologyKey, schedulerIngester.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "scheduleringester",
 						ImagePullPolicy: corev1.PullIfNotPresent,

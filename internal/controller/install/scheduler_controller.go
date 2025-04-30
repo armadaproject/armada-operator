@@ -316,7 +316,7 @@ func newSchedulerDeployment(
 					ServiceAccountName:            serviceAccountName,
 					TerminationGracePeriodSeconds: scheduler.DeletionGracePeriodSeconds,
 					SecurityContext:               scheduler.Spec.PodSecurityContext,
-					Affinity:                      defaultAffinity(scheduler.Name, 100),
+					Affinity:                      defaultAffinity(scheduler.Spec.TopologyKey, scheduler.Name, 100),
 					Containers: []corev1.Container{{
 						Name:            "scheduler",
 						ImagePullPolicy: corev1.PullIfNotPresent,

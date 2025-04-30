@@ -563,6 +563,7 @@ func TestLookoutReconciler_CreateDeployment(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
 				Resources:         &corev1.ResourceRequirements{},
+				TopologyKey:       "kubernetes.io/hostname",
 			},
 			Replicas:      ptr.To[int32](2),
 			ClusterIssuer: "test",

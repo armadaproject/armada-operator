@@ -97,4 +97,8 @@ func (d *BinocularsDefaulter) applyDefaults(r *Binoculars) {
 			r.Spec.Prometheus.ScrapeInterval = &metav1.Duration{Duration: time.Second * 10}
 		}
 	}
+
+	if r.Spec.CommonSpecBase.TopologyKey == "" {
+		r.Spec.CommonSpecBase.TopologyKey = "kubernetes.io/hostname"
+	}
 }

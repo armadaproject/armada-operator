@@ -545,6 +545,7 @@ func TestBinocularsReconciler_CreateDeployment(t *testing.T) {
 				},
 				ApplicationConfig: runtime.RawExtension{},
 				Resources:         &corev1.ResourceRequirements{},
+				TopologyKey:       "kubernetes.io/hostname",
 			},
 
 			Replicas:      ptr.To[int32](2),
