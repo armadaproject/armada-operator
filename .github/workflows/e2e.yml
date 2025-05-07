@@ -1,0 +1,23 @@
+name: End2End tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    name: Kind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          cache-prefix: go-integration-kind
+
+      - name: E2E test
+        run: ./scripts/e2e-test.sh
