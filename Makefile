@@ -211,10 +211,10 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
-kind-all: kind-create-cluster install-and-wait-cert-manager helm-repos helm-install install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything
+kind-all: kind-create-cluster install-and-wait-cert-manager helm-repos helm-install install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl wait-for-armada ## Install everything
 
 .PHONY: kind-all-dev
-kind-all-dev: kind-create-cluster kind-deploy helm-repos install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl ## Install everything with Operator built from scratch
+kind-all-dev: kind-create-cluster kind-deploy helm-repos install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl wait-for-armada ## Install everything with Operator built from scratch
 
 .PHONY: kind-create-cluster
 kind-create-cluster: kind ## Create a kind cluster using config from hack/kind-config.yaml.
@@ -275,6 +275,10 @@ install-armada-deps: helm-repos helm-install-kube-prometheus-stack helm-install-
 .PHONY: wait-for-armada-deps
 wait-for-armada-deps: ## Wait for all Armada dependencies to be ready
 	hack/wait-for-deps.sh
+
+.PHONY: wait-for-armada
+wait-for-armada: ## Wait for all Armada pods
+	kubectl wait pod -n armada --selector="app=armada-server" --for condition=Ready=true --timeout=600s
 
 .PHONY: uninstall-armada-deps
 uninstall-armada-deps: helm-uninstall-kube-prometheus-stack helm-uninstall-postgres helm-uninstall-pulsar helm-uninstall-redis ## Uninstall required Armada dependencies (Prometheus, PostgreSQL, Pulsar, Redis).
