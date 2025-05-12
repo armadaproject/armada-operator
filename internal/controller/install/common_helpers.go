@@ -90,6 +90,7 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 	cloned := &CommonComponents{
 		Deployment:          cc.Deployment.DeepCopy(),
 		Service:             cc.Service.DeepCopy(),
+		ServiceProfiling:    cc.ServiceProfiling.DeepCopy(),
 		ServiceAccount:      cc.ServiceAccount.DeepCopy(),
 		Secret:              cc.Secret.DeepCopy(),
 		ClusterRole:         cc.ClusterRole.DeepCopy(),
@@ -101,6 +102,7 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 		PrometheusRule:      cc.PrometheusRule.DeepCopy(),
 		IngressGrpc:         cc.IngressGrpc.DeepCopy(),
 		IngressHttp:         cc.IngressHttp.DeepCopy(),
+		IngressProfiling:    cc.IngressProfiling.DeepCopy(),
 		PodDisruptionBudget: cc.PodDisruptionBudget.DeepCopy(),
 	}
 
@@ -752,9 +754,9 @@ func newProfilingIngress(
 	}
 	annotations := buildIngressAnnotations(ingressConfig, baseAnnotations, BackendProtocolHTTP, false)
 	secretName := object.GetName() + "-service-tls"
-	serviceName := object.GetName()
-	servicePort := commonConfig.HTTPPort
-	path := "/"
+	serviceName := object.GetName() + "-profiling"
+	servicePort := commonConfig.Profiling.Port
+	path := "/debug/pprof/"
 	profilingIngress, err := builders.Ingress(
 		object.GetName()+"-profiling",
 		object.GetNamespace(),

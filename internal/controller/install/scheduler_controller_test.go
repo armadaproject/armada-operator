@@ -159,15 +159,26 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		Return(nil).
 		SetArg(1, *scheduler.Deployment)
 
+	expectedProfilingServiceName := expectedNamespacedName
+	expectedProfilingServiceName.Name = expectedProfilingServiceName.Name + "-profiling"
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
 	mockK8sClient.
 		EXPECT().
+		Get(gomock.Any(), expectedProfilingServiceName, gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler-profiling"))
+	mockK8sClient.
+		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, *scheduler.Service)
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(nil).
+		SetArg(1, *scheduler.ServiceProfiling)
 
 	// IngressGrpc
 	expectedIngressName := expectedNamespacedName
@@ -353,15 +364,26 @@ func TestSchedulerReconciler_ReconcilePruningDisabled(t *testing.T) {
 		Return(nil).
 		SetArg(1, *scheduler.Deployment)
 
+	expectedProfilingServiceName := expectedNamespacedName
+	expectedProfilingServiceName.Name = expectedProfilingServiceName.Name + "-profiling"
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
 	mockK8sClient.
 		EXPECT().
+		Get(gomock.Any(), expectedProfilingServiceName, gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler-profiling"))
+	mockK8sClient.
+		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, *scheduler.Service)
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(nil).
+		SetArg(1, *scheduler.ServiceProfiling)
 
 	// IngressGrpc
 	expectedIngressName := expectedNamespacedName
@@ -634,15 +656,26 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 		Return(nil).
 		SetArg(1, *scheduler.Deployment)
 
+	expectedProfilingServiceName := expectedNamespacedName
+	expectedProfilingServiceName.Name = expectedProfilingServiceName.Name + "-profiling"
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedNamespacedName, gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
 	mockK8sClient.
 		EXPECT().
+		Get(gomock.Any(), expectedProfilingServiceName, gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler-profiling"))
+	mockK8sClient.
+		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
 		Return(nil).
 		SetArg(1, *scheduler.Service)
+	mockK8sClient.
+		EXPECT().
+		Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+		Return(nil).
+		SetArg(1, *scheduler.ServiceProfiling)
 
 	// IngressGrpc
 	expectedIngressName := expectedNamespacedName
