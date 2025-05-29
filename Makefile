@@ -328,7 +328,7 @@ helm-install-cert-manager:
 
 .PHONY: helm-install-pulsar
 helm-install-pulsar: helm-repos ## Install Apache Pulsar using Helm.
-	helm upgrade --install pulsar apache/pulsar --version 3.9.0 --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
+	helm upgrade --install pulsar apache/pulsar --version 4.1.0 --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-pulsar
 helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
@@ -336,7 +336,7 @@ helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
-	helm upgrade --install postgresql bitnami/postgresql --version 16.5.2 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+	helm upgrade --install postgresql bitnami/postgresql --version 16.7.5 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-postgres
 helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
@@ -344,7 +344,7 @@ helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
 
 .PHONY: helm-install-redis
 helm-install-redis: helm-repos ## Install Redis using Helm.
-	helm upgrade --install redis-ha dandydev/redis-ha --version 4.33.2 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
+	helm upgrade --install redis-ha dandydev/redis-ha --version 4.33.7 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-redis
 helm-uninstall-redis: ## Uninstall Redis using Helm.
@@ -352,7 +352,7 @@ helm-uninstall-redis: ## Uninstall Redis using Helm.
 
 .PHONY: helm-install-kube-prometheus-stack
 helm-install-kube-prometheus-stack: helm-repos ## Install kube-prometheus-stack using Helm.
-	helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
+	helm upgrade --install kube-prometheus-stack --version 72.6.4 --values dev/quickstart/kube-prometheus-stack.values.yaml prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
 
 .PHONY: helm-uninstall-kube-prometheus-stack
 helm-uninstall-kube-prometheus-stack: ## Uninstall kube-prometheus-stack using Helm.
