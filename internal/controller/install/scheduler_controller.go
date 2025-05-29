@@ -123,7 +123,15 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.ServiceProfiling, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressGrpc, scheduler.Kind, mutateFn, logger); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := upsertObjectIfNeeded(ctx, r.Client, components.IngressProfiling, scheduler.Kind, mutateFn, logger); err != nil {
 		return ctrl.Result{}, err
 	}
 
