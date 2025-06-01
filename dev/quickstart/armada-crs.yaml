@@ -70,6 +70,8 @@ spec:
     executorApiConnection:
       armadaUrl: armada-scheduler.armada.svc.cluster.local:50051
       forceNoTls: true
+    metric:
+      port: 9001
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
