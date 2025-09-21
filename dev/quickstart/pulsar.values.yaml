@@ -1,47 +1,31 @@
-kube-prometheus-stack:
-  enabled: false
-  prometheus:
-    enabled: false
-  grafana:
-    enabled: false
-  prometheus-node-exporter:
-    enabled: false
-  alertmanager:
-    enabled: false
-
-
-# minimal pulsar broker config inspired by
-# https://github.com/apache/pulsar-helm-chart/blob/master/examples/values-minikube.yaml
-
-# deployed withh emptyDir
 volumes:
   persistence: false
 
-# disabled AntiAffinity
 affinity:
   anti_affinity: false
 
-# disable auto recovery
-components:
-  autorecovery: false
-  pulsar_manager: true
+monitoring:
+  prometheus: false
 
-broker:
-  replicaCount: 1
-  configData:
-    ## Enable `autoSkipNonRecoverableData` since bookkeeper is running
-    ## without persistence
-    autoSkipNonRecoverableData: "true"
-    # storage settings
-    managedLedgerDefaultEnsembleSize: "1"
-    managedLedgerDefaultWriteQuorum: "1"
-    managedLedgerDefaultAckQuorum: "1"
+components:
+  zookeeper: true
+  bookkeeper: true
+  broker: true
+  proxy: true
+  autorecovery: false
+  functions: false
+  toolset: true
+  pulsar_manager: true
 
 zookeeper:
   replicaCount: 1
+  podMonitor:
+    enabled: false
 
 bookkeeper:
   replicaCount: 1
+  podMonitor:
+    enabled: false
   configData:
     # minimal memory use for bookkeeper
     # https://bookkeeper.apache.org/docs/reference/config#db-ledger-storage-settings
@@ -52,5 +36,41 @@ bookkeeper:
     # make bookie work with large disks having little percentage disk space left
     diskUsageThreshold: "0.999"
 
+broker:
+  replicaCount: 1
+  podMonitor:
+    enabled: false
+  configData:
+    ## Enable `autoSkipNonRecoverableData` since bookkeeper is running
+    ## without persistence
+    autoSkipNonRecoverableData: "true"
+    # storage settings
+    managedLedgerDefaultEnsembleSize: "1"
+    managedLedgerDefaultWriteQuorum: "1"
+    managedLedgerDefaultAckQuorum: "1"
+
 proxy:
   replicaCount: 1
+  podMonitor:
+    enabled: false
+
+autorecovery:
+  podMonitor:
+    enabled: false
+
+victoria-metrics-k8s-stack:
+  enabled: false
+  victoria-metrics-operator:
+    enabled: false
+    crds:
+      plain: false
+  vmsingle:
+    enabled: false
+  vmagent:
+    enabled: false
+  vmalert:
+    enabled: false
+  alertmanager:
+    enabled: false
+  grafana:
+    enabled: false
