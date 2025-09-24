@@ -310,7 +310,7 @@ uninstall-ingress-controller: ## Uninstall ingress controller.
 .PHONY: helm-repos
 helm-repos: ## Add helm repos for external dependencies.
 	helm repo add jetstack https://charts.jetstack.io
-	helm repo add bitnami https://charts.bitnami.com/bitnami
+	helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
 	helm repo add apache https://pulsar.apache.org/charts
 	helm repo add dandydev https://dandydeveloper.github.io/charts
 	helm repo add gresearch https://g-research.github.io/charts
@@ -336,7 +336,7 @@ helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
-	helm upgrade --install postgresql bitnami/postgresql --version 16.7.5 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+	helm upgrade --install postgresql groundhog2k/postgres --version 1.5.8 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-postgres
 helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
@@ -344,7 +344,7 @@ helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
 
 .PHONY: helm-install-redis
 helm-install-redis: helm-repos ## Install Redis using Helm.
-	helm upgrade --install redis-ha dandydev/redis-ha --version 4.33.7 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
+	helm upgrade --install redis-ha dandydev/redis-ha --version 4.34.13 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-redis
 helm-uninstall-redis: ## Uninstall Redis using Helm.
