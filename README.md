@@ -72,6 +72,20 @@ This command runs the following `make` targets:
 * `apply-default-priority-class` - applies the default priority class required by Armada for all jobs
 * `get-armadactl` - downloads the armadactl binary for interacting with the Armada API
 
+**Quick Setup For External Access**
+The default setup allows just localhost access.  You can quickly set up a local Armada server configured to
+allow external access from other hosts, useful for client development and testing. For this configuration, do:
+
+```bash
+cp hack/kind-config-external-access.yaml hack/kind-config.yaml
+```
+Then edit `hack/kind-config.yaml` as noted in its comments at the top. Note the instructions in
+there to copy the `.kube/config` and `.armadctl.yaml` (that Armada Operator will generate) to the remote host(s),
+after you run the following command:
+ ```
+make kind-all
+```
+
 ### Manual setup
 
 You’ll need a Kubernetes cluster to run the Armada Operator. You can use
