@@ -3,7 +3,7 @@
 # such as Armada-Spark clients.
 #
 # This configuration will allow you to run kubectl and armadactl
-# against the Armada instance on this system. You will have to do:
+# against the Armada instance on this system. To use this:
 # - Copy your $HOME/.kube/config on this system to the same directory
 #   on your remote client host, then modify that copied file so the
 #   IP address in there (0.0.0.0) is the address of the external interface
