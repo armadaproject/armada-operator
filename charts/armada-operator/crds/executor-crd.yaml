@@ -2339,6 +2339,9 @@ spec:
                         Standard object's metadata.
                         More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
                       type: object
+                      properties:
+                        name:
+                          type: string
                     preemptionPolicy:
                       description: |-
                         preemptionPolicy is the Policy for preempting pods with lower priority.
