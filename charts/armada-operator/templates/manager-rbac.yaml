@@ -81,6 +81,7 @@ rules:
   - clusterroles
   - deployments
   - prometheusrules
+  - priorityclasses
   - serviceaccounts
   - servicemonitors
   - services
@@ -91,6 +92,7 @@ rules:
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - apps
   resources:
