@@ -1,24 +1,44 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - "-QF1008" # Omit embedded fields from selector expression
+        - "-ST1003" # Poorly chosen identifier
+        - "-ST1019" # Importing the same package multiple times
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-
-output:
-  print-issued-lines: true
-  sort-results: true
-
-linters:
-  disable-all: true
+formatters:
   enable:
-    - unused
     - goimports
-    - ineffassign
-    - misspell
-    - errcheck
-    - govet
-    - gosimple
-    - staticcheck
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/armadaproject/armada-operator
-
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/armadaproject/armada-operator
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
