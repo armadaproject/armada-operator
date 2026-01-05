@@ -1,40 +1,39 @@
 package install
 
 import (
-	"fmt"
-	"testing"
-	"time"
+    "fmt"
+    "testing"
+    "time"
 
-	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+    "github.com/go-logr/logr"
+    "github.com/pkg/errors"
+    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+    "k8s.io/apimachinery/pkg/util/uuid"
+    "k8s.io/utils/ptr"
+    "sigs.k8s.io/controller-runtime/pkg/client"
+    "sigs.k8s.io/controller-runtime/pkg/client/fake"
+    "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+    "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"sigs.k8s.io/yaml"
+    "sigs.k8s.io/yaml"
 
-	"context"
+    "context"
 
-	"github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/assert"
 
-	install "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+    install "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 
-	"github.com/armadaproject/armada-operator/test/k8sclient"
+    "github.com/armadaproject/armada-operator/test/k8sclient"
 
-	"github.com/golang/mock/gomock"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
+    "github.com/golang/mock/gomock"
+    appsv1 "k8s.io/api/apps/v1"
+    batchv1 "k8s.io/api/batch/v1"
+    corev1 "k8s.io/api/core/v1"
+    k8serrors "k8s.io/apimachinery/pkg/api/errors"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/apimachinery/pkg/runtime"
+    "k8s.io/apimachinery/pkg/runtime/schema"
+    "k8s.io/apimachinery/pkg/types"
 )
 
 func TestImageString(t *testing.T) {
@@ -650,8 +649,6 @@ func TestDeepCopy(t *testing.T) {
 			expectations: func(t *testing.T, old, new CommonComponents) {
 				assert.EqualValues(t, old.Deployment, new.Deployment)
 				assert.NotSame(t, old.Deployment, new.Deployment)
-				assert.Equal(t, len(old.PriorityClasses), len(new.PriorityClasses))
-				assert.NotSame(t, &old.PriorityClasses, &new.PriorityClasses)
 				assert.Equal(t, old, new)
 				assert.NotSame(t, &old, &new)
 			},
@@ -791,17 +788,12 @@ func makeCommonComponents() CommonComponents {
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
 
-	pc := schedulingv1.PriorityClass{
-		Value: 1000,
-	}
-
 	secret := corev1.Secret{
 		StringData: map[string]string{"secretkey": "secretval"},
 	}
 	return CommonComponents{
 		Deployment:      &deployment,
 		ServiceAccount:  &serviceAccount,
-		PriorityClasses: []*schedulingv1.PriorityClass{&pc},
 		Secret:          &secret,
 	}
 }

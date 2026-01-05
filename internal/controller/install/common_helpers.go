@@ -1,39 +1,37 @@
 package install
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"reflect"
-	"time"
+    "context"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "reflect"
+    "time"
 
-	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
+    "github.com/pkg/errors"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/apimachinery/pkg/util/intstr"
+    "k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/go-logr/logr"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+    "github.com/go-logr/logr"
+    k8serrors "k8s.io/apimachinery/pkg/api/errors"
+    "k8s.io/apimachinery/pkg/types"
+    "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+    monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
-	schedulingv1 "k8s.io/api/scheduling/v1"
+    appsv1 "k8s.io/api/apps/v1"
+    batchv1 "k8s.io/api/batch/v1"
+    corev1 "k8s.io/api/core/v1"
+    networkingv1 "k8s.io/api/networking/v1"
+    policyv1 "k8s.io/api/policy/v1"
+    rbacv1 "k8s.io/api/rbac/v1"
+    "k8s.io/apimachinery/pkg/runtime"
+    "sigs.k8s.io/controller-runtime/pkg/client"
+    "sigs.k8s.io/yaml"
 
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
-
-	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
-	"github.com/armadaproject/armada-operator/internal/controller/builders"
+    installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+    "github.com/armadaproject/armada-operator/internal/controller/builders"
 )
 
 const (
@@ -61,7 +59,6 @@ type CommonComponents struct {
 	Secret              *corev1.Secret
 	ClusterRole         *rbacv1.ClusterRole
 	ClusterRoleBindings []*rbacv1.ClusterRoleBinding
-	PriorityClasses     []*schedulingv1.PriorityClass
 	PrometheusRule      *monitoringv1.PrometheusRule
 	ServiceMonitor      *monitoringv1.ServiceMonitor
 	PodDisruptionBudget *policyv1.PodDisruptionBudget
@@ -78,10 +75,6 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 	for _, crb := range cc.ClusterRoleBindings {
 		clusterRoleBindings = append(clusterRoleBindings, crb.DeepCopy())
 	}
-	var priorityClasses []*schedulingv1.PriorityClass
-	for _, pc := range cc.PriorityClasses {
-		priorityClasses = append(priorityClasses, pc.DeepCopy())
-	}
 	var jobs []*batchv1.Job
 	for _, job := range cc.Jobs {
 		jobs = append(jobs, job.DeepCopy())
@@ -95,7 +88,6 @@ func (cc *CommonComponents) DeepCopy() *CommonComponents {
 		Secret:              cc.Secret.DeepCopy(),
 		ClusterRole:         cc.ClusterRole.DeepCopy(),
 		ClusterRoleBindings: clusterRoleBindings,
-		PriorityClasses:     priorityClasses,
 		Jobs:                jobs,
 		CronJob:             cc.CronJob.DeepCopy(),
 		ServiceMonitor:      cc.ServiceMonitor.DeepCopy(),
@@ -189,14 +181,6 @@ func (cc *CommonComponents) ReconcileComponents(newComponents *CommonComponents)
 		cc.ClusterRoleBindings[i].Subjects = newComponents.ClusterRoleBindings[i].Subjects
 		cc.ClusterRoleBindings[i].Labels = newComponents.ClusterRoleBindings[i].Labels
 		cc.ClusterRoleBindings[i].Annotations = newComponents.ClusterRoleBindings[i].Annotations
-	}
-	for i := range cc.PriorityClasses {
-		cc.PriorityClasses[i].PreemptionPolicy = newComponents.PriorityClasses[i].PreemptionPolicy
-		cc.PriorityClasses[i].Value = newComponents.PriorityClasses[i].Value
-		cc.PriorityClasses[i].Description = newComponents.PriorityClasses[i].Description
-		cc.PriorityClasses[i].GlobalDefault = newComponents.PriorityClasses[i].GlobalDefault
-		cc.PriorityClasses[i].Labels = newComponents.PriorityClasses[i].Labels
-		cc.PriorityClasses[i].Annotations = newComponents.PriorityClasses[i].Annotations
 	}
 
 	if newComponents.CronJob != nil {
