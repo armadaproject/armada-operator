@@ -22,7 +22,6 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -661,17 +660,6 @@ func (in *ExecutorSpec) DeepCopyInto(out *ExecutorSpec) {
 		in, out := &in.AdditionalClusterRoleBindings, &out.AdditionalClusterRoleBindings
 		*out = make([]AdditionalClusterRoleBinding, len(*in))
 		copy(*out, *in)
-	}
-	if in.PriorityClasses != nil {
-		in, out := &in.PriorityClasses, &out.PriorityClasses
-		*out = make([]*schedulingv1.PriorityClass, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(schedulingv1.PriorityClass)
-				(*in).DeepCopyInto(*out)
-			}
-		}
 	}
 	if in.SecurityContext != nil {
 		in, out := &in.SecurityContext, &out.SecurityContext

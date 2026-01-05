@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,8 +55,6 @@ type ExecutorSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// Additional ClusterRoleBindings which will be created
 	AdditionalClusterRoleBindings []AdditionalClusterRoleBinding `json:"additionalClusterRoleBindings,omitempty"`
-	// List of PriorityClasses which will be created
-	PriorityClasses []*schedulingv1.PriorityClass `json:"priorityClasses,omitempty"`
 	// SecurityContext defines the security options the container should be run with
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 	// PodSecurityContext defines the security options the pod should be run with
