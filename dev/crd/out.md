@@ -472,7 +472,6 @@ _Appears in:_
 | `replicas` _integer_ | Replicas is the number of replicated instances for Executor |  |  |
 | `nodeSelector` _object (keys:string, values:string)_ | NodeSelector restricts the Executor pod to run on nodes matching the configured selectors |  |  |
 | `additionalClusterRoleBindings` _[AdditionalClusterRoleBinding](#additionalclusterrolebinding) array_ | Additional ClusterRoleBindings which will be created |  |  |
-| `priorityClasses` _[PriorityClass](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#priorityclass-v1-scheduling) array_ | List of PriorityClasses which will be created |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
 | `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |

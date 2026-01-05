@@ -1,39 +1,39 @@
 package install
 
 import (
-    "fmt"
-    "testing"
-    "time"
+	"fmt"
+	"testing"
+	"time"
 
-    "github.com/go-logr/logr"
-    "github.com/pkg/errors"
-    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-    "k8s.io/apimachinery/pkg/util/uuid"
-    "k8s.io/utils/ptr"
-    "sigs.k8s.io/controller-runtime/pkg/client"
-    "sigs.k8s.io/controller-runtime/pkg/client/fake"
-    "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-    "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-    "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 
-    "context"
+	"context"
 
-    "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 
-    install "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	install "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 
-    "github.com/armadaproject/armada-operator/test/k8sclient"
+	"github.com/armadaproject/armada-operator/test/k8sclient"
 
-    "github.com/golang/mock/gomock"
-    appsv1 "k8s.io/api/apps/v1"
-    batchv1 "k8s.io/api/batch/v1"
-    corev1 "k8s.io/api/core/v1"
-    k8serrors "k8s.io/apimachinery/pkg/api/errors"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/apimachinery/pkg/runtime"
-    "k8s.io/apimachinery/pkg/runtime/schema"
-    "k8s.io/apimachinery/pkg/types"
+	"github.com/golang/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestImageString(t *testing.T) {
@@ -792,9 +792,9 @@ func makeCommonComponents() CommonComponents {
 		StringData: map[string]string{"secretkey": "secretval"},
 	}
 	return CommonComponents{
-		Deployment:      &deployment,
-		ServiceAccount:  &serviceAccount,
-		Secret:          &secret,
+		Deployment:     &deployment,
+		ServiceAccount: &serviceAccount,
+		Secret:         &secret,
 	}
 }
 
