@@ -36,5 +36,5 @@ roleRef:
   name: '{{ include "armada-operator.fullname" . }}-proxy-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "armada-operator.fullname" . }}-controller-manager'
+  name: '{{ include "armada-operator.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

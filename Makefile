@@ -283,7 +283,7 @@ wait-for-armada: ## Wait for all Armada pods
 .PHONY: uninstall-armada-deps
 uninstall-armada-deps: helm-uninstall-kube-prometheus-stack helm-uninstall-postgres helm-uninstall-pulsar helm-uninstall-redis ## Uninstall required Armada dependencies (Prometheus, PostgreSQL, Pulsar, Redis).
 
-CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml"
+CERT_MANAGER_MANIFEST ?= "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml"
 .PHONY: install-cert-manager
 install-cert-manager: ## Install cert-manager.
 	kubectl apply -f ${CERT_MANAGER_MANIFEST}
@@ -317,7 +317,7 @@ helm-repos: ## Add helm repos for external dependencies.
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 
-CERT_MANAGER_VERSION ?= v1.14.5
+CERT_MANAGER_VERSION ?= v1.19.2
 .PHONY: helm-install-cert-manager
 helm-install-cert-manager:
 	helm upgrade --install cert-manager jetstack/cert-manager \
@@ -328,7 +328,7 @@ helm-install-cert-manager:
 
 .PHONY: helm-install-pulsar
 helm-install-pulsar: helm-repos ## Install Apache Pulsar using Helm.
-	helm upgrade --install pulsar apache/pulsar --version 4.1.0 --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
+	helm upgrade --install pulsar apache/pulsar --version 4.4.0 --values dev/quickstart/pulsar.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-pulsar
 helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
@@ -336,7 +336,7 @@ helm-uninstall-pulsar: ## Uninstall Apache Pulsar using Helm.
 
 .PHONY: helm-install-postgres
 helm-install-postgres: helm-repos ## Install PostgreSQL using Helm.
-	helm upgrade --install postgresql groundhog2k/postgres --version 1.5.8 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
+	helm upgrade --install postgresql groundhog2k/postgres --version 1.6.1 --values dev/quickstart/postgres.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-postgres
 helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
@@ -344,7 +344,7 @@ helm-uninstall-postgres: ## Uninstall PostgreSQL using Helm.
 
 .PHONY: helm-install-redis
 helm-install-redis: helm-repos ## Install Redis using Helm.
-	helm upgrade --install redis-ha dandydev/redis-ha --version 4.34.13 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
+	helm upgrade --install redis-ha dandydev/redis-ha --version 4.35.5 --values dev/quickstart/redis.values.yaml --create-namespace --namespace data
 
 .PHONY: helm-uninstall-redis
 helm-uninstall-redis: ## Uninstall Redis using Helm.
@@ -352,7 +352,7 @@ helm-uninstall-redis: ## Uninstall Redis using Helm.
 
 .PHONY: helm-install-kube-prometheus-stack
 helm-install-kube-prometheus-stack: helm-repos ## Install kube-prometheus-stack using Helm.
-	helm upgrade --install kube-prometheus-stack --version 72.6.4 --values dev/quickstart/kube-prometheus-stack.values.yaml prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
+	helm upgrade --install kube-prometheus-stack --version 80.6.0 --values dev/quickstart/kube-prometheus-stack.values.yaml prometheus-community/kube-prometheus-stack --create-namespace --namespace monitoring
 
 .PHONY: helm-uninstall-kube-prometheus-stack
 helm-uninstall-kube-prometheus-stack: ## Uninstall kube-prometheus-stack using Helm.
@@ -372,7 +372,7 @@ GORELEASER ?= $(LOCALBIN_TOOLING)/goreleaser
 CRD_REF_DOCS ?= $(LOCALBIN_TOOLING)/crd-ref-docs
 GOLANGCI_LINT ?= $(LOCALBIN_TOOLING)/golangci-lint
 
-KUSTOMIZE_VERSION ?= v5.6.0
+KUSTOMIZE_VERSION ?= v5.8.0
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -390,7 +390,7 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN_TOOLING)
 	test -s $(ENVTEST) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-GOTESTSUM_VERSION ?= v1.12.0
+GOTESTSUM_VERSION ?= v1.13.0
 .PHONY: gotestsum
 gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
 $(GOTESTSUM): $(LOCALBIN_TOOLING)
@@ -402,25 +402,25 @@ mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN): $(LOCALBIN_TOOLING)
 	test -s $(MOCKGEN) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golang/mock/mockgen@$(MOCKGEN_VERSION)
 
-KIND_VERSION ?= v0.27.0
+KIND_VERSION ?= v0.31.0
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary.
 $(KIND): $(LOCALBIN_TOOLING)
 	test -s $(KIND) || GOBIN=$(LOCALBIN_TOOLING) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
-HELMIFY_VERSION ?= v0.4.17
+HELMIFY_VERSION ?= v0.4.19
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
 $(HELMIFY): $(LOCALBIN_TOOLING)
 	test -s $(HELMIFY) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/arttor/helmify/cmd/helmify@$(HELMIFY_VERSION)
 
-GORELEASER_VERSION ?= v2.7.0
+GORELEASER_VERSION ?= v2.13.2
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download GoReleaser locally if necessary.
 $(GORELEASER): $(LOCALBIN_TOOLING)
 	test -s $(GORELEASER) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
-CRD_REF_DOCS_VERSION ?= v0.1.0
+CRD_REF_DOCS_VERSION ?= v0.2.0
 .PHONY: crd-ref-docs
 crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
 $(CRD_REF_DOCS): $(LOCALBIN_TOOLING)

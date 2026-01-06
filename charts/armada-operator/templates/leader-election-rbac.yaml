@@ -56,5 +56,5 @@ roleRef:
   name: '{{ include "armada-operator.fullname" . }}-leader-election-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "armada-operator.fullname" . }}-controller-manager'
+  name: '{{ include "armada-operator.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'
