@@ -1,5 +1,4 @@
-FROM alpine:latest
-RUN apk add libc6-compat
+FROM scratch
 
 COPY armada-operator /
 
