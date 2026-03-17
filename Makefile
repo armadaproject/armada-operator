@@ -152,11 +152,11 @@ test-integration-debug: manifests generate fmt vet gotestsum envtest ## Run inte
 
 .PHONY: build
 build: generate ## Build armada operator binary.
-	go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
+	CGO_ENABLED=0 go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
 
 .PHONY: build-linux-amd64
 build-linux-amd64: generate ## Build armada operator binary for linux/amd64.
-	GOOS=linux GOARCH=amd64 go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LOCALBIN_APP)/armada-operator cmd/main.go
 
 .PHONY: goreleaser-build
 goreleaser-build: goreleaser ## Build using GoReleaser
