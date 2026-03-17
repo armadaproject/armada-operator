@@ -426,8 +426,8 @@ crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
 $(CRD_REF_DOCS): $(LOCALBIN_TOOLING)
 	test -s $(CRD_REF_DOCS) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION)
 
-GOLANGCI_LINT_VERSION ?= v1.64.6
+GOLANGCI_LINT_VERSION ?= v2.7.2
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN_TOOLING)
-	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN_TOOLING) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
