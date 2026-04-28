@@ -115,13 +115,8 @@ kubectl create namespace armada
 kubectl apply -n armada -f dev/quickstart/armada-crs.yaml
 ```
 
-`dev/quickstart/armada-crs.yaml` uses NodePort Services for exposing Armada components For example, the Lookout UI at `30000`, the Armada [gRPC](en.wikipedia.org/wiki/GRPC) API at `30001` and the Armada REST API at `30002`.
-
-Once every Armada service is deployed, you should have a fully functional installation of Armada.
-
-**Note:** This example, created for use with the `kind` config defined at `hack/kind-config.yaml`, is for demonstration purposes only. Do not use it in production.
-
-### Applying PriorityClass
+**Note:** `dev/quickstart/armada-crs.yaml` uses **NodePort** Services for exposing Armada components (Lookout UI @ `30000`, Armada HTTP API @ `30001` and Armada gRPC API @ `30002`).
+This example is created to be used with the `kind` config defined at `hack/kind-config.yaml` for demonstration purposes only and should not be used in production.
 
 Armada also requires a default PriorityClass to be set for all jobs. You can apply the default PriorityClass by running the following command:
 
