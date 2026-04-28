@@ -1,2 +1,9 @@
-auth:
-  postgresPassword: psw
+settings:
+  superuserPassword:
+    value: "psw"
+
+customScripts:
+  init-databases.sql: |
+    -- Create databases for Armada components
+    CREATE DATABASE scheduler;
+    CREATE DATABASE lookout;

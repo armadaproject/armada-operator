@@ -142,12 +142,6 @@ func (r *ExecutorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	for _, pc := range components.PriorityClasses {
-		if err := upsertObjectIfNeeded(ctx, r.Client, pc, executor.Kind, mutateFn, logger); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if err := upsertObjectIfNeeded(ctx, r.Client, components.PrometheusRule, executor.Kind, mutateFn, logger); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -222,7 +216,6 @@ func (r *ExecutorReconciler) generateExecutorInstallComponents(
 		ServiceAccount:      serviceAccount,
 		Secret:              secret,
 		ClusterRoleBindings: clusterRoleBindings,
-		PriorityClasses:     executor.Spec.PriorityClasses,
 		ClusterRole:         clusterRole,
 		ServiceProfiling:    profilingService,
 		IngressProfiling:    profilingIngress,
@@ -512,13 +505,6 @@ func (r *ExecutorReconciler) deleteExternalResources(ctx context.Context, compon
 			return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", crb.Name)
 		}
 		logger.Info("Successfully deleted Executor ClusterRoleBinding", "name", crb.Name)
-	}
-
-	for _, pc := range components.PriorityClasses {
-		if err := r.Delete(ctx, pc); err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrapf(err, "error deleting ClusterRoleBinding %s", pc.Name)
-		}
-		logger.Info("Successfully deleted Executor PriorityClass", "name", pc.Name)
 	}
 
 	return nil

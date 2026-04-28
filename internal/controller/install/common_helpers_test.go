@@ -29,7 +29,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -650,8 +649,6 @@ func TestDeepCopy(t *testing.T) {
 			expectations: func(t *testing.T, old, new CommonComponents) {
 				assert.EqualValues(t, old.Deployment, new.Deployment)
 				assert.NotSame(t, old.Deployment, new.Deployment)
-				assert.Equal(t, len(old.PriorityClasses), len(new.PriorityClasses))
-				assert.NotSame(t, &old.PriorityClasses, &new.PriorityClasses)
 				assert.Equal(t, old, new)
 				assert.NotSame(t, &old, &new)
 			},
@@ -791,18 +788,13 @@ func makeCommonComponents() CommonComponents {
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
 
-	pc := schedulingv1.PriorityClass{
-		Value: 1000,
-	}
-
 	secret := corev1.Secret{
 		StringData: map[string]string{"secretkey": "secretval"},
 	}
 	return CommonComponents{
-		Deployment:      &deployment,
-		ServiceAccount:  &serviceAccount,
-		PriorityClasses: []*schedulingv1.PriorityClass{&pc},
-		Secret:          &secret,
+		Deployment:     &deployment,
+		ServiceAccount: &serviceAccount,
+		Secret:         &secret,
 	}
 }
 
