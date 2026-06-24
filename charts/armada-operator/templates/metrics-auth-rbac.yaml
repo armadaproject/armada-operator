@@ -3,9 +3,6 @@ kind: ClusterRole
 metadata:
   name: {{ include "armada-operator.fullname" . }}-metrics-auth-role
   labels:
-    app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: armada-operator
-    app.kubernetes.io/part-of: armada-operator
   {{- include "armada-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups:
@@ -26,9 +23,6 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ include "armada-operator.fullname" . }}-metrics-auth-rolebinding
   labels:
-    app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: armada-operator
-    app.kubernetes.io/part-of: armada-operator
   {{- include "armada-operator.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

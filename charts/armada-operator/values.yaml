@@ -1,11 +1,7 @@
 controllerManager:
   manager:
     args:
-    - --health-probe-bind-address=:8081
-    # Metrics are served over HTTPS on :8443 and protected by the controller-runtime
-    # authn/authz filter (built into the manager), replacing the kube-rbac-proxy sidecar.
     - --metrics-bind-address=:8443
-    - --metrics-secure
     - --leader-elect
     containerSecurityContext:
       allowPrivilegeEscalation: false
@@ -35,7 +31,7 @@ metricsService:
   - name: https
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: 8443
   type: ClusterIP
 serviceAccount:
   annotations: {}

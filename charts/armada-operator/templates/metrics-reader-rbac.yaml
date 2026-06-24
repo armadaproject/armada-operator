@@ -3,9 +3,6 @@ kind: ClusterRole
 metadata:
   name: {{ include "armada-operator.fullname" . }}-metrics-reader
   labels:
-    app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: armada-operator
-    app.kubernetes.io/part-of: armada-operator
   {{- include "armada-operator.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
