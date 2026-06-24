@@ -25,13 +25,19 @@ resources:
 - ../certmanager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
+# [METRICS] Expose the controller manager metrics service.
+- metrics_service.yaml
+
+patches:
+# [METRICS] The following patch enables the metrics endpoint over HTTPS on port :8443.
+# The endpoint is protected by the controller-runtime authn/authz filter configured in
+# cmd/main.go, replacing the previously used kube-rbac-proxy sidecar.
+# More info: https://book.kubebuilder.io/reference/metrics
+- path: manager_metrics_patch.yaml
+  target:
+    kind: Deployment
 
 patchesStrategicMerge:
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-- manager_auth_proxy_patch.yaml
-
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 - manager_webhook_patch.yaml

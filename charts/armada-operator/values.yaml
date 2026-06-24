@@ -1,29 +1,11 @@
 controllerManager:
-  kubeRbacProxy:
-    args:
-    - --secure-listen-address=0.0.0.0:8443
-    - --upstream=http://127.0.0.1:8080/
-    - --logtostderr=true
-    - --v=0
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-    image:
-      repository: docker.io/kubebuilder/kube-rbac-proxy
-      tag: v0.16.0
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 5m
-        memory: 64Mi
   manager:
     args:
     - --health-probe-bind-address=:8081
-    - --metrics-bind-address=127.0.0.1:8080
+    # Metrics are served over HTTPS on :8443 and protected by the controller-runtime
+    # authn/authz filter (built into the manager), replacing the kube-rbac-proxy sidecar.
+    - --metrics-bind-address=:8443
+    - --metrics-secure
     - --leader-elect
     containerSecurityContext:
       allowPrivilegeEscalation: false
