@@ -1,4 +1,6 @@
-# This patch adds the args to allow exposing the metrics endpoint using HTTPS
+# This patch sets the metrics bind address so the manager exposes its metrics on :8443.
+# Whether that endpoint is HTTPS with authn/authz is controlled by the manager's
+# --metrics-secure flag (default true; see cmd/main.go).
 - op: add
   path: /spec/template/spec/containers/0/args/0
   value: --metrics-bind-address=:8443

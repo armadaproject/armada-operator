@@ -83,7 +83,9 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
-		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+		"If set, the metrics endpoint is served securely via HTTPS with authn/authz. "+
+			"Setting --metrics-secure=false serves metrics over plain HTTP AND disables the "+
+			"authn/authz filter, exposing the endpoint without authentication.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	opts := zap.Options{
@@ -132,6 +134,9 @@ func main() {
 		// 'config/rbac/kustomization.yaml'. More info:
 		// https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	} else if metricsAddr != "" && metricsAddr != "0" {
+		setupLog.Info("WARNING: serving metrics over plain HTTP without authn/authz because --metrics-secure=false; "+
+			"the metrics endpoint is exposed without authentication", "bindAddress", metricsAddr)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
