@@ -72,6 +72,10 @@ spec:
       forceNoTls: true
     metric:
       port: 9001
+    # Request work and report spare cluster capacity to the scheduler frequently,
+    # so a freshly started cluster becomes schedulable within seconds (default is 5s).
+    task:
+      allocateSpareClusterCapacityInterval: 2s
 ---
 apiVersion: install.armadaproject.io/v1alpha1
 kind: Lookout
@@ -139,6 +143,12 @@ spec:
     repository: gresearch/armada-scheduler
     tag: latest
   applicationConfig:
+    # Ingest executor-reported capacity and run scheduling rounds frequently,
+    # so submitted jobs are picked up within a few seconds.
+    # Defaults are 60s / 10s; lowered here for this quickstart/dev setup.
+    schedulePeriod: 5s
+    scheduling:
+      executorUpdateFrequency: 5s
     grpc:
       port: 50051
     auth:

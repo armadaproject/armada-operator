@@ -216,6 +216,10 @@ kind-all: kind-create-cluster install-and-wait-cert-manager helm-repos helm-inst
 .PHONY: kind-all-dev
 kind-all-dev: kind-create-cluster kind-deploy helm-repos install-armada-deps wait-for-armada-deps create-armada-namespace apply-armada-crs create-armadactl-config apply-default-priority-class get-armadactl wait-for-armada ## Install everything with Operator built from scratch
 
+.PHONY: test-e2e
+test-e2e: ## Run the end-to-end test (kind-all-dev + create queue + submit job + wait for success). Set E2E_KEEP_CLUSTER=true to keep the cluster.
+	scripts/e2e-test.sh
+
 .PHONY: kind-create-cluster
 kind-create-cluster: kind ## Create a kind cluster using config from hack/kind-config.yaml.
 	$(KIND) create cluster --config hack/kind-config.yaml --name $(KIND_CLUSTER_NAME)
