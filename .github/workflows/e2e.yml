@@ -1,0 +1,42 @@
+name: E2E
+
+on:
+  pull_request:
+    branches-ignore:
+      - gh-pages
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: End-to-end (kind)
+    runs-on: ubuntu-latest
+    # Skip on fork PRs from a different repo (same guard style as ci.yml jobs).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.id == github.event.pull_request.base.repo.id
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go-cache
+        with:
+          go-version: "1.24"
+          cache-prefix: go-e2e
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+          swap-storage: false
+
+      - name: Run e2e
+        run: make test-e2e

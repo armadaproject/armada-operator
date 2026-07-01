@@ -8,17 +8,17 @@ jobs:
       terminationGracePeriodSeconds: 0
       restartPolicy: Never
       containers:
-        - name: sleeper
+        - name: hello
           image: alpine:latest
           command:
             - sh
           args:
             - -c
-            - sleep $(( (RANDOM % 60) + 10 ))
+            - echo "Hello Armada"
           resources:
             limits:
-              memory: 128Mi
-              cpu: 2
+              memory: 64Mi
+              cpu: 100m
             requests:
-              memory: 128Mi
-              cpu: 2
+              memory: 64Mi
+              cpu: 100m
