@@ -37,8 +37,11 @@ QUEUE="${E2E_QUEUE:-example}"
 JOBSET="${E2E_JOBSET:-job-set-1}"
 TIMEOUT="${E2E_TIMEOUT:-600}"
 KEEP_CLUSTER="${E2E_KEEP_CLUSTER:-false}"
+CRS="dev/quickstart/armada-crs.yaml"
+CRS_BACKUP=""
 
 # retry_until <timeout_secs> <description> <cmd...>
+# <desc> names what we are waiting for, so the log reads "Waiting for <desc>...".
 # Runs cmd until it exits 0 or the timeout elapses, polling every 5s.
 # If cmd's stderr reports the resource "already exists", that is treated as success.
 # Each retry prints the elapsed time, and every ~30s it also prints a snapshot of the
@@ -53,22 +56,22 @@ retry_until() {
   until "$@" 2>"${err_file}"; do
     cat "${err_file}" >&2
     if grep -qiE "already exists" "${err_file}"; then
-      log "${desc}: already exists, continuing"
+      log "${desc} already exists, continuing"
       break
     fi
     now=$(date +%s)
     if [ "$(( now - start ))" -ge "${timeout}" ]; then
-      err "${desc}: did not succeed within ${timeout}s."
+      err "Timed out after ${timeout}s waiting for ${desc}."
       rm -f "${err_file}"
       return 1
     fi
     if [ "$(( now - last_snap ))" -ge 30 ]; then
       last_snap=$now
-      log "${desc}: still waiting ($(( now - start ))s/${timeout}s); armada pods:"
+      log "Waiting for ${desc} ($(( now - start ))s/${timeout}s); armada pods:"
       kubectl get pods -n armada --no-headers 2>/dev/null \
         | awk '{printf "    %-58s %-7s %s\n", $1, $2, $3}' || true
     else
-      log "${desc}: not ready yet ($(( now - start ))s/${timeout}s), retrying in 5s..."
+      log "Waiting for ${desc} ($(( now - start ))s/${timeout}s)..."
     fi
     sleep 5
   done
@@ -92,6 +95,10 @@ dump_diagnostics() {
 cleanup() {
   rc=$?
   rm -f "${events:-}"
+  # Restore the quickstart CRs if we injected the fast-scheduling overrides.
+  if [ -n "${CRS_BACKUP:-}" ] && [ -f "${CRS_BACKUP}" ]; then
+    mv -f "${CRS_BACKUP}" "${CRS}" || true
+  fi
   if [ "$rc" -ne 0 ]; then
     dump_diagnostics
   fi
@@ -105,6 +112,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The quickstart CRs keep Armada's default scheduling intervals, which make a fresh
+# cluster take about a minute to become schedulable.
+# Inject faster intervals with yq so the test runs quickly, without changing the shared
+# quickstart CRs. The original file is restored on exit.
+log "==> Lowering Armada scheduling intervals for the test (yq)..."
+command -v yq >/dev/null 2>&1 || { err "yq is required but was not found on PATH."; exit 1; }
+CRS_BACKUP="$(mktemp)"
+cp "${CRS}" "${CRS_BACKUP}"
+yq -i 'with(select(.kind == "Executor"); .spec.applicationConfig.task.allocateSpareClusterCapacityInterval = "2s")' "${CRS}"
+yq -i 'with(select(.kind == "Scheduler"); .spec.applicationConfig.schedulePeriod = "5s" | .spec.applicationConfig.scheduling.executorUpdateFrequency = "5s")' "${CRS}"
+
 log "==> Building the operator from source and bringing up Armada on kind (make kind-all-dev)..."
 make kind-all-dev
 
@@ -113,7 +131,7 @@ make kind-all-dev
 # which can finish a little later.
 # Retry until the API actually accepts queue creation before submitting.
 log "==> Waiting for Armada to accept queue operations and creating queue '${QUEUE}'..."
-retry_until 300 "create queue '${QUEUE}'" armadactl create queue "${QUEUE}"
+retry_until 300 "queue '${QUEUE}' to be created" armadactl create queue "${QUEUE}"
 
 # A job submitted before the scheduler has the executor's nodes is Rejected
 # (JobFailedEvent cause=4, Cause_Rejected).
@@ -128,20 +146,29 @@ scheduler_has_capacity() {
   kubectl logs -n armada -l app=armada-scheduler --tail=200 2>/dev/null \
     | grep -qE "Scheduling on pool .* with capacity \(memory=[0-9]+,cpu=[1-9]"
 }
-retry_until 600 "scheduler has executor capacity" scheduler_has_capacity
+retry_until 600 "the scheduler to register the executor's capacity" scheduler_has_capacity
 
 # CreateQueue persists to Postgres,
 # but the submit API serves from a queue cache that refreshes on an interval,
 # so retry submit until the queue becomes visible.
 log "==> Submitting hello-world job to job set '${JOBSET}'..."
-retry_until 120 "submit job to queue '${QUEUE}'" armadactl submit dev/quickstart/example-job.yaml
+retry_until 120 "the queue to be visible to the submit API" armadactl submit dev/quickstart/example-job.yaml
 
-# The set holds a single job,
-# so `watch --exit-if-inactive` returns as soon as that job is terminal.
+# `watch --exit-if-inactive` returns as soon as the job set is inactive. Right after
+# submit the job is not in the event stream yet, so a single watch can return on an
+# empty set and look like a failure. Re-watch until the job actually reports a terminal
+# event, or until the overall timeout.
 # watch exits 0 even on failure, so inspect the raw event stream ourselves.
 log "==> Waiting up to ${TIMEOUT}s for the job to finish..."
 events="$(mktemp)"
-timeout "${TIMEOUT}" armadactl watch --raw --exit-if-inactive "${QUEUE}" "${JOBSET}" | tee "${events}" || true
+deadline=$(( $(date +%s) + TIMEOUT ))
+while :; do
+  timeout 60 armadactl watch --raw --exit-if-inactive "${QUEUE}" "${JOBSET}" 2>/dev/null | tee "${events}" || true
+  if grep -qE 'JobSucceededEvent|JobFailedEvent' "${events}"; then break; fi
+  if [ "$(date +%s)" -ge "${deadline}" ]; then break; fi
+  log "Job not in the event stream yet, re-watching..."
+  sleep 3
+done
 
 if grep -q 'JobSucceededEvent' "${events}"; then
   log "==> E2E PASSED: job in job set '${JOBSET}' succeeded."
