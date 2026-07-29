@@ -21,7 +21,7 @@ runs:
   using: "composite"
   steps:
     - id: setup-go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
       with:
         go-version: ${{ inputs.go-version }}
         check-latest: true
@@ -30,7 +30,7 @@ runs:
       if: ${{ inputs.disable-cache != 'true' }}
       shell: bash
       run: echo path=$(go env GOCACHE) >> $GITHUB_OUTPUT
-    - uses: actions/cache@v3
+    - uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       if: ${{ inputs.disable-cache != 'true' }}
       with:
         path: ${{ steps.cache-info.outputs.path }}
