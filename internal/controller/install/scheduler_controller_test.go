@@ -1352,6 +1352,26 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "The default image is used for the db-wait init container",
+			verifyJob: func(t *testing.T, job *batchv1.Job) {
+				assert.Equal(t, "postgres:15.2-alpine", job.Spec.Template.Spec.InitContainers[0].Image)
+			},
+			wantErr: false,
+		},
+		{
+			name: "MigrationDbWaitImage sets the image of the db-wait init container",
+			modifyInput: func(cr *v1alpha1.Scheduler) {
+				cr.Spec.MigrationDbWaitImage = &v1alpha1.Image{
+					Repository: "my-mirror.example.com/postgres",
+					Tag:        "15.2-alpine",
+				}
+			},
+			verifyJob: func(t *testing.T, job *batchv1.Job) {
+				assert.Equal(t, "my-mirror.example.com/postgres:15.2-alpine", job.Spec.Template.Spec.InitContainers[0].Image)
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

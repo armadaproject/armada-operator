@@ -856,3 +856,12 @@ func defaultDeploymentStrategy(maxUnavailable int32) appsv1.DeploymentStrategy {
 func defaultAlpineImage() string {
 	return "alpine:3.20"
 }
+
+// migrationDbWaitImageString returns the image for the init container of a migration job.
+// The init container needs the psql client and the nc command, so the default image is a postgres image.
+func migrationDbWaitImageString(image *installv1alpha1.Image) string {
+	if image != nil {
+		return ImageString(*image)
+	}
+	return "postgres:15.2-alpine"
+}
