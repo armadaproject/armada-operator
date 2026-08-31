@@ -414,7 +414,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 					SecurityContext:               scheduler.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  "scheduler-migration-db-wait",
-						Image: "postgres:15.2-alpine",
+						Image: migrationDbWaitImageString(scheduler.Spec.MigrationDbWaitImage),
 						Command: []string{
 							"/bin/sh",
 							"-c",

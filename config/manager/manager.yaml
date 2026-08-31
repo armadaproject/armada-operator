@@ -73,6 +73,14 @@ spec:
         image: controller:latest
         name: manager
         imagePullPolicy: IfNotPresent
+        # The RELATED_IMAGE_* variables set the default images for the init containers
+        # that the operator creates.
+        # Point them at an internal mirror when the cluster cannot pull from Docker Hub.
+        env:
+        - name: DEFAULT_ALPINE_IMAGE
+          value: alpine:3.20
+        - name: DEFAULT_POSTGRES_IMAGE
+          value: postgres:15.2-alpine
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

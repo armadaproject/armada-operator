@@ -386,7 +386,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 					SecurityContext:               lookout.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  "lookout-migration-db-wait",
-						Image: "postgres:15.2-alpine",
+						Image: migrationDbWaitImageString(lookout.Spec.MigrationDbWaitImage),
 						Command: []string{
 							"/bin/sh",
 							"-c",

@@ -1012,6 +1012,11 @@ func (in *LookoutSpec) DeepCopyInto(out *LookoutSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.MigrationDbWaitImage != nil {
+		in, out := &in.MigrationDbWaitImage, &out.MigrationDbWaitImage
+		*out = new(Image)
+		**out = **in
+	}
 	if in.DbPruningEnabled != nil {
 		in, out := &in.DbPruningEnabled, &out.DbPruningEnabled
 		*out = new(bool)
@@ -1368,6 +1373,11 @@ func (in *SchedulerSpec) DeepCopyInto(out *SchedulerSpec) {
 	if in.Migrate != nil {
 		in, out := &in.Migrate, &out.Migrate
 		*out = new(bool)
+		**out = **in
+	}
+	if in.MigrationDbWaitImage != nil {
+		in, out := &in.MigrationDbWaitImage, &out.MigrationDbWaitImage
+		*out = new(Image)
 		**out = **in
 	}
 	if in.Pruner != nil {
