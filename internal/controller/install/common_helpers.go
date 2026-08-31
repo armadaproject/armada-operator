@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -853,15 +854,27 @@ func defaultDeploymentStrategy(maxUnavailable int32) appsv1.DeploymentStrategy {
 	}
 }
 
+// defaultAlpineImage returns the image for init containers that only need the nc command.
+// The DEFAULT_ALPINE_IMAGE environment variable overrides the built-in default,
+// for clusters that pull images from an internal mirror.
 func defaultAlpineImage() string {
+	if image := os.Getenv("DEFAULT_ALPINE_IMAGE"); image != "" {
+		return image
+	}
 	return "alpine:3.20"
 }
 
 // migrationDbWaitImageString returns the image for the init container of a migration job.
 // The init container needs the psql client and the nc command, so the default image is a postgres image.
+// The image from the CRD has the highest priority.
+// The DEFAULT_POSTGRES_IMAGE environment variable is the second priority,
+// for clusters that pull images from an internal mirror.
 func migrationDbWaitImageString(image *installv1alpha1.Image) string {
 	if image != nil {
 		return ImageString(*image)
+	}
+	if envImage := os.Getenv("DEFAULT_POSTGRES_IMAGE"); envImage != "" {
+		return envImage
 	}
 	return "postgres:15.2-alpine"
 }

@@ -60,6 +60,38 @@ func TestImageString(t *testing.T) {
 	}
 }
 
+// The subtests use t.Setenv, so they must not run in parallel.
+func Test_defaultAlpineImage(t *testing.T) {
+	t.Run("The built-in default is used when the environment variable is not set", func(t *testing.T) {
+		t.Setenv("DEFAULT_ALPINE_IMAGE", "")
+		assert.Equal(t, "alpine:3.20", defaultAlpineImage())
+	})
+
+	t.Run("DEFAULT_ALPINE_IMAGE overrides the built-in default", func(t *testing.T) {
+		t.Setenv("DEFAULT_ALPINE_IMAGE", "my-mirror.example.com/alpine:3.20")
+		assert.Equal(t, "my-mirror.example.com/alpine:3.20", defaultAlpineImage())
+	})
+}
+
+// The subtests use t.Setenv, so they must not run in parallel.
+func Test_migrationDbWaitImageString(t *testing.T) {
+	t.Run("The built-in default is used when the CRD field and the environment variable are not set", func(t *testing.T) {
+		t.Setenv("DEFAULT_POSTGRES_IMAGE", "")
+		assert.Equal(t, "postgres:15.2-alpine", migrationDbWaitImageString(nil))
+	})
+
+	t.Run("DEFAULT_POSTGRES_IMAGE overrides the built-in default", func(t *testing.T) {
+		t.Setenv("DEFAULT_POSTGRES_IMAGE", "my-mirror.example.com/postgres:15.2-alpine")
+		assert.Equal(t, "my-mirror.example.com/postgres:15.2-alpine", migrationDbWaitImageString(nil))
+	})
+
+	t.Run("The CRD field has priority over DEFAULT_POSTGRES_IMAGE", func(t *testing.T) {
+		t.Setenv("DEFAULT_POSTGRES_IMAGE", "my-mirror.example.com/postgres:15.2-alpine")
+		image := &install.Image{Repository: "other-registry.example.com/postgres", Tag: "16"}
+		assert.Equal(t, "other-registry.example.com/postgres:16", migrationDbWaitImageString(image))
+	})
+}
+
 func TestAllLabels(t *testing.T) {
 	tests := []struct {
 		name     string
