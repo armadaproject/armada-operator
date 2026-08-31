@@ -681,7 +681,7 @@ _Appears in:_
 | `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
 | `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 | `migrate` _boolean_ | Migrate toggles whether to run migrations when installed |  |  |
-| `migrationDbWaitImage` _[Image](#image)_ | MigrationDbWaitImage sets the image for the init container of the migration job.<br />The init container waits for the database and creates the database.<br />The image must contain the psql client and the nc command.<br />The default value is postgres:15.2-alpine. |  |  |
+| `migrationDbWaitImage` _[Image](#image)_ | MigrationDbWaitImage sets the image for the init container of the migration job.<br />The init container waits for the database and creates the database.<br />The image must contain the psql client and the nc command.<br />The default value is the image in the DEFAULT_POSTGRES_IMAGE environment variable of the operator. |  |  |
 | `dbPruningEnabled` _boolean_ | DbPruningEnabled when true a pruning CronJob is created |  |  |
 | `dbPruningSchedule` _string_ | DbPruningSchedule schedule to use for db pruning CronJob |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
@@ -921,7 +921,7 @@ _Appears in:_
 | `hostNames` _string array_ | An array of host names to build ingress rules for |  |  |
 | `clusterIssuer` _string_ | Who is issuing certificates for CA |  |  |
 | `migrate` _boolean_ | Migrate toggles whether to run migrations when installed |  |  |
-| `migrationDbWaitImage` _[Image](#image)_ | MigrationDbWaitImage sets the image for the init container of the migration job.<br />The init container waits for the database and creates the database.<br />The image must contain the psql client and the nc command.<br />The default value is postgres:15.2-alpine. |  |  |
+| `migrationDbWaitImage` _[Image](#image)_ | MigrationDbWaitImage sets the image for the init container of the migration job.<br />The init container waits for the database and creates the database.<br />The image must contain the psql client and the nc command.<br />The default value is the image in the DEFAULT_POSTGRES_IMAGE environment variable of the operator. |  |  |
 | `pruner` _[PrunerConfig](#prunerconfig)_ | Pruning config for cron job |  |  |
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |

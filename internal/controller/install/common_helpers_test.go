@@ -23,6 +23,7 @@ import (
 
 	install "github.com/armadaproject/armada-operator/api/install/v1alpha1"
 
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/test/k8sclient"
 
 	"github.com/golang/mock/gomock"
@@ -56,6 +57,56 @@ func TestImageString(t *testing.T) {
 
 			actual := ImageString(tt.Image)
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+// mirrorImages are default images of the operator that are different from the built-in defaults.
+var mirrorImages = operatorconfig.Images{
+	AlpineOverride:   "my-mirror.example.com/alpine:3.20",
+	PostgresOverride: "my-mirror.example.com/postgres:15.2-alpine",
+}
+
+// captureCreate returns an action for a Create call of the mock client.
+// The action copies the object that the reconciler creates into dst.
+func captureCreate[T client.Object](dst *T) func(context.Context, client.Object, ...client.CreateOption) error {
+	return func(_ context.Context, obj client.Object, _ ...client.CreateOption) error {
+		*dst = obj.DeepCopyObject().(T)
+		return nil
+	}
+}
+
+func Test_migrationDbWaitImageString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		image    *install.Image
+		images   operatorconfig.Images
+		expected string
+	}{
+		{
+			name:     "The built-in default is used when the CRD field and the operator default are not set",
+			expected: "postgres:15.2-alpine",
+		},
+		{
+			name:     "The operator default overrides the built-in default",
+			images:   mirrorImages,
+			expected: "my-mirror.example.com/postgres:15.2-alpine",
+		},
+		{
+			name:     "The CRD field has priority over the operator default",
+			image:    &install.Image{Repository: "other-registry.example.com/postgres", Tag: "16"},
+			images:   mirrorImages,
+			expected: "other-registry.example.com/postgres:16",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.expected, migrationDbWaitImageString(tt.image, tt.images))
 		})
 	}
 }

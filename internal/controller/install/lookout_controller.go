@@ -23,6 +23,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,6 +48,8 @@ const defaultPartitionJobTableActiveDeadlineSeconds = int64(86400)
 type LookoutReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Images contains the default images for the init containers.
+	Images operatorconfig.Images
 }
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=lookouts,verbs=get;list;watch;create;update;patch;delete
@@ -80,7 +83,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	components, partitionJobTableJob, err := generateLookoutInstallComponents(&lookout, r.Scheme, commonConfig)
+	components, partitionJobTableJob, err := generateLookoutInstallComponents(&lookout, r.Scheme, commonConfig, r.Images)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -185,6 +188,7 @@ func generateLookoutInstallComponents(
 	lookout *installv1alpha1.Lookout,
 	scheme *runtime.Scheme,
 	config *builders.CommonApplicationConfig,
+	images operatorconfig.Images,
 ) (*CommonComponents, *batchv1.Job, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
@@ -242,7 +246,7 @@ func generateLookoutInstallComponents(
 		}
 	}
 
-	job, err := createLookoutMigrationJob(lookout, serviceAccountName)
+	job, err := createLookoutMigrationJob(lookout, serviceAccountName, images)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -252,7 +256,7 @@ func generateLookoutInstallComponents(
 
 	var partitionJobTableJob *batchv1.Job
 	if lookout.Spec.PartitionJobTable != nil && lookout.Spec.PartitionJobTable.Enabled {
-		partitionJobTableJob, err = createLookoutPartitionJobTableJob(lookout, serviceAccountName)
+		partitionJobTableJob, err = createLookoutPartitionJobTableJob(lookout, serviceAccountName, images)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -261,7 +265,7 @@ func generateLookoutInstallComponents(
 		}
 	}
 
-	cronJob, err := createLookoutCronJob(lookout, serviceAccountName)
+	cronJob, err := createLookoutCronJob(lookout, serviceAccountName, images)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -385,13 +389,17 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout, config *builders
 }
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
-func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
-	return createLookoutDatabaseJob(lookout, serviceAccountName, "-migration", "--migrateDatabase")
+func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountName string, images operatorconfig.Images) (*batchv1.Job, error) {
+	return createLookoutDatabaseJob(lookout, serviceAccountName, images, "-migration", "--migrateDatabase")
 }
 
 // createLookoutPartitionJobTableJob returns a batch Job which partitions the Lookout job table or an error if the app config is not correct
-func createLookoutPartitionJobTableJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
-	job, err := createLookoutDatabaseJob(lookout, serviceAccountName, "-partition-job-table", "--partitionJobTable", "--execute", "--yes")
+func createLookoutPartitionJobTableJob(
+	lookout *installv1alpha1.Lookout,
+	serviceAccountName string,
+	images operatorconfig.Images,
+) (*batchv1.Job, error) {
+	job, err := createLookoutDatabaseJob(lookout, serviceAccountName, images, "-partition-job-table", "--partitionJobTable", "--execute", "--yes")
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +419,13 @@ func createLookoutPartitionJobTableJob(lookout *installv1alpha1.Lookout, service
 
 // createLookoutDatabaseJob returns a batch Job which runs Lookout with the given args against its database,
 // or an error if the app config is not correct
-func createLookoutDatabaseJob(lookout *installv1alpha1.Lookout, serviceAccountName, nameSuffix string, args ...string) (*batchv1.Job, error) {
+func createLookoutDatabaseJob(
+	lookout *installv1alpha1.Lookout,
+	serviceAccountName string,
+	images operatorconfig.Images,
+	nameSuffix string,
+	args ...string,
+) (*batchv1.Job, error) {
 	name := lookout.Name + nameSuffix
 	containerName := "lookout" + nameSuffix
 	var terminationGracePeriodSeconds int64
@@ -459,7 +473,7 @@ func createLookoutDatabaseJob(lookout *installv1alpha1.Lookout, serviceAccountNa
 					SecurityContext:               lookout.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  containerName + "-db-wait",
-						Image: migrationDbWaitImageString(lookout.Spec.MigrationDbWaitImage),
+						Image: migrationDbWaitImageString(lookout.Spec.MigrationDbWaitImage, images),
 						Command: []string{
 							"/bin/sh",
 							"-c",
@@ -538,7 +552,7 @@ func newJobTablePartitionedCondition(lookout *installv1alpha1.Lookout, job *batc
 }
 
 // createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
-func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.CronJob, error) {
+func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName string, images operatorconfig.Images) (*batchv1.CronJob, error) {
 	terminationGracePeriodSeconds := int64(0)
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
@@ -594,7 +608,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 							SecurityContext:               lookout.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "lookout-db-pruner-db-wait",
-								Image: defaultAlpineImage(),
+								Image: images.AlpineImage(),
 								Command: []string{
 									"/bin/sh",
 									"-c",

@@ -28,6 +28,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,6 +48,8 @@ import (
 type SchedulerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Images contains the default images for the init containers.
+	Images operatorconfig.Images
 }
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=schedulers,verbs=get;list;watch;create;update;patch;delete
@@ -85,7 +88,7 @@ func (r *SchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	var components *CommonComponents
-	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme, commonConfig)
+	components, err = generateSchedulerInstallComponents(&scheduler, r.Scheme, commonConfig, r.Images)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -166,6 +169,7 @@ func generateSchedulerInstallComponents(
 	scheduler *installv1alpha1.Scheduler,
 	scheme *runtime.Scheme,
 	config *builders.CommonApplicationConfig,
+	images operatorconfig.Images,
 ) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(scheduler.Spec.ApplicationConfig, scheduler.Name, scheduler.Namespace, GetConfigFilename(scheduler.Name))
 	if err != nil {
@@ -228,7 +232,7 @@ func generateSchedulerInstallComponents(
 		}
 	}
 
-	job, err := newSchedulerMigrationJob(scheduler, serviceAccountName)
+	job, err := newSchedulerMigrationJob(scheduler, serviceAccountName, images)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +240,7 @@ func generateSchedulerInstallComponents(
 		return nil, err
 	}
 
-	cronJob, err := newSchedulerCronJob(scheduler, serviceAccountName)
+	cronJob, err := newSchedulerCronJob(scheduler, serviceAccountName, images)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +379,7 @@ func newSchedulerIngressGRPC(scheduler *installv1alpha1.Scheduler, config *build
 }
 
 // newSchedulerMigrationJob returns a batch Job or an error if the app config is not correct
-func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.Job, error) {
+func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string, images operatorconfig.Images) (*batchv1.Job, error) {
 	var terminationGracePeriodSeconds int64
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
@@ -416,7 +420,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 					SecurityContext:               scheduler.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
 						Name:  "scheduler-migration-db-wait",
-						Image: migrationDbWaitImageString(scheduler.Spec.MigrationDbWaitImage),
+						Image: migrationDbWaitImageString(scheduler.Spec.MigrationDbWaitImage, images),
 						Command: []string{
 							"/bin/sh",
 							"-c",
@@ -478,7 +482,7 @@ func newSchedulerMigrationJob(scheduler *installv1alpha1.Scheduler, serviceAccou
 }
 
 // newSchedulerCronJob returns a batch CronJob or an error if the app config is not correct
-func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string) (*batchv1.CronJob, error) {
+func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountName string, images operatorconfig.Images) (*batchv1.CronJob, error) {
 	terminationGracePeriodSeconds := int64(0)
 	if scheduler.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *scheduler.Spec.TerminationGracePeriodSeconds
@@ -556,7 +560,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 							SecurityContext:               scheduler.Spec.PodSecurityContext,
 							InitContainers: []corev1.Container{{
 								Name:  "scheduler-db-pruner-db-wait",
-								Image: defaultAlpineImage(),
+								Image: images.AlpineImage(),
 								Command: []string{
 									"/bin/sh",
 									"-c",

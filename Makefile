@@ -137,7 +137,7 @@ lint-fix: golangci-lint ## Run golangci-lint against code and fix issues.
 
 .PHONY: test-unit
 test-unit: manifests generate gotestsum ## Run unit tests.
-	$(GOTESTSUM) -- ./internal/controller/... -coverprofile operator.out
+	$(GOTESTSUM) -- ./internal/... -coverprofile operator.out
 
 .PHONY: test-integration
 test-integration: manifests generate gotestsum envtest ## Run integration tests.

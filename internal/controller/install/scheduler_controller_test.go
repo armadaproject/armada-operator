@@ -10,12 +10,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/armadaproject/armada-operator/api/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -87,7 +89,7 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not return error when parsing common application config")
 	}
-	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig, operatorconfig.Images{})
 	if err != nil {
 		t.Fatal("We should not fail on generating scheduler")
 	}
@@ -138,10 +140,11 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "scheduler"))
+	var createdMigrationJob *batchv1.Job
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
-		Return(nil).
+		DoAndReturn(captureCreate(&createdMigrationJob)).
 		SetArg(1, *scheduler.Jobs[0])
 	mockK8sClient.
 		EXPECT().
@@ -220,14 +223,16 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedCronJobName, gomock.AssignableToTypeOf(&batchv1.CronJob{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	var createdCronJob *batchv1.CronJob
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
-		Return(nil)
+		DoAndReturn(captureCreate(&createdCronJob))
 
 	r := SchedulerReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
+		Images: mirrorImages,
 	}
 
 	req := ctrl.Request{
@@ -238,6 +243,11 @@ func TestSchedulerReconciler_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
 	}
+
+	require.NotNil(t, createdMigrationJob)
+	assert.Equal(t, mirrorImages.PostgresOverride, createdMigrationJob.Spec.Template.Spec.InitContainers[0].Image)
+	require.NotNil(t, createdCronJob)
+	assert.Equal(t, mirrorImages.AlpineOverride, createdCronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers[0].Image)
 }
 
 func TestSchedulerReconciler_ReconcilePruningDisabled(t *testing.T) {
@@ -292,7 +302,7 @@ func TestSchedulerReconciler_ReconcilePruningDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not return error when parsing common application config")
 	}
-	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig, operatorconfig.Images{})
 	if err != nil {
 		t.Fatal("We should not fail on generating scheduler")
 	}
@@ -585,7 +595,7 @@ func TestSchedulerReconciler_ReconcileMissingResources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not return error when parsing common application config")
 	}
-	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig)
+	scheduler, err := generateSchedulerInstallComponents(&expectedScheduler, scheme, commonConfig, operatorconfig.Images{})
 	if err != nil {
 		t.Fatal("We should not fail on generating scheduler")
 	}
@@ -982,7 +992,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 			},
 		},
 	}
-	cronJob, err := newSchedulerCronJob(&schedulerInput, "sa")
+	cronJob, err := newSchedulerCronJob(&schedulerInput, "sa", operatorconfig.Images{})
 	assert.NoError(t, err)
 
 	var expectedParallelism int32 = 1
@@ -1061,7 +1071,7 @@ func TestSchedulerReconciler_createSchedulerCronJob(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "scheduler-db-pruner-db-wait",
-									Image: defaultAlpineImage(),
+									Image: "alpine:3.20",
 									Command: []string{
 										"/bin/sh",
 										"-c",
@@ -1182,7 +1192,7 @@ func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 			},
 		},
 	}
-	_, err := newSchedulerCronJob(&expectedScheduler, "scheduler")
+	_, err := newSchedulerCronJob(&expectedScheduler, "scheduler", operatorconfig.Images{})
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
 }
@@ -1382,7 +1392,7 @@ func Test_createSchedulerMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := newSchedulerMigrationJob(&cr, "sa")
+			rslt, err := newSchedulerMigrationJob(&cr, "sa", operatorconfig.Images{})
 
 			if tt.wantErr {
 				assert.Error(t, err)

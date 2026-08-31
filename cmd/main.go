@@ -25,6 +25,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	"github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/install"
 
 	"github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -94,6 +95,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	cfg := config.FromEnv()
+
 	setupLog.Info("initializing armada-operator", "version", version, "commit", commit, "buildDate", date)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -113,7 +116,7 @@ func main() {
 	}
 
 	webhookOptions := webhook.Options{
-		CertDir: os.Getenv("WEBHOOK_CERT_DIR"),
+		CertDir: cfg.WebhookCertDir,
 		TLSOpts: tlsOpts,
 	}
 	webhookServer := webhook.NewServer(webhookOptions)
@@ -173,6 +176,7 @@ func main() {
 	if err = (&install.ArmadaServerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Images: cfg.Images,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
 		os.Exit(1)
@@ -194,6 +198,7 @@ func main() {
 	if err = (&install.LookoutReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Images: cfg.Images,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Lookout")
 		os.Exit(1)
@@ -230,13 +235,13 @@ func main() {
 	if err = (&install.SchedulerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Images: cfg.Images,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Scheduler")
 		os.Exit(1)
 	}
 
-	enableWebhooks := os.Getenv("ENABLE_WEBHOOKS") != "false"
-	if enableWebhooks {
+	if cfg.EnableWebhooks {
 		if err = (&installv1alpha1.ArmadaServer{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ArmadaServer")
 			os.Exit(1)

@@ -27,6 +27,10 @@ spec:
         command:
         - /armada-operator
         env:
+        - name: DEFAULT_ALPINE_IMAGE
+          value: {{ quote .Values.controllerManager.manager.env.defaultAlpineImage }}
+        - name: DEFAULT_POSTGRES_IMAGE
+          value: {{ quote .Values.controllerManager.manager.env.defaultPostgresImage }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag

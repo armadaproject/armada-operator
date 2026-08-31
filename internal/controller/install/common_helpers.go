@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 )
 
@@ -872,15 +873,12 @@ func defaultDeploymentStrategy(maxUnavailable int32) appsv1.DeploymentStrategy {
 	}
 }
 
-func defaultAlpineImage() string {
-	return "alpine:3.20"
-}
-
 // migrationDbWaitImageString returns the image for the init container of a migration job.
 // The init container needs the psql client and the nc command, so the default image is a postgres image.
-func migrationDbWaitImageString(image *installv1alpha1.Image) string {
+// The image from the CRD has priority over the default image of the operator.
+func migrationDbWaitImageString(image *installv1alpha1.Image, images operatorconfig.Images) string {
 	if image != nil {
 		return ImageString(*image)
 	}
-	return "postgres:15.2-alpine"
+	return images.PostgresImage()
 }
