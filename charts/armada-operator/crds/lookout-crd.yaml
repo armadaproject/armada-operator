@@ -2092,6 +2092,25 @@ spec:
               migrate:
                 description: Migrate toggles whether to run migrations when installed
                 type: boolean
+              migrationDbWaitImage:
+                description: |-
+                  MigrationDbWaitImage sets the image for the init container of the migration job.
+                  The init container waits for the database and creates the database.
+                  The image must contain the psql client and the nc command.
+                  The default value is postgres:15.2-alpine.
+                properties:
+                  repository:
+                    minLength: 1
+                    pattern: ^([a-z0-9]+(?:[._-][a-z0-9]+)*/*)+$
+                    type: string
+                  tag:
+                    minLength: 1
+                    pattern: ^[a-zA-Z0-9_.-]*$
+                    type: string
+                required:
+                - repository
+                - tag
+                type: object
               nodeSelector:
                 additionalProperties:
                   type: string

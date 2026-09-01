@@ -61,6 +61,11 @@ type LookoutSpec struct {
 	ClusterIssuer string `json:"clusterIssuer,omitempty"`
 	// Migrate toggles whether to run migrations when installed
 	Migrate *bool `json:"migrate,omitempty"`
+	// MigrationDbWaitImage sets the image for the init container of the migration job.
+	// The init container waits for the database and creates the database.
+	// The image must contain the psql client and the nc command.
+	// The default value is postgres:15.2-alpine.
+	MigrationDbWaitImage *Image `json:"migrationDbWaitImage,omitempty"`
 	// DbPruningEnabled when true a pruning CronJob is created
 	DbPruningEnabled *bool `json:"dbPruningEnabled,omitempty"`
 	// DbPruningSchedule schedule to use for db pruning CronJob
