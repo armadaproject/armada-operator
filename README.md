@@ -26,12 +26,16 @@
 
 [![GoReport Widget]][GoReport Status]
 [![Latest Release](https://img.shields.io/github/v/release/armadaproject/armada-operator?include_prereleases)](https://github.com/armadaproject/armada-operator/releases/latest)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Farmadaproject%2Farmada-operator.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Farmadaproject%2Farmada-operator?ref=badge_shield)
 
 [GoReport Widget]: https://goreportcard.com/badge/github.com/armadaproject/armada-operator
 [GoReport Status]: https://goreportcard.com/report/github.com/armadaproject/armada-operator
 
 Armada Operator is a Kubernetes-native Operator for simpler installation of [Armada](https://armadaproject.io).
 This project introduces [Custom Resource Definitions (CRDs)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for Armada services and provides a controller to manage the lifecycle of these services.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Farmadaproject%2Farmada-operator.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Farmadaproject%2Farmada-operator?ref=badge_large)
 
 ## How it works
 
@@ -310,4 +314,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
