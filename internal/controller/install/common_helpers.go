@@ -342,6 +342,17 @@ func isJobFinished(job *batchv1.Job) bool {
 	return false
 }
 
+// getTrueJobCondition returns the Job's condition of the given type if its status is true, otherwise nil.
+func getTrueJobCondition(job *batchv1.Job, conditionType batchv1.JobConditionType) *batchv1.JobCondition {
+	for i := range job.Status.Conditions {
+		if condition := &job.Status.Conditions[i]; condition.Type == conditionType && condition.Status == corev1.ConditionTrue {
+			return condition
+		}
+	}
+
+	return nil
+}
+
 // createEnv creates the default EnvVars and appends the CRD environment vars
 func createEnv(crdEnv []corev1.EnvVar) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{

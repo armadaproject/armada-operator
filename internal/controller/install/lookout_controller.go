@@ -15,6 +15,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,14 +29,19 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
+
+// defaultPartitionJobTableActiveDeadlineSeconds is the default maximum duration of the Job which partitions the Lookout job table.
+const defaultPartitionJobTableActiveDeadlineSeconds = int64(86400)
 
 // LookoutReconciler reconciles a Lookout object
 type LookoutReconciler struct {
@@ -74,8 +80,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	var components *CommonComponents
-	components, err = generateLookoutInstallComponents(&lookout, r.Scheme, commonConfig)
+	components, partitionJobTableJob, err := generateLookoutInstallComponents(&lookout, r.Scheme, commonConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -138,6 +143,23 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// The migration Job's status was refreshed by waitForJob above.
+	migrationJob := components.Jobs[0]
+	if partitionJobTableJob != nil && getTrueJobCondition(migrationJob, batchv1.JobComplete) != nil {
+		// A Job's pod template is immutable and a finished Job must not be re-run, so an existing Job is left
+		// unchanged; reading it back gives its current status for the condition below.
+		leaveExistingJob := func() error { return nil }
+		if err := upsertObjectIfNeeded(ctx, r.Client, partitionJobTableJob, lookout.Kind, leaveExistingJob, logger); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if meta.SetStatusCondition(&lookout.Status.Conditions, newJobTablePartitionedCondition(&lookout, partitionJobTableJob)) {
+			if err := r.Status().Update(ctx, &lookout); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	logger.Info("Successfully reconciled resource", "durationMillis", time.Since(started).Milliseconds())
 
 	return ctrl.Result{}, nil
@@ -151,13 +173,13 @@ func generateLookoutInstallComponents(
 	lookout *installv1alpha1.Lookout,
 	scheme *runtime.Scheme,
 	config *builders.CommonApplicationConfig,
-) (*CommonComponents, error) {
+) (*CommonComponents, *batchv1.Job, error) {
 	secret, err := builders.CreateSecret(lookout.Spec.ApplicationConfig, lookout.Name, lookout.Namespace, GetConfigFilename(lookout.Name))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, secret, scheme); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var serviceAccount *corev1.ServiceAccount
@@ -165,17 +187,17 @@ func generateLookoutInstallComponents(
 	if serviceAccountName == "" {
 		serviceAccount = builders.ServiceAccount(lookout.Name, lookout.Namespace, AllLabels(lookout.Name, lookout.Labels), lookout.Spec.ServiceAccount)
 		if err = controllerutil.SetOwnerReference(lookout, serviceAccount, scheme); err != nil {
-			return nil, errors.WithStack(err)
+			return nil, nil, errors.WithStack(err)
 		}
 		serviceAccountName = serviceAccount.Name
 	}
 
 	deployment, err := createLookoutDeployment(lookout, serviceAccountName, config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, deployment, scheme); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	service := builders.Service(
@@ -187,7 +209,7 @@ func generateLookoutInstallComponents(
 		builders.ServiceEnableHTTPWithMetrics,
 	)
 	if err := controllerutil.SetOwnerReference(lookout, service, scheme); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	profilingService, profilingIngress, err := newProfilingComponents(
@@ -197,40 +219,51 @@ func generateLookoutInstallComponents(
 		lookout.Spec.ProfilingIngressConfig,
 	)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 
 	var serviceMonitor *monitoringv1.ServiceMonitor
 	if lookout.Spec.Prometheus != nil && lookout.Spec.Prometheus.Enabled {
 		serviceMonitor = createLookoutServiceMonitor(lookout)
 		if err := controllerutil.SetOwnerReference(lookout, serviceMonitor, scheme); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	job, err := createLookoutMigrationJob(lookout, serviceAccountName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, job, scheme); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	var partitionJobTableJob *batchv1.Job
+	if lookout.Spec.PartitionJobTable != nil && lookout.Spec.PartitionJobTable.Enabled {
+		partitionJobTableJob, err = createLookoutPartitionJobTableJob(lookout, serviceAccountName)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := controllerutil.SetOwnerReference(lookout, partitionJobTableJob, scheme); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	cronJob, err := createLookoutCronJob(lookout, serviceAccountName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := controllerutil.SetOwnerReference(lookout, cronJob, scheme); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ingressHTTP, err := createLookoutIngressHttp(lookout, config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if ingressHTTP != nil {
 		if err := controllerutil.SetOwnerReference(lookout, ingressHTTP, scheme); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -245,7 +278,7 @@ func generateLookoutInstallComponents(
 		Jobs:             []*batchv1.Job{job},
 		ServiceMonitor:   serviceMonitor,
 		CronJob:          cronJob,
-	}, nil
+	}, partitionJobTableJob, nil
 }
 
 // createLookoutServiceMonitor will return a ServiceMonitor for this
@@ -341,6 +374,34 @@ func createLookoutIngressHttp(lookout *installv1alpha1.Lookout, config *builders
 
 // createLookoutMigrationJob returns a batch Job or an error if the app config is not correct
 func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
+	return createLookoutDatabaseJob(lookout, serviceAccountName, "-migration", "--migrateDatabase")
+}
+
+// createLookoutPartitionJobTableJob returns a batch Job which partitions the Lookout job table or an error if the app config is not correct
+func createLookoutPartitionJobTableJob(lookout *installv1alpha1.Lookout, serviceAccountName string) (*batchv1.Job, error) {
+	job, err := createLookoutDatabaseJob(lookout, serviceAccountName, "-partition-job-table", "--partitionJobTable", "--execute", "--yes")
+	if err != nil {
+		return nil, err
+	}
+
+	// The Job may run for hours, so its Pods must not carry the Lookout identity label which the Lookout Service selects on.
+	job.Labels = AllLabels(job.Name, lookout.Labels)
+	job.Spec.Template.Labels = AllLabels(job.Name, lookout.Labels)
+
+	activeDeadlineSeconds := defaultPartitionJobTableActiveDeadlineSeconds
+	if lookout.Spec.PartitionJobTable != nil && lookout.Spec.PartitionJobTable.ActiveDeadlineSeconds != nil {
+		activeDeadlineSeconds = *lookout.Spec.PartitionJobTable.ActiveDeadlineSeconds
+	}
+	job.Spec.ActiveDeadlineSeconds = &activeDeadlineSeconds
+
+	return job, nil
+}
+
+// createLookoutDatabaseJob returns a batch Job which runs Lookout with the given args against its database,
+// or an error if the app config is not correct
+func createLookoutDatabaseJob(lookout *installv1alpha1.Lookout, serviceAccountName, nameSuffix string, args ...string) (*batchv1.Job, error) {
+	name := lookout.Name + nameSuffix
+	containerName := "lookout" + nameSuffix
 	var terminationGracePeriodSeconds int64
 	if lookout.Spec.TerminationGracePeriodSeconds != nil {
 		terminationGracePeriodSeconds = *lookout.Spec.TerminationGracePeriodSeconds
@@ -364,7 +425,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 
 	job := batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        lookout.Name + "-migration",
+			Name:        name,
 			Namespace:   lookout.Namespace,
 			Labels:      AllLabels(lookout.Name, lookout.Labels),
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(lookout.Spec.ApplicationConfig.Raw)},
@@ -375,7 +436,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      lookout.Name + "-migration",
+					Name:      name,
 					Namespace: lookout.Namespace,
 					Labels:    AllLabels(lookout.Name, lookout.Labels),
 				},
@@ -385,7 +446,7 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					SecurityContext:               lookout.Spec.PodSecurityContext,
 					InitContainers: []corev1.Container{{
-						Name:  "lookout-migration-db-wait",
+						Name:  containerName + "-db-wait",
 						Image: migrationDbWaitImageString(lookout.Spec.MigrationDbWaitImage),
 						Command: []string{
 							"/bin/sh",
@@ -424,14 +485,10 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 						},
 					}},
 					Containers: []corev1.Container{{
-						Name:            "lookout-migration",
+						Name:            containerName,
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						Image:           ImageString(lookout.Spec.Image),
-						Args: []string{
-							"--migrateDatabase",
-							appConfigFlag,
-							appConfigFilepath,
-						},
+						Args:            append(args, appConfigFlag, appConfigFilepath),
 						Env:             env,
 						VolumeMounts:    volumeMounts,
 						SecurityContext: lookout.Spec.SecurityContext,
@@ -445,6 +502,27 @@ func createLookoutMigrationJob(lookout *installv1alpha1.Lookout, serviceAccountN
 	}
 
 	return &job, nil
+}
+
+// newJobTablePartitionedCondition returns the JobTablePartitioned condition which reflects the state of the given Job
+func newJobTablePartitionedCondition(lookout *installv1alpha1.Lookout, job *batchv1.Job) metav1.Condition {
+	condition := metav1.Condition{
+		Type:               installv1alpha1.ConditionTypeJobTablePartitioned,
+		Status:             metav1.ConditionFalse,
+		ObservedGeneration: lookout.Generation,
+		Reason:             installv1alpha1.ReasonPartitionJobTableRunning,
+		Message:            fmt.Sprintf("Job %s is running", job.Name),
+	}
+	if getTrueJobCondition(job, batchv1.JobComplete) != nil {
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = installv1alpha1.ReasonPartitionJobTableSucceeded
+		condition.Message = fmt.Sprintf("Job %s succeeded", job.Name)
+	} else if failed := getTrueJobCondition(job, batchv1.JobFailed); failed != nil {
+		condition.Reason = installv1alpha1.ReasonPartitionJobTableFailed
+		condition.Message = fmt.Sprintf("Job %s failed: %s", job.Name, failed.Message)
+	}
+
+	return condition
 }
 
 // createLookoutCronJob returns a batch CronJob or an error if the app config is not correct
@@ -555,6 +633,7 @@ func createLookoutCronJob(lookout *installv1alpha1.Lookout, serviceAccountName s
 func (r *LookoutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&installv1alpha1.Lookout{}).
+		Owns(&batchv1.Job{}, builder.MatchEveryOwner).
 		Complete(r)
 }
 

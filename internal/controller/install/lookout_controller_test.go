@@ -16,6 +16,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/armadaproject/armada-operator/api/install/v1alpha1"
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
@@ -27,11 +28,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestLookoutReconciler_Reconcile(t *testing.T) {
@@ -1119,6 +1122,335 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 
 			if tt.verifyJob != nil {
 				tt.verifyJob(t, rslt)
+			}
+		})
+	}
+}
+
+func Test_createLookoutPartitionJobTableJob(t *testing.T) {
+	t.Parallel()
+
+	newLookout := func(partitionJobTable *v1alpha1.PartitionJobTableConfig) *v1alpha1.Lookout {
+		return &v1alpha1.Lookout{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout", Labels: map[string]string{"team": "armada"}},
+			Spec: v1alpha1.LookoutSpec{
+				CommonSpecBase: installv1alpha1.CommonSpecBase{
+					Image:                         v1alpha1.Image{Repository: "testrepo", Tag: "1.0.0"},
+					ApplicationConfig:             runtime.RawExtension{Raw: []byte(`{"postgres": {"connection": {"host": "postgres", "port": "5432"}}}`)},
+					Environment:                   []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+					AdditionalVolumes:             []corev1.Volume{{Name: "extra"}},
+					AdditionalVolumeMounts:        []corev1.VolumeMount{{Name: "extra", MountPath: "/extra"}},
+					Tolerations:                   []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpExists}},
+					TerminationGracePeriodSeconds: ptr.To[int64](20),
+				},
+				NodeSelector:         map[string]string{"pool": "lookout"},
+				MigrationDbWaitImage: &v1alpha1.Image{Repository: "my-mirror.example.com/postgres", Tag: "15.2-alpine"},
+				SecurityContext:      installv1alpha1.GetDefaultSecurityContext(),
+				PodSecurityContext:   installv1alpha1.GetDefaultPodSecurityContext(),
+				PartitionJobTable:    partitionJobTable,
+			},
+		}
+	}
+
+	t.Run("Job runs the partition command with the same Pod as the migration Job", func(t *testing.T) {
+		t.Parallel()
+
+		lookout := newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true})
+		migrationJob, err := createLookoutMigrationJob(lookout, "sa")
+		require.NoError(t, err)
+		job, err := createLookoutPartitionJobTableJob(lookout, "sa")
+		require.NoError(t, err)
+
+		expectedLabels := map[string]string{"app": "lookout-partition-job-table", "release": "lookout-partition-job-table", "team": "armada"}
+		assert.Equal(t, "lookout-partition-job-table", job.Name)
+		assert.Equal(t, "default", job.Namespace)
+		assert.Equal(t, expectedLabels, job.Labels)
+		assert.Equal(t, expectedLabels, job.Spec.Template.Labels)
+		assert.Equal(t, int32(0), *job.Spec.BackoffLimit)
+		assert.Nil(t, job.Spec.TTLSecondsAfterFinished)
+		assert.Equal(t, int64(86400), *job.Spec.ActiveDeadlineSeconds)
+
+		podSpec := job.Spec.Template.Spec
+		assert.Equal(t, corev1.RestartPolicyNever, podSpec.RestartPolicy)
+		assert.Equal(t, "testrepo:1.0.0", podSpec.Containers[0].Image)
+		assert.Equal(t, []string{"--partitionJobTable", "--execute", "--yes", "--config", "/config/application_config.yaml"}, podSpec.Containers[0].Args)
+
+		expectedPodSpec := migrationJob.Spec.Template.Spec.DeepCopy()
+		expectedPodSpec.InitContainers[0].Name = "lookout-partition-job-table-db-wait"
+		expectedPodSpec.Containers[0].Name = "lookout-partition-job-table"
+		expectedPodSpec.Containers[0].Args = podSpec.Containers[0].Args
+		assert.Equal(t, *expectedPodSpec, podSpec)
+	})
+
+	t.Run("ActiveDeadlineSeconds overrides the default deadline", func(t *testing.T) {
+		t.Parallel()
+
+		job, err := createLookoutPartitionJobTableJob(newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true, ActiveDeadlineSeconds: ptr.To[int64](3600)}), "sa")
+		require.NoError(t, err)
+		assert.Equal(t, int64(3600), *job.Spec.ActiveDeadlineSeconds)
+	})
+
+	t.Run("bad json results in error", func(t *testing.T) {
+		t.Parallel()
+
+		lookout := newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true})
+		lookout.Spec.ApplicationConfig = runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)}
+		_, err := createLookoutPartitionJobTableJob(lookout, "sa")
+		assert.Error(t, err)
+	})
+}
+
+// recordingStatusWriter records the objects whose status is updated
+type recordingStatusWriter struct {
+	client.SubResourceWriter
+	updated []*v1alpha1.Lookout
+}
+
+func (w *recordingStatusWriter) Update(_ context.Context, obj client.Object, _ ...client.SubResourceUpdateOption) error {
+	w.updated = append(w.updated, obj.(*v1alpha1.Lookout).DeepCopy())
+	return nil
+}
+
+func TestLookoutReconciler_ReconcilePartitionJobTable(t *testing.T) {
+	t.Parallel()
+
+	runningCondition := metav1.Condition{
+		Type:               v1alpha1.ConditionTypeJobTablePartitioned,
+		Status:             metav1.ConditionFalse,
+		ObservedGeneration: 3,
+		Reason:             v1alpha1.ReasonPartitionJobTableRunning,
+		Message:            "Job lookout-partition-job-table is running",
+	}
+	newPartitionJob := func(conditions ...batchv1.JobCondition) *batchv1.Job {
+		return &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout-partition-job-table"},
+			Status:     batchv1.JobStatus{Conditions: conditions},
+		}
+	}
+
+	tests := []struct {
+		name              string
+		partitionJobTable *v1alpha1.PartitionJobTableConfig
+		statusConditions  []metav1.Condition
+		migrationJobState batchv1.JobConditionType
+		// expectPartitionJob is whether the reconciler looks up the partition Job
+		expectPartitionJob bool
+		// existingPartitionJob is the partition Job already in the cluster, or nil if it does not exist
+		existingPartitionJob *batchv1.Job
+		// expectedCondition is the condition the status is updated with, or nil if the status is not updated
+		expectedCondition *metav1.Condition
+	}{
+		{
+			name:              "No partition Job when partitionJobTable is not set",
+			migrationJobState: batchv1.JobComplete,
+		},
+		{
+			name:              "No partition Job when partitionJobTable is disabled",
+			partitionJobTable: &v1alpha1.PartitionJobTableConfig{Enabled: false},
+			migrationJobState: batchv1.JobComplete,
+		},
+		{
+			name:              "No partition Job when the migration Job has not succeeded, and the rest of Lookout is still installed",
+			partitionJobTable: &v1alpha1.PartitionJobTableConfig{Enabled: true},
+			migrationJobState: batchv1.JobFailed,
+		},
+		{
+			name:               "Partition Job is created and reported as running once the migration Job has succeeded",
+			partitionJobTable:  &v1alpha1.PartitionJobTableConfig{Enabled: true},
+			migrationJobState:  batchv1.JobComplete,
+			expectPartitionJob: true,
+			expectedCondition:  &runningCondition,
+		},
+		{
+			name:                 "Status is not updated when the condition is unchanged",
+			partitionJobTable:    &v1alpha1.PartitionJobTableConfig{Enabled: true},
+			statusConditions:     []metav1.Condition{runningCondition},
+			migrationJobState:    batchv1.JobComplete,
+			expectPartitionJob:   true,
+			existingPartitionJob: newPartitionJob(),
+		},
+		{
+			name:               "Succeeded partition Job is reported",
+			partitionJobTable:  &v1alpha1.PartitionJobTableConfig{Enabled: true},
+			statusConditions:   []metav1.Condition{runningCondition},
+			migrationJobState:  batchv1.JobComplete,
+			expectPartitionJob: true,
+			existingPartitionJob: newPartitionJob(batchv1.JobCondition{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			}),
+			expectedCondition: &metav1.Condition{
+				Type:               v1alpha1.ConditionTypeJobTablePartitioned,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: 3,
+				Reason:             v1alpha1.ReasonPartitionJobTableSucceeded,
+				Message:            "Job lookout-partition-job-table succeeded",
+			},
+		},
+		{
+			name:               "Failed partition Job is reported",
+			partitionJobTable:  &v1alpha1.PartitionJobTableConfig{Enabled: true},
+			statusConditions:   []metav1.Condition{runningCondition},
+			migrationJobState:  batchv1.JobComplete,
+			expectPartitionJob: true,
+			existingPartitionJob: newPartitionJob(batchv1.JobCondition{
+				Type:    batchv1.JobFailed,
+				Status:  corev1.ConditionTrue,
+				Message: "Job was active longer than specified deadline",
+			}),
+			expectedCondition: &metav1.Condition{
+				Type:               v1alpha1.ConditionTypeJobTablePartitioned,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: 3,
+				Reason:             v1alpha1.ReasonPartitionJobTableFailed,
+				Message:            "Job lookout-partition-job-table failed: Job was active longer than specified deadline",
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			scheme, err := v1alpha1.SchemeBuilder.Build()
+			if err != nil {
+				t.Fatalf("should not return error when building schema")
+			}
+
+			lookoutName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+			lookout := v1alpha1.Lookout{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Lookout",
+					APIVersion: "install.armadaproject.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:  "default",
+					Name:       "lookout",
+					Generation: 3,
+					Finalizers: []string{operatorFinalizer},
+				},
+				Spec: v1alpha1.LookoutSpec{
+					CommonSpecBase: installv1alpha1.CommonSpecBase{
+						Image:             v1alpha1.Image{Repository: "testrepo", Tag: "1.0.0"},
+						ApplicationConfig: runtime.RawExtension{},
+					},
+					PartitionJobTable: tt.partitionJobTable,
+				},
+				Status: v1alpha1.LookoutStatus{Conditions: tt.statusConditions},
+			}
+			migrationJob := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout-migration"},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{{Type: tt.migrationJobState, Status: corev1.ConditionTrue}},
+				},
+			}
+
+			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
+				Return(nil).
+				SetArg(2, lookout)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+				Return(nil)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&corev1.Secret{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+				Return(nil)
+			// The migration Job already exists, so it is fetched once for the upsert and once while waiting for it
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), types.NamespacedName{Namespace: "default", Name: "lookout-migration"}, gomock.AssignableToTypeOf(&batchv1.Job{})).
+				Return(nil).
+				SetArg(2, migrationJob).
+				Times(2)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&appsv1.Deployment{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&appsv1.Deployment{})).
+				Return(nil)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&corev1.Service{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Service{})).
+				Return(nil)
+			mockK8sClient.
+				EXPECT().
+				Delete(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
+				Return(nil)
+
+			var createdPartitionJob *batchv1.Job
+			if tt.expectPartitionJob {
+				partitionJobName := types.NamespacedName{Namespace: "default", Name: "lookout-partition-job-table"}
+				if tt.existingPartitionJob != nil {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), partitionJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(nil).
+						SetArg(2, *tt.existingPartitionJob)
+				} else {
+					mockK8sClient.
+						EXPECT().
+						Get(gomock.Any(), partitionJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+						Return(errors.NewNotFound(schema.GroupResource{}, "lookout-partition-job-table"))
+					mockK8sClient.
+						EXPECT().
+						Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
+						DoAndReturn(func(_ context.Context, obj client.Object, _ ...client.CreateOption) error {
+							createdPartitionJob = obj.(*batchv1.Job).DeepCopy()
+							return nil
+						})
+				}
+			}
+
+			statusWriter := &recordingStatusWriter{}
+			if tt.expectedCondition != nil {
+				mockK8sClient.
+					EXPECT().
+					Status().
+					Return(statusWriter)
+			}
+
+			r := LookoutReconciler{
+				Client: mockK8sClient,
+				Scheme: scheme,
+			}
+
+			_, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: lookoutName})
+			assert.NoError(t, err)
+
+			if tt.expectPartitionJob && tt.existingPartitionJob == nil {
+				require.NotNil(t, createdPartitionJob)
+				assert.Equal(t, "lookout-partition-job-table", createdPartitionJob.Name)
+				assert.Equal(t, "lookout", createdPartitionJob.OwnerReferences[0].Name)
+				assert.Equal(t, int64(86400), *createdPartitionJob.Spec.ActiveDeadlineSeconds)
+			}
+
+			if tt.expectedCondition != nil {
+				require.Len(t, statusWriter.updated, 1)
+				condition := meta.FindStatusCondition(statusWriter.updated[0].Status.Conditions, v1alpha1.ConditionTypeJobTablePartitioned)
+				require.NotNil(t, condition)
+				condition.LastTransitionTime = metav1.Time{}
+				assert.Equal(t, *tt.expectedCondition, *condition)
 			}
 		})
 	}

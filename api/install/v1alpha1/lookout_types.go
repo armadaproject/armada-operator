@@ -76,10 +76,42 @@ type LookoutSpec struct {
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
 	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
+	// PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape
+	PartitionJobTable *PartitionJobTableConfig `json:"partitionJobTable,omitempty"`
 }
 
+// PartitionJobTableConfig defines the settings of the Job which partitions the Lookout job table
+type PartitionJobTableConfig struct {
+	// Enabled when true creates a Job which partitions the Lookout job table, once the migration Job has succeeded.
+	// The Job is not waited on and does not block the rest of the installation.
+	// A finished Job is left in place and is not re-run; set this back to false once the table is partitioned.
+	// Setting this to false does not delete an existing Job.
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled,omitempty"`
+	// ActiveDeadlineSeconds is the maximum duration in seconds the Job may run before it is terminated.
+	// The default value is 86400 (24 hours).
+	// +kubebuilder:validation:Minimum=1
+	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
+}
+
+const (
+	// ConditionTypeJobTablePartitioned reports the progress of the Job which partitions the Lookout job table
+	ConditionTypeJobTablePartitioned = "JobTablePartitioned"
+	// ReasonPartitionJobTableRunning means the Job which partitions the Lookout job table has not finished yet
+	ReasonPartitionJobTableRunning = "Running"
+	// ReasonPartitionJobTableSucceeded means the Lookout job table is partitioned
+	ReasonPartitionJobTableSucceeded = "Succeeded"
+	// ReasonPartitionJobTableFailed means the Job which partitions the Lookout job table has failed
+	ReasonPartitionJobTableFailed = "Failed"
+)
+
 // LookoutStatus defines the observed state of lookout
-type LookoutStatus struct{}
+type LookoutStatus struct {
+	// Conditions represent the latest available observations of the Lookout's state
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
 
 func init() {
 	SchemeBuilder.Register(&Lookout{}, &LookoutList{})
