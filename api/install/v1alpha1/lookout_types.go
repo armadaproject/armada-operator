@@ -76,7 +76,8 @@ type LookoutSpec struct {
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	// ProfilingIngressConfig defines configuration for the profiling Ingress resource
 	ProfilingIngressConfig *IngressConfig `json:"profilingIngressConfig,omitempty"`
-	// PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape
+	// PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape.
+	// It requires Lookout v0.23.0 or later: earlier versions do not have the command it runs, so the Job fails without changing the database.
 	PartitionJobTable *PartitionJobTableConfig `json:"partitionJobTable,omitempty"`
 }
 

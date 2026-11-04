@@ -687,7 +687,7 @@ _Appears in:_
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
 | `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
-| `partitionJobTable` _[PartitionJobTableConfig](#partitionjobtableconfig)_ | PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape |  |  |
+| `partitionJobTable` _[PartitionJobTableConfig](#partitionjobtableconfig)_ | PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape.<br />It requires Lookout v0.23.0 or later: earlier versions do not have the command it runs, so the Job fails without changing the database. |  |  |
 
 
 #### LookoutStatus

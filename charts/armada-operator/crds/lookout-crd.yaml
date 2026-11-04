@@ -2118,8 +2118,9 @@ spec:
                   which nodes the pod can be scheduled on
                 type: object
               partitionJobTable:
-                description: PartitionJobTable configures the opt-in Job which converts
-                  the Lookout job table to its partitioned shape
+                description: |-
+                  PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape.
+                  It requires Lookout v0.23.0 or later: earlier versions do not have the command it runs, so the Job fails without changing the database.
                 properties:
                   activeDeadlineSeconds:
                     description: |-
