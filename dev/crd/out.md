@@ -687,6 +687,7 @@ _Appears in:_
 | `securityContext` _[SecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#securitycontext-v1-core)_ | SecurityContext defines the security options the container should be run with |  |  |
 | `podSecurityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podsecuritycontext-v1-core)_ | PodSecurityContext defines the security options the pod should be run with |  |  |
 | `profilingIngressConfig` _[IngressConfig](#ingressconfig)_ | ProfilingIngressConfig defines configuration for the profiling Ingress resource |  |  |
+| `partitionJobTable` _[PartitionJobTableConfig](#partitionjobtableconfig)_ | PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape.<br />It requires Lookout v0.23.0 or later: earlier versions do not have the command it runs, so the Job fails without changing the database. |  |  |
 
 
 #### LookoutStatus
@@ -700,6 +701,26 @@ LookoutStatus defines the observed state of lookout
 _Appears in:_
 - [Lookout](#lookout)
 
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#condition-v1-meta) array_ | Conditions represent the latest available observations of the Lookout's state |  |  |
+
+
+#### PartitionJobTableConfig
+
+
+
+PartitionJobTableConfig defines the settings of the Job which partitions the Lookout job table
+
+
+
+_Appears in:_
+- [LookoutSpec](#lookoutspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled when true creates a Job which partitions the Lookout job table, once the migration Job has succeeded.<br />The Job is not waited on and does not block the rest of the installation.<br />A finished Job is left in place and is not re-run; set this back to false once the table is partitioned.<br />Setting this to false does not delete an existing Job. | false |  |
+| `activeDeadlineSeconds` _integer_ | ActiveDeadlineSeconds is the maximum duration in seconds the Job may run before it is terminated.<br />The default value is 86400 (24 hours). |  | Minimum: 1 <br /> |
 
 
 #### PrometheusConfig

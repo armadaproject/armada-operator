@@ -2117,6 +2117,27 @@ spec:
                 description: NodeSelector is the configuration block for specifying
                   which nodes the pod can be scheduled on
                 type: object
+              partitionJobTable:
+                description: |-
+                  PartitionJobTable configures the opt-in Job which converts the Lookout job table to its partitioned shape.
+                  It requires Lookout v0.23.0 or later: earlier versions do not have the command it runs, so the Job fails without changing the database.
+                properties:
+                  activeDeadlineSeconds:
+                    description: |-
+                      ActiveDeadlineSeconds is the maximum duration in seconds the Job may run before it is terminated.
+                      The default value is 86400 (24 hours).
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  enabled:
+                    default: false
+                    description: |-
+                      Enabled when true creates a Job which partitions the Lookout job table, once the migration Job has succeeded.
+                      The Job is not waited on and does not block the rest of the installation.
+                      A finished Job is left in place and is not re-run; set this back to false once the table is partitioned.
+                      Setting this to false does not delete an existing Job.
+                    type: boolean
+                type: object
               podSecurityContext:
                 description: PodSecurityContext defines the security options the pod
                   should be run with
@@ -2780,6 +2801,68 @@ spec:
             type: object
           status:
             description: LookoutStatus defines the observed state of lookout
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the Lookout's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
             type: object
         type: object
     served: true
