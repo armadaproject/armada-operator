@@ -101,6 +101,7 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	for _, job := range components.Jobs {
+		image := jobImage(job)
 		err = func(job *batchv1.Job) error {
 			if err := upsertObjectIfNeeded(ctx, r.Client, job, lookout.Kind, mutateFn, logger); err != nil {
 				return err
@@ -114,6 +115,17 @@ func (r *LookoutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}(job)
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+
+		// A Job's pod template is immutable, so the upsert leaves a Job created for an earlier image unchanged.
+		// Once it has finished, delete it so that the next reconcile runs it again with this image before
+		// updating anything else, including starting the partition Job.
+		if jobImage(job) != image {
+			logger.Info("Deleting finished Job that was created for a different image", "job", job.Name, "image", jobImage(job))
+			if err := r.Client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{RequeueAfter: jobPollInterval}, nil
 		}
 	}
 

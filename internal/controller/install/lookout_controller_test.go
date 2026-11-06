@@ -1343,6 +1343,11 @@ func TestLookoutReconciler_ReconcilePartitionJobTable(t *testing.T) {
 			}
 			migrationJob := batchv1.Job{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout-migration"},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "lookout-migration", Image: "testrepo:1.0.0"}}},
+					},
+				},
 				Status: batchv1.JobStatus{
 					Conditions: []batchv1.JobCondition{{Type: tt.migrationJobState, Status: corev1.ConditionTrue}},
 				},
@@ -1452,6 +1457,121 @@ func TestLookoutReconciler_ReconcilePartitionJobTable(t *testing.T) {
 				condition.LastTransitionTime = metav1.Time{}
 				assert.Equal(t, *tt.expectedCondition, *condition)
 			}
+		})
+	}
+}
+
+func TestLookoutReconciler_ReconcileMigrationJobForDifferentImage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		migrationJobState batchv1.JobConditionType
+	}{
+		{
+			name:              "Succeeded migration Job is deleted so that it runs again with the new image",
+			migrationJobState: batchv1.JobComplete,
+		},
+		{
+			name:              "Failed migration Job is deleted so that it runs again with the new image",
+			migrationJobState: batchv1.JobFailed,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			scheme, err := v1alpha1.SchemeBuilder.Build()
+			if err != nil {
+				t.Fatalf("should not return error when building schema")
+			}
+
+			lookoutName := types.NamespacedName{Namespace: "default", Name: "lookout"}
+			lookout := v1alpha1.Lookout{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Lookout",
+					APIVersion: "install.armadaproject.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:  "default",
+					Name:       "lookout",
+					Finalizers: []string{operatorFinalizer},
+				},
+				Spec: v1alpha1.LookoutSpec{
+					CommonSpecBase: installv1alpha1.CommonSpecBase{
+						Image:             v1alpha1.Image{Repository: "testrepo", Tag: "2.0.0"},
+						ApplicationConfig: runtime.RawExtension{},
+					},
+					PartitionJobTable: &v1alpha1.PartitionJobTableConfig{Enabled: true},
+				},
+			}
+			migrationJobName := types.NamespacedName{Namespace: "default", Name: "lookout-migration"}
+			migrationJob := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "lookout-migration"},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "lookout-migration", Image: "testrepo:1.0.0"}}},
+					},
+				},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{{Type: tt.migrationJobState, Status: corev1.ConditionTrue}},
+				},
+			}
+
+			mockK8sClient := k8sclient.NewMockClient(mockCtrl)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&v1alpha1.Lookout{})).
+				Return(nil).
+				SetArg(2, lookout)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.ServiceAccount{})).
+				Return(nil)
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), lookoutName, gomock.AssignableToTypeOf(&corev1.Secret{})).
+				Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+			mockK8sClient.
+				EXPECT().
+				Create(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+				Return(nil)
+			// The migration Job already exists, so it is fetched once for the upsert and once while waiting for it
+			mockK8sClient.
+				EXPECT().
+				Get(gomock.Any(), migrationJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
+				Return(nil).
+				SetArg(2, migrationJob).
+				Times(2)
+			// Nothing else is reconciled, and the partition Job is not created, until the migration Job has run again
+			var deleteOptions client.DeleteOptions
+			mockK8sClient.
+				EXPECT().
+				Delete(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{}), gomock.Any()).
+				DoAndReturn(func(_ context.Context, obj client.Object, opts ...client.DeleteOption) error {
+					assert.Equal(t, "lookout-migration", obj.GetName())
+					deleteOptions.ApplyOptions(opts)
+					return nil
+				})
+
+			r := LookoutReconciler{
+				Client: mockK8sClient,
+				Scheme: scheme,
+			}
+
+			result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: lookoutName})
+			require.NoError(t, err)
+			assert.Equal(t, ctrl.Result{RequeueAfter: jobPollInterval}, result)
+			require.NotNil(t, deleteOptions.PropagationPolicy)
+			assert.Equal(t, metav1.DeletePropagationBackground, *deleteOptions.PropagationPolicy)
 		})
 	}
 }
