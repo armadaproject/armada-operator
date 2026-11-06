@@ -5,6 +5,7 @@
     - [Prerequisites](#prerequisites)
     - [Quickstart](#quickstart)
     - [Manual setup](#manual-setup)
+    - [Upgrading Armada Operator](#upgrading-armada-operator)
     - [Installing Armada](#installing-armada)
     - [Applying PriorityClass](#applying-priorityclass)
     - [Installing `armadactl`](#installing-armadactl)
@@ -88,6 +89,17 @@ helm install armada-operator gresearch/armada-operator --namespace armada-system
 ```
 
 This installs the Armada Operator in the `armada-system` namespace.
+
+### Upgrading Armada Operator
+
+Helm installs the CRDs in the chart's `crds/` directory with `helm install`, but never upgrades them. Before you upgrade the Armada Operator, apply the CRDs of the release you are upgrading to:
+
+```bash
+helm repo update gresearch
+helm pull gresearch/armada-operator --version <version> --untar
+kubectl apply --server-side --force-conflicts -f armada-operator/crds/
+helm upgrade armada-operator gresearch/armada-operator --namespace armada-system --version <version>
+```
 
 ### Installing Armada
 
