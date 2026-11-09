@@ -353,6 +353,14 @@ func getTrueJobCondition(job *batchv1.Job, conditionType batchv1.JobConditionTyp
 	return nil
 }
 
+// jobImage returns the image of the Job's first container, or an empty string if it has none.
+func jobImage(job *batchv1.Job) string {
+	if containers := job.Spec.Template.Spec.Containers; len(containers) > 0 {
+		return containers[0].Image
+	}
+	return ""
+}
+
 // createEnv creates the default EnvVars and appends the CRD environment vars
 func createEnv(crdEnv []corev1.EnvVar) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
