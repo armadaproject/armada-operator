@@ -31,48 +31,75 @@ func TestNodeSelectorPropagates(t *testing.T) {
 	meta := metav1.ObjectMeta{Namespace: "default", Name: "component"}
 	config := &builders.CommonApplicationConfig{HTTPPort: 8080, GRPCPort: 5051, MetricsPort: 9000}
 
-	t.Run("Scheduler Deployment", func(t *testing.T) {
-		t.Parallel()
-		scheduler := &installv1alpha1.Scheduler{ObjectMeta: meta, Spec: installv1alpha1.SchedulerSpec{
-			CommonSpecBase: common,
-			Replicas:       ptr.To[int32](1),
-		}}
-		deployment, err := newSchedulerDeployment(scheduler, "sa", config)
-		require.NoError(t, err)
-		assert.Equal(t, nodeSelector, deployment.Spec.Template.Spec.NodeSelector)
-		assert.Equal(t, tolerations, deployment.Spec.Template.Spec.Tolerations)
-	})
+	tests := []struct {
+		name    string
+		podSpec func() (*corev1.PodSpec, error)
+	}{
+		{
+			name: "Scheduler Deployment",
+			podSpec: func() (*corev1.PodSpec, error) {
+				scheduler := &installv1alpha1.Scheduler{ObjectMeta: meta, Spec: installv1alpha1.SchedulerSpec{
+					CommonSpecBase: common,
+					Replicas:       ptr.To[int32](1),
+				}}
+				deployment, err := newSchedulerDeployment(scheduler, "sa", config)
+				if err != nil {
+					return nil, err
+				}
+				return &deployment.Spec.Template.Spec, nil
+			},
+		},
+		{
+			name: "Scheduler pruner CronJob",
+			podSpec: func() (*corev1.PodSpec, error) {
+				scheduler := &installv1alpha1.Scheduler{ObjectMeta: meta, Spec: installv1alpha1.SchedulerSpec{
+					CommonSpecBase: common,
+					Pruner:         &installv1alpha1.PrunerConfig{Enabled: true},
+				}}
+				cronJob, err := newSchedulerCronJob(scheduler, "sa")
+				if err != nil {
+					return nil, err
+				}
+				return &cronJob.Spec.JobTemplate.Spec.Template.Spec, nil
+			},
+		},
+		{
+			name: "SchedulerIngester Deployment",
+			podSpec: func() (*corev1.PodSpec, error) {
+				ingester := &installv1alpha1.SchedulerIngester{ObjectMeta: meta, Spec: installv1alpha1.SchedulerIngesterSpec{
+					CommonSpecBase: common,
+					Replicas:       ptr.To[int32](1),
+				}}
+				deployment, err := (&SchedulerIngesterReconciler{}).createDeployment(ingester, "sa", config)
+				if err != nil {
+					return nil, err
+				}
+				return &deployment.Spec.Template.Spec, nil
+			},
+		},
+		{
+			name: "LookoutIngester Deployment",
+			podSpec: func() (*corev1.PodSpec, error) {
+				ingester := &installv1alpha1.LookoutIngester{ObjectMeta: meta, Spec: installv1alpha1.LookoutIngesterSpec{
+					CommonSpecBase: common,
+					Replicas:       ptr.To[int32](1),
+				}}
+				deployment, err := (&LookoutIngesterReconciler{}).createDeployment(ingester, "sa", config)
+				if err != nil {
+					return nil, err
+				}
+				return &deployment.Spec.Template.Spec, nil
+			},
+		},
+	}
 
-	t.Run("Scheduler pruner CronJob", func(t *testing.T) {
-		t.Parallel()
-		scheduler := &installv1alpha1.Scheduler{ObjectMeta: meta, Spec: installv1alpha1.SchedulerSpec{
-			CommonSpecBase: common,
-			Pruner:         &installv1alpha1.PrunerConfig{Enabled: true},
-		}}
-		cronJob, err := newSchedulerCronJob(scheduler, "sa")
-		require.NoError(t, err)
-		assert.Equal(t, nodeSelector, cronJob.Spec.JobTemplate.Spec.Template.Spec.NodeSelector)
-	})
-
-	t.Run("SchedulerIngester Deployment", func(t *testing.T) {
-		t.Parallel()
-		ingester := &installv1alpha1.SchedulerIngester{ObjectMeta: meta, Spec: installv1alpha1.SchedulerIngesterSpec{
-			CommonSpecBase: common,
-			Replicas:       ptr.To[int32](1),
-		}}
-		deployment, err := (&SchedulerIngesterReconciler{}).createDeployment(ingester, "sa", config)
-		require.NoError(t, err)
-		assert.Equal(t, nodeSelector, deployment.Spec.Template.Spec.NodeSelector)
-	})
-
-	t.Run("LookoutIngester Deployment", func(t *testing.T) {
-		t.Parallel()
-		ingester := &installv1alpha1.LookoutIngester{ObjectMeta: meta, Spec: installv1alpha1.LookoutIngesterSpec{
-			CommonSpecBase: common,
-			Replicas:       ptr.To[int32](1),
-		}}
-		deployment, err := (&LookoutIngesterReconciler{}).createDeployment(ingester, "sa", config)
-		require.NoError(t, err)
-		assert.Equal(t, nodeSelector, deployment.Spec.Template.Spec.NodeSelector)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			podSpec, err := tt.podSpec()
+			require.NoError(t, err)
+			assert.Equal(t, nodeSelector, podSpec.NodeSelector)
+			assert.Equal(t, tolerations, podSpec.Tolerations)
+		})
+	}
 }
