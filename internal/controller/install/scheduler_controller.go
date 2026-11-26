@@ -506,18 +506,23 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 		appConfigFilepath,
 	}
 	var prunerResources corev1.ResourceRequirements
+	// The pruner is nil when the defaulting webhook does not run.
+	// The reconciler then uses the CronJob only to delete an existing one,
+	// so an empty schedule is correct.
+	var prunerSchedule string
 	if pruner := scheduler.Spec.Pruner; pruner != nil {
+		prunerSchedule = pruner.Schedule
 		if pruner.Args.Timeout != "" {
-			prunerArgs = append(prunerArgs, "--timeout", scheduler.Spec.Pruner.Args.Timeout)
+			prunerArgs = append(prunerArgs, "--timeout", pruner.Args.Timeout)
 		}
 		if pruner.Args.Batchsize > 0 {
-			prunerArgs = append(prunerArgs, "--batchsize", fmt.Sprintf("%v", scheduler.Spec.Pruner.Args.Batchsize))
+			prunerArgs = append(prunerArgs, "--batchsize", fmt.Sprintf("%v", pruner.Args.Batchsize))
 		}
 		if pruner.Args.ExpireAfter != "" {
-			prunerArgs = append(prunerArgs, "--expireAfter", scheduler.Spec.Pruner.Args.ExpireAfter)
+			prunerArgs = append(prunerArgs, "--expireAfter", pruner.Args.ExpireAfter)
 		}
 		if pruner.Resources != nil {
-			prunerResources = *scheduler.Spec.Pruner.Resources
+			prunerResources = *pruner.Resources
 		}
 	}
 
@@ -531,7 +536,7 @@ func newSchedulerCronJob(scheduler *installv1alpha1.Scheduler, serviceAccountNam
 			Annotations: map[string]string{"checksum/config": GenerateChecksumConfig(scheduler.Spec.ApplicationConfig.Raw)},
 		},
 		Spec: batchv1.CronJobSpec{
-			Schedule:          scheduler.Spec.Pruner.Schedule,
+			Schedule:          prunerSchedule,
 			ConcurrencyPolicy: batchv1.ForbidConcurrent,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
