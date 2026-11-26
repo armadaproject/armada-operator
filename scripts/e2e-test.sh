@@ -142,9 +142,18 @@ retry_until 300 "queue '${QUEUE}' to be created" armadactl create queue "${QUEUE
 # This also subsumes waiting for the executor pod: the scheduler only reports capacity
 # once the executor is up and has registered.
 log "==> Waiting for the scheduler to register the executor's capacity..."
+# The submit check of the scheduler has its own list of executors, which it reloads on an interval.
+# A job that it checks against a list with no executor is also Rejected,
+# so wait until it logs that it retrieved one executor or more.
+#
+# Read the logs into a variable before the match.
+# With pipefail, "kubectl logs | grep -q" fails when grep exits at the first match
+# and kubectl still writes: kubectl gets SIGPIPE, and the pipeline returns 141.
 scheduler_has_capacity() {
-  kubectl logs -n armada -l app=armada-scheduler --tail=200 2>/dev/null \
-    | grep -qE "Scheduling on pool .* with capacity \(memory=[0-9]+,cpu=[1-9]"
+  local logs
+  logs="$(kubectl logs -n armada -l app=armada-scheduler --tail=1000 2>/dev/null)" || return 1
+  grep -qE "Scheduling on pool .* with capacity \(memory=[0-9]+,cpu=[1-9]" <<<"${logs}" \
+    && grep -qE "Retrieved [1-9][0-9]* executors" <<<"${logs}"
 }
 retry_until 600 "the scheduler to register the executor's capacity" scheduler_has_capacity
 
