@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
@@ -146,10 +147,11 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "lookout"))
+	var createdMigrationJob *batchv1.Job
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
-		Return(nil)
+		DoAndReturn(captureCreate(&createdMigrationJob))
 	mockK8sClient.
 		EXPECT().
 		Get(gomock.Any(), expectedJobName, gomock.AssignableToTypeOf(&batchv1.Job{})).
@@ -203,14 +205,16 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), expectedCronJobName, gomock.AssignableToTypeOf(&batchv1.CronJob{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver"))
+	var createdCronJob *batchv1.CronJob
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.CronJob{})).
-		Return(nil)
+		DoAndReturn(captureCreate(&createdCronJob))
 
 	r := LookoutReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
+		Images: mirrorImages,
 	}
 
 	req := ctrl.Request{
@@ -221,6 +225,11 @@ func TestLookoutReconciler_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
 	}
+
+	require.NotNil(t, createdMigrationJob)
+	assert.Equal(t, mirrorImages.PostgresOverride, createdMigrationJob.Spec.Template.Spec.InitContainers[0].Image)
+	require.NotNil(t, createdCronJob)
+	assert.Equal(t, mirrorImages.AlpineOverride, createdCronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers[0].Image)
 }
 
 func TestLookoutReconciler_ReconcilePruningDisabled(t *testing.T) {
@@ -529,7 +538,7 @@ func TestLookoutReconciler_CreateCronJobErrorDueToApplicationConfig(t *testing.T
 			},
 		},
 	}
-	_, err := createLookoutCronJob(&expectedLookout, "lookout")
+	_, err := createLookoutCronJob(&expectedLookout, "lookout", operatorconfig.Images{})
 	assert.Error(t, err)
 	assert.Equal(t, "yaml: line 1: did not find expected ',' or '}'", err.Error())
 }
@@ -766,7 +775,7 @@ func TestLookoutReconciler_CreateCronJob(t *testing.T) {
 			DbPruningSchedule: &dbPruningSchedule,
 		},
 	}
-	cronJob, err := createLookoutCronJob(&lookout, "lookout")
+	cronJob, err := createLookoutCronJob(&lookout, "lookout", operatorconfig.Images{})
 	assert.NoError(t, err)
 
 	var expectedParallelism int32 = 1
@@ -834,7 +843,7 @@ func TestLookoutReconciler_CreateCronJob(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "lookout-db-pruner-db-wait",
-									Image: defaultAlpineImage(),
+									Image: "alpine:3.20",
 									Command: []string{
 										"/bin/sh",
 										"-c",
@@ -1112,7 +1121,7 @@ func Test_createLookoutMigrationJob(t *testing.T) {
 			if tt.modifyInput != nil {
 				tt.modifyInput(&cr)
 			}
-			rslt, err := createLookoutMigrationJob(&cr, "sa")
+			rslt, err := createLookoutMigrationJob(&cr, "sa", operatorconfig.Images{})
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -1156,9 +1165,9 @@ func Test_createLookoutPartitionJobTableJob(t *testing.T) {
 		t.Parallel()
 
 		lookout := newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true})
-		migrationJob, err := createLookoutMigrationJob(lookout, "sa")
+		migrationJob, err := createLookoutMigrationJob(lookout, "sa", operatorconfig.Images{})
 		require.NoError(t, err)
-		job, err := createLookoutPartitionJobTableJob(lookout, "sa")
+		job, err := createLookoutPartitionJobTableJob(lookout, "sa", operatorconfig.Images{})
 		require.NoError(t, err)
 
 		expectedLabels := map[string]string{"app": "lookout-partition-job-table", "release": "lookout-partition-job-table", "team": "armada"}
@@ -1185,7 +1194,7 @@ func Test_createLookoutPartitionJobTableJob(t *testing.T) {
 	t.Run("ActiveDeadlineSeconds overrides the default deadline", func(t *testing.T) {
 		t.Parallel()
 
-		job, err := createLookoutPartitionJobTableJob(newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true, ActiveDeadlineSeconds: ptr.To[int64](3600)}), "sa")
+		job, err := createLookoutPartitionJobTableJob(newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true, ActiveDeadlineSeconds: ptr.To[int64](3600)}), "sa", operatorconfig.Images{})
 		require.NoError(t, err)
 		assert.Equal(t, int64(3600), *job.Spec.ActiveDeadlineSeconds)
 	})
@@ -1195,7 +1204,7 @@ func Test_createLookoutPartitionJobTableJob(t *testing.T) {
 
 		lookout := newLookout(&v1alpha1.PartitionJobTableConfig{Enabled: true})
 		lookout.Spec.ApplicationConfig = runtime.RawExtension{Raw: []byte(`{ "foo": "bar" `)}
-		_, err := createLookoutPartitionJobTableJob(lookout, "sa")
+		_, err := createLookoutPartitionJobTableJob(lookout, "sa", operatorconfig.Images{})
 		assert.Error(t, err)
 	})
 }
@@ -1438,6 +1447,7 @@ func TestLookoutReconciler_ReconcilePartitionJobTable(t *testing.T) {
 			r := LookoutReconciler{
 				Client: mockK8sClient,
 				Scheme: scheme,
+				Images: mirrorImages,
 			}
 
 			_, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: lookoutName})
@@ -1448,6 +1458,7 @@ func TestLookoutReconciler_ReconcilePartitionJobTable(t *testing.T) {
 				assert.Equal(t, "lookout-partition-job-table", createdPartitionJob.Name)
 				assert.Equal(t, "lookout", createdPartitionJob.OwnerReferences[0].Name)
 				assert.Equal(t, int64(86400), *createdPartitionJob.Spec.ActiveDeadlineSeconds)
+				assert.Equal(t, mirrorImages.PostgresOverride, createdPartitionJob.Spec.Template.Spec.InitContainers[0].Image)
 			}
 
 			if tt.expectedCondition != nil {

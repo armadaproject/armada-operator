@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -51,6 +52,8 @@ import (
 type ArmadaServerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Images contains the default images for the init containers.
+	Images operatorconfig.Images
 }
 
 //+kubebuilder:rbac:groups=install.armadaproject.io,resources=armadaservers,verbs=get;list;watch;create;update;patch;delete
@@ -79,7 +82,7 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	var components *CommonComponents
-	components, err = generateArmadaServerInstallComponents(&server, r.Scheme, commonConfig)
+	components, err = generateArmadaServerInstallComponents(&server, r.Scheme, commonConfig, r.Images)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,7 +161,12 @@ func (r *ArmadaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, scheme *runtime.Scheme, config *builders.CommonApplicationConfig) (*CommonComponents, error) {
+func generateArmadaServerInstallComponents(
+	as *installv1alpha1.ArmadaServer,
+	scheme *runtime.Scheme,
+	config *builders.CommonApplicationConfig,
+	images operatorconfig.Images,
+) (*CommonComponents, error) {
 	secret, err := builders.CreateSecret(as.Spec.ApplicationConfig, as.Name, as.Namespace, GetConfigFilename(as.Name))
 	if err != nil {
 		return nil, err
@@ -247,7 +255,7 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 	jobs := []*batchv1.Job{{}}
 	if as.Spec.PulsarInit {
-		jobs, err = createArmadaServerMigrationJobs(as, config)
+		jobs, err = createArmadaServerMigrationJobs(as, config, images)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +283,11 @@ func generateArmadaServerInstallComponents(as *installv1alpha1.ArmadaServer, sch
 
 }
 
-func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer, commonConfig *builders.CommonApplicationConfig) ([]*batchv1.Job, error) {
+func createArmadaServerMigrationJobs(
+	as *installv1alpha1.ArmadaServer,
+	commonConfig *builders.CommonApplicationConfig,
+	images operatorconfig.Images,
+) ([]*batchv1.Job, error) {
 	terminationGracePeriodSeconds := as.Spec.TerminationGracePeriodSeconds
 	parallelism := int32(1)
 	completions := int32(1)
@@ -316,7 +328,7 @@ func createArmadaServerMigrationJobs(as *installv1alpha1.ArmadaServer, commonCon
 					Containers: []corev1.Container{{
 						Name:            "wait-for-pulsar",
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Image:           defaultAlpineImage(),
+						Image:           images.AlpineImage(),
 						Args: []string{
 							"/bin/sh",
 							"-c",

@@ -90,6 +90,23 @@ helm install armada-operator gresearch/armada-operator --namespace armada-system
 
 This installs the Armada Operator in the `armada-system` namespace.
 
+### Using an internal image mirror
+
+The Armada Operator adds init containers to the Jobs and CronJobs that it creates. These containers use two images from Docker Hub by default. If your cluster pulls images only from an internal mirror, set these Helm values:
+
+```bash
+helm install armada-operator gresearch/armada-operator --namespace armada-system --create-namespace \
+  --set controllerManager.manager.env.defaultAlpineImage=my-mirror.example.com/alpine:3.20 \
+  --set controllerManager.manager.env.defaultPostgresImage=my-mirror.example.com/postgres:15.2-alpine
+```
+
+| Helm value | Environment variable | Used by |
+| --- | --- | --- |
+| `controllerManager.manager.env.defaultAlpineImage` | `DEFAULT_ALPINE_IMAGE` | The wait containers of the db-pruner CronJobs and of the wait-for-pulsar Job. The image must contain the `nc` command. |
+| `controllerManager.manager.env.defaultPostgresImage` | `DEFAULT_POSTGRES_IMAGE` | The db-wait containers of the migration Jobs. The image must contain the `psql` client and the `nc` command. |
+
+The Helm values set the environment variables on the operator Deployment. The `migrationDbWaitImage` field of a Lookout or Scheduler resource has priority over `DEFAULT_POSTGRES_IMAGE` for that resource.
+
 ### Upgrading Armada Operator
 
 Helm installs the CRDs in the chart's `crds/` directory with `helm install`, but never upgrades them. Before you upgrade the Armada Operator, apply the CRDs of the release you are upgrading to:

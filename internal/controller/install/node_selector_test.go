@@ -11,6 +11,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	installv1alpha1 "github.com/armadaproject/armada-operator/api/install/v1alpha1"
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 )
 
@@ -56,7 +57,7 @@ func TestNodeSelectorPropagates(t *testing.T) {
 					CommonSpecBase: common,
 					Pruner:         &installv1alpha1.PrunerConfig{Enabled: true},
 				}}
-				cronJob, err := newSchedulerCronJob(scheduler, "sa")
+				cronJob, err := newSchedulerCronJob(scheduler, "sa", operatorconfig.Images{})
 				if err != nil {
 					return nil, err
 				}

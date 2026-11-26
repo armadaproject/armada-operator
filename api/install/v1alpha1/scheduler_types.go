@@ -64,7 +64,7 @@ type SchedulerSpec struct {
 	// MigrationDbWaitImage sets the image for the init container of the migration job.
 	// The init container waits for the database and creates the database.
 	// The image must contain the psql client and the nc command.
-	// The default value is postgres:15.2-alpine.
+	// The default value is the image in the DEFAULT_POSTGRES_IMAGE environment variable of the operator.
 	MigrationDbWaitImage *Image `json:"migrationDbWaitImage,omitempty"`
 	// Pruning config for cron job
 	Pruner *PrunerConfig `json:"pruner,omitempty"`

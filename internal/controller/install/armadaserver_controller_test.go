@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	operatorconfig "github.com/armadaproject/armada-operator/internal/config"
 	"github.com/armadaproject/armada-operator/internal/controller/builders"
 
 	"k8s.io/utils/ptr"
@@ -82,7 +83,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not return error when parsing common application config")
 	}
-	expectedComponents, err := generateArmadaServerInstallComponents(&expectedAS, scheme, commonConfig)
+	expectedComponents, err := generateArmadaServerInstallComponents(&expectedAS, scheme, commonConfig, operatorconfig.Images{})
 	require.NoError(t, err)
 
 	mockK8sClient := k8sclient.NewMockClient(mockCtrl)
@@ -109,10 +110,11 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 		EXPECT().
 		Get(gomock.Any(), waitPulsarNS, gomock.AssignableToTypeOf(&batchv1.Job{})).
 		Return(errors.NewNotFound(schema.GroupResource{}, "armadaserver-migration"))
+	var createdPulsarWaitJob *batchv1.Job
 	mockK8sClient.
 		EXPECT().
 		Create(gomock.Any(), gomock.AssignableToTypeOf(&batchv1.Job{})).
-		Return(nil).
+		DoAndReturn(captureCreate(&createdPulsarWaitJob)).
 		SetArg(1, *expectedComponents.Jobs[0])
 	mockK8sClient.
 		EXPECT().
@@ -229,6 +231,7 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 	r := ArmadaServerReconciler{
 		Client: mockK8sClient,
 		Scheme: scheme,
+		Images: mirrorImages,
 	}
 
 	req := ctrl.Request{
@@ -239,6 +242,9 @@ func TestArmadaServerReconciler_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile should not return error")
 	}
+
+	require.NotNil(t, createdPulsarWaitJob)
+	assert.Equal(t, mirrorImages.AlpineOverride, createdPulsarWaitJob.Spec.Template.Spec.Containers[0].Image)
 }
 
 func TestArmadaServerReconciler_ReconcileNoArmadaServer(t *testing.T) {
