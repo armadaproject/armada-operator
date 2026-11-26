@@ -1151,6 +1151,24 @@ func TestSchedulerReconciler_createSchedulerIngressGrpc(t *testing.T) {
 	assert.NotNil(t, ingress)
 }
 
+func TestSchedulerReconciler_createSchedulerCronJobWithoutPruner(t *testing.T) {
+	t.Parallel()
+
+	scheduler := v1alpha1.Scheduler{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduler"},
+		Spec: v1alpha1.SchedulerSpec{
+			CommonSpecBase: installv1alpha1.CommonSpecBase{
+				ApplicationConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		},
+	}
+
+	cronJob, err := newSchedulerCronJob(&scheduler, "sa")
+	assert.NoError(t, err)
+	assert.Equal(t, "scheduler-db-pruner", cronJob.Name)
+	assert.Empty(t, cronJob.Spec.Schedule)
+}
+
 func TestSchedulerReconciler_createSchedulerCronJobError(t *testing.T) {
 	t.Parallel()
 
